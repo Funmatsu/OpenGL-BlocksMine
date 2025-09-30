@@ -31,6 +31,7 @@
 #include "Camera.h"
 #include "Texture.h"
 #include "FastNoiseLite.h"
+#include "Light.h"
 
 using namespace std;
 using namespace glm;
@@ -66,7 +67,7 @@ int xdimens = 4, ydimens = 4;
 int xdimensItem = 2, ydimensItem = 2;
 
 int specialIds = 0;
-int renderDistance = CHUNK_SIZE * 10;
+int renderDistance = CHUNK_SIZE + 15;
 
 unsigned int shader;
 vector<Mesh> meshes;
@@ -80,6 +81,7 @@ Window mainWindow;
 Camera camera = Camera(vec3(CHUNK_SIZE / 2, CHUNK_SIZE * CHUNK_SIZE + 5, CHUNK_SIZE / 2), vec3(0.0f, 1.0f, 0.0f), 0.0f, 0.0f, 2.5f, 0.5f);
 
 vector<Texturegl*> Textures;
+Light mainLight;
 
 static const char* vshader = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/vshader.txt";
 static const char* fshader = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/fshader.txt";
@@ -168,15 +170,18 @@ struct Block {
     vec3 getBlockPosition() { return position; }
 };
 
-template <>
-struct std::hash<glm::ivec3> {
-    size_t operator()(const glm::ivec3& v) const noexcept {
-        size_t hx = std::hash<int>{}(v.x);
-        size_t hy = std::hash<int>{}(v.y);
-        size_t hz = std::hash<int>{}(v.z);
-        return hx ^ (hy << 1) ^ (hz << 2);
-    }
-};
+namespace std {
+    template <>
+    struct hash<glm::ivec3> {
+        size_t operator()(const glm::ivec3 v) const {
+            size_t h1 = std::hash<int>()(v.x);
+            size_t h2 = std::hash<int>()(v.y);
+            size_t h3 = std::hash<int>()(v.z);
+            return h1 ^ (h2 << 1) ^ (h3 << 2);
+        }
+    };
+}
+
 unordered_map<glm::ivec3, Block> worldBlocks;    
 
 float randomFloat(float min, float max) {
@@ -207,9 +212,10 @@ struct Chunk {
     //    }
     //}
     void addBlock(Block block) {
-        glm::ivec3 key = glm::ivec3(glm::floor(block.position));
-        worldBlocks[key] = block;
         blocks.push_back(block);
+        glm::ivec3 key = glm::ivec3(glm::floor(block.position));
+        cout << " Keys:" << key.x << " " << key.y << endl;
+        worldBlocks[key] = block;
     }
 };
 
@@ -311,6 +317,42 @@ bool isChunkVisible(const Frustum& f, const glm::vec2& chunkPos) {
     return true;
 }
 
+void calcAverageNormals(vector<GLfloat>& vertices, vector<unsigned int> indices, int vLength, int normalOffset, int indOffset) {
+    for (int i = 0; i < indices.size(); i += 3) {
+        unsigned int ind0 = (indices[i + 0] - indOffset) * vLength;
+        unsigned int ind1 = (indices[i + 1] - indOffset) * vLength;
+        unsigned int ind2 = (indices[i + 2] - indOffset) * vLength;
+        vec3 v1(vertices[ind1] - vertices[ind0],
+            vertices[ind1 + 1] - vertices[ind0 + 1],
+            vertices[ind1 + 2] - vertices[ind0 + 2]);
+        vec3 v2(vertices[ind2] - vertices[ind0], vertices[ind2 + 1] - vertices[ind0 + 1], vertices[ind2 + 2] - vertices[ind0 + 2]);
+        vec3 normal = cross(v1, v2);
+        normal = normalize(normal);
+        ind0 += normalOffset;
+        ind1 += normalOffset;
+        ind2 += normalOffset;
+
+        vertices[ind0] = normal.x;
+        vertices[ind0 + 1] = normal.y;
+        vertices[ind0 + 2] = normal.z;
+
+        vertices[ind1] = normal.x;
+        vertices[ind1 + 1] = normal.y;
+        vertices[ind1 + 2] = normal.z;
+
+        vertices[ind2] = normal.x;
+        vertices[ind2 + 1] = normal.y;
+        vertices[ind2 + 2] = normal.z;
+    }
+
+    for (int i = 0; i < vertices.size() / vLength; i++) {
+        unsigned int nOffset = i * (vLength) + normalOffset;
+        vec3 vec(vertices[nOffset], vertices[nOffset + 1], vertices[nOffset + 2]);
+        vec = normalize(vec);
+        vertices[nOffset] = vec.x, vertices[nOffset + 1] = vec.y, vertices[nOffset + 2] = vec.z;
+    }
+}
+
 bool itemPlaceable(int itemType) {
     return (itemType > DIAMOND_ORE && itemType < GRASS);
 }
@@ -332,7 +374,9 @@ void addBlockToWorld(vec3 position, vector<float> vertices, vector<unsigned int>
     }
     world.chunks[world.chunks.size() - 1].needUpdate = true;
     //cout << "hey: " << world.chunks.size() << endl;
-    //world.blocks.push_back(Block(position, blockType, vertices, indices));
+    Block newBlock(position, blockType, vertices, indices);
+    world.chunks.back().blocks.push_back(newBlock);
+    world.chunks.back().addBlock(newBlock);
 }
 
 void addBlockToWorld(Block block) {
@@ -350,7 +394,33 @@ bool blockExistsAt(ivec3 blockPos) {
     if (world.chunks.size() == 0) {
         return false;
     }
-    return (worldBlocks.count(blockPos) > 0);
+    auto it = worldBlocks.find(blockPos);
+    if (it != worldBlocks.end()) {
+        std::cout << "BlockData at " << blockPos.x << "," << blockPos.y << "," << blockPos.z << std::endl;
+        // Print internal fields safely
+    }
+
+    //cout << blockPos.x << " " << worldBlocks[blockPos].position.x << endl;
+    try {
+        bool exists = (worldBlocks.find(blockPos) != worldBlocks.end());
+        std::cout << "Exists: " << exists << std::endl;
+    }
+    catch (...) {
+        std::cout << "Crash during lookup!" << std::endl;
+    }
+
+    return (worldBlocks.find(blockPos) != worldBlocks.end());
+    //return (worldBlocks.count(blockPos) > 0);
+    //return (blockPos == ivec3(worldBlocks[blockPos].position));
+    //for (int k = 0; k < world.chunks.size(); k++) {
+    //    for (int i = 0; i < world.chunks[k].blocks.size(); i++) {
+    //        ivec3 checkBlock = floor(world.chunks[k].blocks[i].position);
+    //        if (checkBlock == blockPos) {
+    //            return true;
+    //        }
+    //    }
+    //}
+    //return false;
 }
 
 bool blockExistsAt(ivec3 blockPos, int blockType) {
@@ -419,7 +489,7 @@ void deleteBlockFromWorld(vec3 blockPos) {
             blockVertNums += world.chunks[k].blocks[i].vertices.size();
         }
     }
-    worldBlocks.erase(blockPos);
+    worldBlocks.erase(ivec3(floor(blockPos)));
 }
 
 Mesh createMeshCube(float x, float y, float z, int blockType) {
@@ -568,7 +638,9 @@ Mesh createMeshCube(float x, float y, float z, int blockType) {
     if (blockType == GRASS) {
         indices = {
             0 , 1 , 2 ,
-            3 , 4 , 5
+            3 , 4 , 5 ,
+            6 , 7 , 8 ,
+            9 , 10 , 11
         };
 
         triangle = {
@@ -600,7 +672,7 @@ Mesh createMeshCube(float x, float y, float z, int blockType) {
         finalVerts.push_back(globalUVs[3 * i + 1]);
         finalVerts.push_back(globalUVs[3 * i + 2]);
     }
-
+    calcAverageNormals(finalVerts, indices, 3, 6, 0);
     Mesh cubeMesh;
     cubeMesh.createMesh(finalVerts, indices, finalVerts.size(), indices.size());
     return cubeMesh;
@@ -748,11 +820,55 @@ Block createMeshCube(vec3 blockPos, int blockType) {
         1.0f + blockPos.x, 1.0f + blockPos.y, 1.0f + blockPos.z,
         1.0f + blockPos.x, 0.0f + blockPos.y, 1.0f + blockPos.z
     };
+    vector<GLfloat> normals = {
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
 
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f
+    };
     if (blockType == GRASS) {
         indices = {
             0 , 1 , 2 ,
-            3 , 4 , 5
+            3 , 4 , 5,
+            6 , 7 , 8 ,
+            9 , 10 , 11
         };
 
         triangle = {
@@ -772,6 +888,22 @@ Block createMeshCube(vec3 blockPos, int blockType) {
             (clipY + xoffset) / xdimens,   (clipY + yoffset) / ydimens, transparency,
             (clipY + xoffset) / xdimens,   (clipX + yoffset) / ydimens, transparency
         };
+
+        vector<GLfloat> normals = {
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f
+        };
     }
 
     vector<GLfloat> finalVerts;
@@ -783,6 +915,10 @@ Block createMeshCube(vec3 blockPos, int blockType) {
         finalVerts.push_back(globalUVs[3 * i + 0]);
         finalVerts.push_back(globalUVs[3 * i + 1]);
         finalVerts.push_back(globalUVs[3 * i + 2]);
+
+        finalVerts.push_back(normals[3 * i + 0]);
+        finalVerts.push_back(normals[3 * i + 1]);
+        finalVerts.push_back(normals[3 * i + 2]);
     }
 
     Mesh cubeMesh;
@@ -801,6 +937,7 @@ Mesh createMeshCube(float x, float y, float z, float scale, int blockType) {
     vector<GLfloat> triangle;
     vector<GLfloat> globalUVs;
     vector<unsigned int> indices;
+    vector<GLfloat> normals;
     if (!isTool(blockType)) {
 
         if (blockType == GRASS_BLOCK) {
@@ -946,10 +1083,56 @@ Mesh createMeshCube(float x, float y, float z, float scale, int blockType) {
             1.0f * scale + x, 0.0f * scale * yexponent + y, 0.1f * scale / 100 + z
         };
 
+        normals = {
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f
+        };
+
         if (blockType == GRASS || blockType == POPPY) {
             indices = {
                 0 , 1 , 2 ,
-                3 , 4 , 5
+                3 , 4 , 5 ,
+                6 , 7 , 8 ,
+                9 , 10 , 11
             };
 
             triangle = {
@@ -968,6 +1151,22 @@ Mesh createMeshCube(float x, float y, float z, float scale, int blockType) {
                 (clipX + xoffset) / xdimens,   (clipY + yoffset) / ydimens, transparency,
                 (clipY + xoffset) / xdimens,   (clipY + yoffset) / ydimens, transparency,
                 (clipY + xoffset) / xdimens,   (clipX + yoffset) / ydimens, transparency
+            };
+
+            normals = {
+                0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f,
+
+                0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f
             };
         }
     }
@@ -1015,6 +1214,10 @@ Mesh createMeshCube(float x, float y, float z, float scale, int blockType) {
         finalVerts.push_back(globalUVs[i + 0]);
         finalVerts.push_back(globalUVs[i + 1]);
         finalVerts.push_back(globalUVs[i + 2]);
+
+        finalVerts.push_back(normals[i + 0]);
+        finalVerts.push_back(normals[i + 1]);
+        finalVerts.push_back(normals[i + 2]);
     }
 
     Mesh cubeMesh;
@@ -1167,7 +1370,9 @@ Block createMeshCube(vec3 blockPos, float scale, int blockType) {
     if (blockType == GRASS) {
         indices = {
             0 , 1 , 2 ,
-            3 , 4 , 5
+            3 , 4 , 5,
+            6 , 7 , 8 ,
+            9 , 10 , 11
         };
 
         triangle = {
@@ -1271,11 +1476,7 @@ void createCube(float xoffset, float yoffset, float zoffset, int blockType) {
         24 + indexOffset, 25 + indexOffset, 26 + indexOffset,
         27 + indexOffset, 28 + indexOffset, 29 + indexOffset,
         30 + indexOffset, 31 + indexOffset, 32 + indexOffset,
-        33 + indexOffset, 34 + indexOffset, 35 + indexOffset,
-        36 + indexOffset, 37 + indexOffset, 38 + indexOffset,
-        39 + indexOffset, 40 + indexOffset, 41 + indexOffset,
-        42 + indexOffset, 43 + indexOffset, 44 + indexOffset,
-        45 + indexOffset, 46 + indexOffset, 47 + indexOffset
+        33 + indexOffset, 34 + indexOffset, 35 + indexOffset
     };
     float clipX = 0.03f, clipY = 0.97f;
     vector<GLfloat> globalUVs =
@@ -1297,7 +1498,6 @@ void createCube(float xoffset, float yoffset, float zoffset, int blockType) {
         (clipX + x + xoffsetBottom) / xdimens,   (clipX + y + yoffsetBottom) / ydimens, transparency,
         (clipY + x + xoffsetBottom) / xdimens,   (clipX + y + yoffsetBottom) / ydimens, transparency,
         (clipX + x + xoffsetBottom) / xdimens,   (clipY + y + yoffsetBottom) / ydimens, transparency,
-
         (clipX + x + xoffsetBottom) / xdimens,   (clipY + y + yoffsetBottom) / ydimens, transparency,
         (clipY + x + xoffsetBottom) / xdimens,   (clipX + y + yoffsetBottom) / ydimens, transparency,
         (clipY + x + xoffsetBottom) / xdimens,   (clipY + y + yoffsetBottom) / ydimens, transparency,
@@ -1342,7 +1542,6 @@ void createCube(float xoffset, float yoffset, float zoffset, int blockType) {
         0.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
         0.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
         1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
-
         1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
         0.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
         1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
@@ -1369,10 +1568,56 @@ void createCube(float xoffset, float yoffset, float zoffset, int blockType) {
         1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
     };
 
+    vector<GLfloat> normals = {
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f
+    };
+
     if (blockType == GRASS || blockType == POPPY) {
         indices1 = {
             0 + indexOffset, 1 + indexOffset, 2 + indexOffset,
-            3 + indexOffset, 4 + indexOffset, 5 + indexOffset
+            3 + indexOffset, 4 + indexOffset, 5 + indexOffset,
+            6 + indexOffset, 7 + indexOffset, 8 + indexOffset,
+            9 + indexOffset, 10 + indexOffset, 11 + indexOffset
         };
 
         triangle = {
@@ -1406,6 +1651,22 @@ void createCube(float xoffset, float yoffset, float zoffset, int blockType) {
             (clipY + x) / xdimens,   (clipY + y) / ydimens, transparency,
             (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency
         };
+
+        normals = {
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f
+        };
     }
     vector<GLfloat> finalVerts;
     for (int i = 0; i < triangle.size() / 3; i++) {
@@ -1416,10 +1677,16 @@ void createCube(float xoffset, float yoffset, float zoffset, int blockType) {
         finalVerts.push_back(globalUVs[3 * i + 0]);
         finalVerts.push_back(globalUVs[3 * i + 1]);
         finalVerts.push_back(globalUVs[3 * i + 2]);
-    }
 
+        finalVerts.push_back(normals[3 * i + 0]);
+        finalVerts.push_back(normals[3 * i + 1]);
+        finalVerts.push_back(normals[3 * i + 2]);
+    }
+    calcAverageNormals(finalVerts, indices1, 9, 6, indexOffset);
+    Block newBlock(vec3(xoffset, yoffset, zoffset), blockType, finalVerts, indices1);
     addBlockToWorld(Block(vec3(xoffset, yoffset, zoffset), blockType, finalVerts, indices1));
     world.chunks[world.chunks.size() - 1].blockNum++;
+    //world.chunks.back().addBlock(Block(vec3(xoffset, yoffset, zoffset), blockType, finalVerts, indices1));
     //world.chunks[world.chunks.size() - 1].blocks.push_back(Block(vec3(xoffset, yoffset, zoffset), blockType, finalVerts, indices1));
 }
 
@@ -1816,15 +2083,62 @@ void createCubeInThread(float x, float y, float z, Chunk& repChunk, int blockTyp
         1.0f + x, 1.0f + y, 1.0f + z,
         1.0f + x, 0.0f + y, 1.0f + z
     };
+    vector<GLfloat> normals = {
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f
+    };
     if (blockType == GRASS || blockType == POPPY) {
         indices = {
             0 + indexOffset, 1 + indexOffset, 2 + indexOffset,
-            3 + indexOffset, 4 + indexOffset, 5 + indexOffset
+            3 + indexOffset, 4 + indexOffset, 5 + indexOffset,
+            6 + indexOffset, 7 + indexOffset, 8 + indexOffset,
+            9 + indexOffset, 10 + indexOffset, 11 + indexOffset
         };
 
         blockIndices = {
             0, 1, 2,
             3, 4, 5,
+            6, 7, 8,
+            9, 10, 11,
         };
 
         triangle = {
@@ -1859,6 +2173,22 @@ void createCubeInThread(float x, float y, float z, Chunk& repChunk, int blockTyp
             (clipY + xoffset) / xdimens,   (clipY + yoffset) / ydimens, transparency,
             (clipY + xoffset) / xdimens,   (clipX + yoffset) / ydimens, transparency
         };
+
+        normals = {
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f
+        };
     }
 
     vector<GLfloat> finalVerts;
@@ -1870,15 +2200,20 @@ void createCubeInThread(float x, float y, float z, Chunk& repChunk, int blockTyp
         finalVerts.push_back(globalUVs[3 * i + 0]);
         finalVerts.push_back(globalUVs[3 * i + 1]);
         finalVerts.push_back(globalUVs[3 * i + 2]);
-    }
 
+        finalVerts.push_back(normals[3 * i + 0]);
+        finalVerts.push_back(normals[3 * i + 1]);
+        finalVerts.push_back(normals[3 * i + 2]);
+    }
+    calcAverageNormals(finalVerts, indices, 9, 6, indexOffset);
+    //cout << finalVerts[6] << endl;
     for (int i = 0; i < finalVerts.size(); i++) {
         repChunk.vertices.push_back(finalVerts[i]);
     }
     for (int i = 0; i < indices.size(); i++) {
         repChunk.indices.push_back(indices[i]);
     }
-
+    
     repChunk.needUpdate = true;
     
     Block newBlock(vec3(x, y, z), blockType, finalVerts, blockIndices);
@@ -1924,7 +2259,7 @@ void generateChunkAt(vec2 xyChunk, Chunk &repChunk) {
             //noise.SetSeed(42);   
             noise.SetFrequency(0.005f);
             float height = noise.GetNoise((float)x, (float)z); // returns value in range [-1, 1]
-            float scaledHeight = (height + 1.0f) * 0.45f * (CHUNK_SIZE * CHUNK_SIZE) + 5.0f;
+            float scaledHeight = (height + 1.0f) * (CHUNK_SIZE * CHUNK_SIZE) + 5.0f;
 
             FastNoiseLite caveNoise;
             caveNoise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
@@ -2151,7 +2486,7 @@ int main()
     glEnable(GL_BLEND);
 
     /*Textures.push_back(new Texturegl("textures\\block_atlas_4.png"));*/
-    Textures.push_back(new Texturegl("textures\\block_atlas_19.png"));
+    Textures.push_back(new Texturegl("textures\\block_atlas_21.png"));
     Textures.push_back(new Texturegl("textures\\clear_toolbar_2.png"));
     Textures.push_back(new Texturegl("textures\\clear_toolbar_3.png"));
     Textures.push_back(new Texturegl("textures\\main_inventory.jpg"));
@@ -2167,6 +2502,8 @@ int main()
     Textures[5]->loadTexture();
 
     createShaders();
+    worldBlocks.clear();
+    
 
     //glEnable(GL_CULL_FACE);
     //glCullFace(GL_BACK);
@@ -2226,10 +2563,10 @@ int main()
         { centerX - invSizeX + slotLength, centerY - invSizeY - invHeight}, { centerX - invSizeX + slotLength, centerY + invSizeY - invHeight}
     };
     vector<GLfloat> versInv = {
-        inventoryVertices[0].x, inventoryVertices[0].y, 0.0, 0.0f, 0.0f, 1.0f,
-        inventoryVertices[1].x, inventoryVertices[1].y, 0.0, 1.0f, 0.0f, 1.0f,
-        inventoryVertices[2].x, inventoryVertices[2].y, 0.0, 0.0f, 1.0f, 1.0f,
-        inventoryVertices[3].x, inventoryVertices[3].y, 0.0, 1.0f, 1.0f, 1.0f
+        inventoryVertices[0].x, inventoryVertices[0].y, 0.0, 0.0f, 0.0f, 1.0f,             0.0f, 0.0f, 0.0f,
+        inventoryVertices[1].x, inventoryVertices[1].y, 0.0, 1.0f, 0.0f, 1.0f,             0.0f, 0.0f, 0.0f,
+        inventoryVertices[2].x, inventoryVertices[2].y, 0.0, 0.0f, 1.0f, 1.0f,             0.0f, 0.0f, 0.0f,
+        inventoryVertices[3].x, inventoryVertices[3].y, 0.0, 1.0f, 1.0f, 1.0f,             0.0f, 0.0f, 0.0f
     };
 
     vector<unsigned int> indsInv = {
@@ -2240,10 +2577,10 @@ int main()
     int offsetX = 600, offsetY = -800;
 
     vector<GLfloat> versInvBlock = {
-        centerX + offsetX + 0.0f,   centerY + offsetY + 0.0f, 0.0, 0.0f, 0.0f, 1.0f,
-        centerX + offsetX + 100.0f, centerY + offsetY + 0.0f, 0.0, 1.0f, 0.0f, 1.0f,
-        centerX + offsetX + 0.0f,   centerY + offsetY + 100.0f, 0.0, 0.0f, 1.0f, 1.0f,
-        centerX + offsetX + 100.0f, centerY + offsetY + 100.0f, 0.0, 1.0f, 1.0f, 1.0f
+        centerX + offsetX + 0.0f,   centerY + offsetY + 0.0f, 0.0, 0.0f, 0.0f, 1.0f,       0.0f, 0.0f, 0.0f,
+        centerX + offsetX + 100.0f, centerY + offsetY + 0.0f, 0.0, 1.0f, 0.0f, 1.0f,       0.0f, 0.0f, 0.0f,
+        centerX + offsetX + 0.0f,   centerY + offsetY + 100.0f, 0.0, 0.0f, 1.0f, 1.0f,     0.0f, 0.0f, 0.0f,
+        centerX + offsetX + 100.0f, centerY + offsetY + 100.0f, 0.0, 1.0f, 1.0f, 1.0f,     0.0f, 0.0f, 0.0f
     };
 
     vector<unsigned int> indsInvBlock = {
@@ -2324,10 +2661,10 @@ int main()
         { centerX - invSizeX + slotLength, centerY - invSizeY - invHeight}, { centerX - invSizeX + slotLength, centerY + invSizeY - invHeight}
     };
     vector<GLfloat> versInv2 = {
-        inventoryVertices2[0].x, inventoryVertices2[0].y, 0.0, 0.0f, 0.0f, 1.0f,
-        inventoryVertices2[1].x, inventoryVertices2[1].y, 0.0, 1.0f, 0.0f, 1.0f,
-        inventoryVertices2[2].x, inventoryVertices2[2].y, 0.0, 0.0f, 1.0f, 1.0f,
-        inventoryVertices2[3].x, inventoryVertices2[3].y, 0.0, 1.0f, 1.0f, 1.0f
+        inventoryVertices2[0].x, inventoryVertices2[0].y, 0.0, 0.0f, 0.0f, 1.0f,   0.0f, 0.0f, 0.0f,
+        inventoryVertices2[1].x, inventoryVertices2[1].y, 0.0, 1.0f, 0.0f, 1.0f,   0.0f, 0.0f, 0.0f,
+        inventoryVertices2[2].x, inventoryVertices2[2].y, 0.0, 0.0f, 1.0f, 1.0f,   0.0f, 0.0f, 0.0f,
+        inventoryVertices2[3].x, inventoryVertices2[3].y, 0.0, 1.0f, 1.0f, 1.0f,   0.0f, 0.0f, 0.0f
     };
 
     vector<unsigned int> indsInv2 = {
@@ -2341,9 +2678,11 @@ int main()
     float jumpCount = 0;
     float lastXChange = 0.0f, lastYChange = 0.0f;
 
-
+    float time = 10.0f, lowTime = 10.0f, maxTime = 1000.0;
+    bool night = false;
     while (!mainWindow.getShouldClose()) {
-        
+        //mainLight = Light(1.0f, 1.0f, 1.0f, camera.getCameraPos().y/20);
+        mainLight = Light(1.0f, 1.0f, 1.0f, 0.2 + time / maxTime, 0.0f, 0.0f - time / maxTime, 0.0f, 0.5 * time / maxTime);
         for (int i = -renderX; i < renderX; i++) {
             for (int j = -renderY; j < renderY; j += 1) {
 
@@ -2422,8 +2761,21 @@ int main()
         lastTime = now;
 
         glfwPollEvents();
+        if (time >= 3 * maxTime / 5) {
+            night = true;
+        }
+        else if(time <= lowTime){
+            night = false;
+        }
 
-        glClearColor(0.45f, 0.75f, 1.0f, 1.0f);
+        if (mainWindow.getKeys()[GLFW_KEY_LEFT]) {
+            time-=0.5;
+        }
+        else if(mainWindow.getKeys()[GLFW_KEY_RIGHT]){
+            time+=0.5;
+        }
+
+        glClearColor(0.2f + 0.1 * time / maxTime,time / maxTime + 0.1, 0.4 + time / maxTime, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         int sensitivity = 1.01f;
         camera.keyControl(mainWindow.getKeys(), deltaTime);
@@ -2442,24 +2794,27 @@ int main()
         glUniformMatrix4fv(shaders[0]->getViewLocation(), 1, GL_FALSE, value_ptr(view));
         glUniformMatrix4fv(shaders[0]->getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
 
+        mainLight.useLight(shaders[0]->getAmbientIntensityLocation(), shaders[0]->getAmbientColorLocation(), shaders[0]->getDiffuseIntensityLocation(), shaders[0]->getDirectionLocation());
 
         if (mainWindow.getKeys()[GLFW_KEY_SPACE]) {
             //cout << jumping << " " << ctrlJump << endl;
-            //if (flying) {
-            //    jumpCount += 0.1f;
-            //}
-            //camera.setCameraPos(vec3(camera.getCameraPos().x, camera.getCameraPos().y + 0.2f, camera.getCameraPos().z));
-            //if (ctrlJump == false) {
-            //    jumping = true;
-            //    /*jumpCount = 0;*/
-            //}
+
+            if (flying) {
+                jumpCount += 0.1f;
+            }
+            if(jumping)
+            camera.setCameraPos(vec3(camera.getCameraPos().x, camera.getCameraPos().y + 0.1f, camera.getCameraPos().z));
+            if (!ctrlJump) {
+                jumping = true;
+            }
             //if (mainWindow.getKeys()[GLFW_KEY_SPACE]) {
             //    flying = !flying;
             //}
         }
         else {
-            ctrl = 10;
+            ctrl = 20;
         }
+
         if (mainWindow.getKeys()[GLFW_KEY_1]) {
             currentBlockType = 1;
             slot = 0;
@@ -2664,7 +3019,7 @@ int main()
                     for (int j = 0; j < (sizeof(bigCraftInv[0]) / sizeof(int)); j++) {
                         if (bigCraftInvSlot[i][j].verts.size() == 0 && bigCraftInv[i][j] != NULL) {
                             bigCraftInvSlot[i][j] = createMeshCube(centerX / 5 + 270, centerY / 4 + 110, 0.0f, 35.0f, bigCraftInv[i][j]);
-                            cout << bigCraftInv[0][0] << endl;
+                            //cout << bigCraftInv[0][0] << endl;
                         }
                     }
                 }
@@ -2676,10 +3031,10 @@ int main()
             }
 
             vector<GLfloat> versInvSlotSelector = {
-                inventoryVertices[0].x + (slot) * 69 - 5, inventoryVertices[0].y - 5, 0.0, 0.0f, 0.0f, 1.0f,
-                inventoryVertices[4].x + (slot) * 69 + 5, inventoryVertices[4].y - 5, 0.0, 0.0f, 1.0f, 1.0f,
-                inventoryVertices[2].x + (slot) * 69 - 5, inventoryVertices[2].y + 5, 0.0, 1.0f, 0.0f, 1.0f,
-                inventoryVertices[5].x + (slot) * 69 + 5, inventoryVertices[5].y + 5, 0.0, 1.0f, 1.0f, 1.0f
+                inventoryVertices[0].x + (slot) * 69 - 5, inventoryVertices[0].y - 5, 0.0, 0.0f, 0.0f, 1.0f,    0.0f, 0.0f, 0.0f,
+                inventoryVertices[4].x + (slot) * 69 + 5, inventoryVertices[4].y - 5, 0.0, 0.0f, 1.0f, 1.0f,    0.0f, 0.0f, 0.0f,
+                inventoryVertices[2].x + (slot) * 69 - 5, inventoryVertices[2].y + 5, 0.0, 1.0f, 0.0f, 1.0f,    0.0f, 0.0f, 0.0f,
+                inventoryVertices[5].x + (slot) * 69 + 5, inventoryVertices[5].y + 5, 0.0, 1.0f, 1.0f, 1.0f,    0.0f, 0.0f, 0.0f
             };
 
             vector<unsigned int> indsInvSlotSelector = {
@@ -2814,10 +3169,10 @@ int main()
             glUniformMatrix4fv(glGetUniformLocation(shaders[2]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
             mainInventory.renderMesh();
             vector<GLfloat> versCraftInvSlotSelector = {
-                inventoryVertices[0].x + round(slotX) * 62 + 28, inventoryVertices[0].y + 323.0f + 10.0f + 5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 0.0f, 1.0f,
-                inventoryVertices[4].x + round(slotX) * 62 + 28, inventoryVertices[4].y + 323.0f + 10.0f + 5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 1.0f, 1.0f,
-                inventoryVertices[2].x + round(slotX) * 62 + 28, inventoryVertices[2].y + 323.0f + +5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 0.0f, 1.0f,
-                inventoryVertices[5].x + round(slotX) * 62 + 28, inventoryVertices[5].y + 323.0f + +5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 1.0f, 1.0f
+                inventoryVertices[0].x + round(slotX) * 62 + 28, inventoryVertices[0].y + 323.0f + 10.0f + 5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f, 0.0f,
+                inventoryVertices[4].x + round(slotX) * 62 + 28, inventoryVertices[4].y + 323.0f + 10.0f + 5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 1.0f, 1.0f,     0.0f, 0.0f, 0.0f,
+                inventoryVertices[2].x + round(slotX) * 62 + 28, inventoryVertices[2].y + 323.0f + +5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 0.0f, 1.0f,            0.0f, 0.0f, 0.0f,
+                inventoryVertices[5].x + round(slotX) * 62 + 28, inventoryVertices[5].y + 323.0f + +5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 1.0f, 1.0f,            0.0f, 0.0f, 0.0f
             };
 
             vector<unsigned int> indsCraftInvSlotSelector = {
@@ -3023,10 +3378,10 @@ int main()
             mainInventory.renderMesh();
 
             vector<GLfloat> versCraftInvSlotSelector = {
-                inventoryVertices[0].x + (int)(slotX) * 62 + 28, inventoryVertices[0].y + 323.0f + 10.0f + 5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 0.0f, 1.0f,
-                inventoryVertices[4].x + (int)(slotX) * 62 + 28, inventoryVertices[4].y + 323.0f + 10.0f + 5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 1.0f, 1.0f,
-                inventoryVertices[2].x + (int)(slotX) * 62 + 28, inventoryVertices[2].y + 323.0f + +5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 0.0f, 1.0f,
-                inventoryVertices[5].x + (int)(slotX) * 62 + 28, inventoryVertices[5].y + 323.0f + +5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 1.0f, 1.0f
+                inventoryVertices[0].x + (int)(slotX) * 62 + 28, inventoryVertices[0].y + 323.0f + 10.0f + 5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 0.0f, 1.0f,      0.0f, 0.0f, 0.0f,
+                inventoryVertices[4].x + (int)(slotX) * 62 + 28, inventoryVertices[4].y + 323.0f + 10.0f + 5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 1.0f, 1.0f,      0.0f, 0.0f, 0.0f,
+                inventoryVertices[2].x + (int)(slotX) * 62 + 28, inventoryVertices[2].y + 323.0f + +5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 0.0f, 1.0f,             0.0f, 0.0f, 0.0f,
+                inventoryVertices[5].x + (int)(slotX) * 62 + 28, inventoryVertices[5].y + 323.0f + +5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 1.0f, 1.0f,             0.0f, 0.0f, 0.0f
             };
 
             vector<unsigned int> indsCraftInvSlotSelector = {
@@ -3134,23 +3489,25 @@ int main()
         
         mainWindow.swapBuffers();
 
-        //if (jumping && !ctrlJump) {
-        //    jumpCount += 0.1f / 4;
-        //    camera.setCameraPos(vec3(camera.getCameraPos().x, camera.getCameraPos().y + jumpCount, camera.getCameraPos().z));
-        //    if (jumpCount >= 0.5f) {
-        //        jumping = false;
-        //        ctrlJump = true;
-        //        jumpCount = 0;
-        //    }
-        //}
+        if (jumping && !ctrlJump) {
+            jumpCount += 0.1f / 6;
+            camera.setCameraPos(vec3(camera.getCameraPos().x, camera.getCameraPos().y + jumpCount, camera.getCameraPos().z));
+            if (jumpCount >= 0.5f) {
+                jumping = false;
+                ctrlJump = true;
+                jumpCount = 0;
+            }
+        }
 
         //if (!flying) {
-            if (!blockExistsAt(ivec3((int)camera.getCameraPos().x, (int)camera.getCameraPos().y - 2, (int)camera.getCameraPos().z))) {
-                camera.setCameraPos(vec3(camera.getCameraPos().x, camera.getCameraPos().y - 0.01 * ctrl, camera.getCameraPos().z));
-            }
-            //else {
-            //    ctrlJump = false;
-            //}
+        //ivec3 blockPos = ivec3((floor(vec3(camera.getCameraPos().x, camera.getCameraPos().y - 2, camera.getCameraPos().z))));
+        //    if (!blockExistsAt(blockPos)) {
+        //        camera.setCameraPos(vec3(camera.getCameraPos().x, camera.getCameraPos().y - 0.01 * ctrl, camera.getCameraPos().z));
+        //        ctrl = true;
+        //    }
+        //    else {
+        //        ctrlJump = false;
+        //    }
         //}
     }
 }
