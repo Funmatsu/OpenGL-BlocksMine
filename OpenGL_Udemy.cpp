@@ -2682,7 +2682,7 @@ int main()
     bool night = false;
     while (!mainWindow.getShouldClose()) {
         //mainLight = Light(1.0f, 1.0f, 1.0f, camera.getCameraPos().y/20);
-        mainLight = Light(1.0f, 1.0f, 1.0f, 0.2 + time / maxTime, 0.0f, 0.0f - time / maxTime, 0.0f, 0.5 * time / maxTime);
+        mainLight = Light(1.0f, 1.0f, 1.0f, 0.2 + 1.1 * time / maxTime, 0.0f, -1.0f, 0.0f, 0.5 * time / maxTime);
         for (int i = -renderX; i < renderX; i++) {
             for (int j = -renderY; j < renderY; j += 1) {
 
@@ -2949,18 +2949,19 @@ int main()
 
         glEnable(GL_DEPTH_TEST);
         renderWorld(); // your blocks, terrain, etc.
-        //shaders[13]->useShader();
-        //view = camera.calcViewMatrix();
-        //glUniformMatrix4fv(shaders[13]->getModelLocation(), 1, GL_FALSE, value_ptr(model));
-        //glUniformMatrix4fv(shaders[13]->getViewLocation(), 1, GL_FALSE, value_ptr(view));
-        //glUniformMatrix4fv(shaders[13]->getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
+        shaders[13]->useShader();
+        view = camera.calcViewMatrix();
+        glUniformMatrix4fv(shaders[13]->getModelLocation(), 1, GL_FALSE, value_ptr(model));
+        glUniformMatrix4fv(shaders[13]->getViewLocation(), 1, GL_FALSE, value_ptr(view));
+        glUniformMatrix4fv(shaders[13]->getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
 
-        //if (world.chunks.size() > 10) {
+        //if (world.chunks.size() > 20) {
         //    Block cloud = world.getBlockAt(vec3(lookingAtBlock().x, lookingAtBlock().y, lookingAtBlock().z));
         //    //delBlocklook_at();
-        //    //cloud.blockMesh.createMesh(cloud.vertices, cloud.indices, cloud.vertices.size(), cloud.indices.size());
-        //    //cloud.blockMesh.renderMesh();
-        //    cout << ;
+        //    cloud.blockMesh.createMesh(cloud.vertices, cloud.indices, cloud.vertices.size(), cloud.indices.size());
+        //    cloud.blockMesh.renderMesh();
+        //    cloud.blockMesh.clearMesh();
+        ////    //cout << ;
         //}
 
         glDisable(GL_DEPTH_TEST); // so crosshair draws on top
