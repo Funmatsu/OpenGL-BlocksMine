@@ -17,6 +17,10 @@ public:
 	unsigned int getProjectionLocation();
 	unsigned int getModelLocation();
 	unsigned int getViewLocation();
+	unsigned int getAmbientIntensityLocation();
+	unsigned int getAmbientColorLocation();
+	unsigned int getDiffuseIntensityLocation();
+	unsigned int getDirectionLocation();
 	unsigned int getShaderId() { return shaderId; }
 
 	string readShaderFiles(const char* fileLocation);

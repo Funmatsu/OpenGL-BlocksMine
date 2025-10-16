@@ -25,6 +25,7 @@ void Texturegl::loadTexture(){
 
 	unsigned char* texData = stbi_load(fileLocation, &width, &height, &bitDepth, 4);
 	if (!texData) {
+		
 		cout << "Failed to find \"" << fileLocation << "\"" << endl;
 		return;
 	}

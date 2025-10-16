@@ -38,7 +38,9 @@ int Window::initialize() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-    mainWindow = glfwCreateWindow(width, height, "OpenGLBlocksMine", NULL, NULL);
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    mainWindow = glfwCreateWindow(mode->width, mode->height, "GLBlocksMine", NULL, NULL);
 
     if (!mainWindow) {
         cout << "Default Window failed to open!" << endl;

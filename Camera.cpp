@@ -89,6 +89,7 @@ void Camera::mouseControl(GLfloat xChange, GLfloat yChange) {
 }
 
 mat4 Camera::calcViewMatrix() {
+	//cout << front.x << " " << front.z << endl;
 	return lookAt(
 		position,  // Camera position
 		position + front,  // Look at origin

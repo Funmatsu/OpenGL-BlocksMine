@@ -18,7 +18,6 @@ class Mesh
 public:
 	Mesh();
 	void createMesh(vector<float> vertices, vector<unsigned int> indices, unsigned int verticesCount, unsigned int indicesCount);
-	void createMeshWater(vector<float> vertices, vector<unsigned int> indices, unsigned int verticesCount, unsigned int indicesCount);
 	void renderMesh();
 	void clearMesh();
 	vector<float> verts;

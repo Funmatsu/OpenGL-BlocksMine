@@ -91,6 +91,19 @@ unsigned int Shadergl::getProjectionLocation() {
 unsigned int Shadergl::getViewLocation() {
     return uniformView;
 }
+unsigned int Shadergl::getAmbientIntensityLocation() {
+    return glGetUniformLocation(shaderId, "directionalLight.ambientIntensity");
+    
+}
+unsigned int Shadergl::getAmbientColorLocation() {
+    return glGetUniformLocation(shaderId, "directionalLight.color");
+}
+unsigned int Shadergl::getDiffuseIntensityLocation() {
+    return glGetUniformLocation(shaderId, "directionalLight.diffuseIntensity");
+}
+unsigned int Shadergl::getDirectionLocation() {
+    return glGetUniformLocation(shaderId, "directionalLight.direction");
+}
 Shadergl::~Shadergl() {
     clearShader();
 }

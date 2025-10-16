@@ -169,7 +169,8 @@
 //        }
 //        {
 //            std::lock_guard<std::mutex> lock(chunkResultMutex);
-//            //cout << chunkResultQueue.empty() << endl;
+//            //
+// << chunkResultQueue.empty() << endl;
 //            while (!chunkResultQueue.empty()) {
 //                Chunk chunk = std::move(chunkResultQueue.front());
 //                chunkResultQueue.pop();
