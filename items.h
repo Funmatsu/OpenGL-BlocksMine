@@ -23,12 +23,14 @@
 //#define WOODEN_PICKAXE 101
 //#define STICK 102
 
-struct Item {
+class Item {
+public:
 	int id;
 	bool isPlaceable;
 	bool isUsable;
 	bool isTool;
 	bool isBreakable;
+	bool isFlat;
 
 	Item() {
 		id = 0;
@@ -36,6 +38,7 @@ struct Item {
 		isUsable = 0;
 		isTool = 0;
 		isBreakable = 0;
+		isFlat = 0;
 	}
 	Item(int item_id, bool placeable, bool useable, bool toolable, bool breakable) {
 		id = item_id;
@@ -43,6 +46,12 @@ struct Item {
 		isUsable = useable;
 		isTool = toolable;
 		isBreakable = breakable;
+		isFlat = 0;
+	}
+
+	Item(int item_id, bool placeable, bool useable, bool toolable, bool breakable, bool flatable) {
+		Item(item_id, placeable, useable, toolable, breakable);
+		isFlat = flatable;
 	}
 
 	bool operator==(const Item& item) {
@@ -72,9 +81,9 @@ Item OAK_WOOD(6, 1, 0, 0, 1);
 Item CLOUD(7, 1, 0, 0, 1);
 Item OAK_LEAVES(8, 1, 0, 0, 1);
 Item OAK_PLANK(9, 1, 0, 0, 1);
-Item POPPY(10, 1, 0, 0, 1);
-Item BLUE_ORCHID(11, 1, 0, 0, 1);
-Item GRASS(12, 1, 0, 0, 1);
+Item POPPY(10, 1, 0, 0, 1, 1);
+Item BLUE_ORCHID(11, 1, 0, 0, 1, 1);
+Item GRASS(12, 1, 0, 0, 1, 1);
 
 Item CRAFTING_TABLE(13, 1, 1, 0, 1);
 Item BEDROCK(14, 1, 0, 0, 0);
@@ -101,3 +110,59 @@ vector<Item> items{
 	WOODEN_PICKAXE,
 	STICK
 };
+
+void getUVs(Item blockType, float* attrs) {
+	attrs[0] = 0, attrs[1] = 1, attrs[2] = 0, attrs[3] = 0, attrs[4] = 0, attrs[5] = 0, attrs[6] = 1.0f;
+
+	if (blockType == AIR) {
+		attrs[0] = 3; attrs[1] = 3;
+	}
+
+	else if (blockType == GRASS_BLOCK) {
+		attrs[0] = 0, attrs[1] = 2; attrs[2] = 2; attrs[3] = 0; attrs[4] = 2; attrs[5] = 2;
+	}
+
+	else if (blockType == IRON_ORE) {
+		attrs[0] = 1; attrs[1] = 1;
+	}
+
+	else if (blockType == STONE_BLOCK) {
+		attrs[0] = 1; attrs[1] = 2;
+	}
+
+	else if (blockType == DIRT_BLOCK) {
+		attrs[0] = 2; attrs[1] = 0;
+	}
+
+	else if (blockType == OAK_WOOD) {
+		attrs[0] = 2, attrs[1] = 1; attrs[2] = -2; attrs[3] = 2; attrs[4] = -2; attrs[5] = 2;
+	}
+
+	else if (blockType == CLOUD) {
+		attrs[0] = 1, attrs[1] = 0, attrs[6] = 0.25f;
+	}
+
+	else if (blockType == OAK_PLANK) {
+		attrs[0] = 3, attrs[1] = 0;
+	}
+
+	else if (blockType == OAK_LEAVES) {
+		attrs[0] = 0, attrs[1] = 0;
+	}
+
+	else if (blockType == GRASS) {
+		attrs[0] = 3, attrs[1] = 1; attrs[2] = 0, attrs[4] = 0; attrs[3] = 1, attrs[5] = 1;
+	}
+
+	else if (blockType == POPPY) {
+		attrs[0] = 3, attrs[1] = 2; attrs[2] = 0, attrs[4] = 0; attrs[3] = 1, attrs[5] = 1;
+	}
+
+	else if (blockType == BLUE_ORCHID) {
+		attrs[0] = 0, attrs[1] = 4;
+	}
+
+	else if (blockType == BEDROCK) {
+		attrs[0] = 4, attrs[1] = 0;
+	}
+}

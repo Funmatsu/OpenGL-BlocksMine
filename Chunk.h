@@ -2,7 +2,7 @@
 
 #include "Block.h"
 
-int CHUNK_SIZE = 3;
+int CHUNK_SIZE = 5;
 
 struct ivec3_hash {
     size_t operator()(glm::ivec3 const& v) const noexcept {
@@ -21,6 +21,19 @@ struct ivec3_eq {
     }
 };
 
+struct blockData {
+    Item blockType = AIR;
+    ivec3 position;
+    blockData(){}
+    blockData(ivec3 pos, Item type) {
+        blockType = type;
+        position = pos;
+    }
+    blockData(const blockData& data) {
+        blockType = data.blockType;
+        position = data.position;
+    }
+};
 // use it
 std::mutex worldBlocksMutex;
 std::unordered_map<glm::ivec3, Block, ivec3_hash, ivec3_eq> worldBlocks;
@@ -30,11 +43,14 @@ public:
     Mesh mesh;
     vector<float> vertices;
     vector<unsigned int> indices;
-    unsigned int blockNum = 0;
+    vector<unsigned int> logicalIndices;
+    unsigned int blockIds = 0;
     unsigned int indexOffset = 0;
     bool needUpdate = false;
     vec2 coords;
     vector<Block> blocks;
+    unordered_map<glm::ivec3, blockData, ivec3_hash, ivec3_eq> blockData;
+    //vector<Item> blocks;
     unordered_map<glm::ivec3, Face, ivec3_hash, ivec3_eq> faces;
 
     void addBlock(Block block) {
@@ -45,8 +61,20 @@ public:
 
             //worldBlocks[key] = block;
             worldBlocks.insert(make_pair(key, block));
-            blockNum++;
             needUpdate = true;
         }
+    }
+
+    Chunk(){}
+    Chunk(const Chunk& chunk) {
+        mesh = chunk.mesh;
+        vertices = move(chunk.vertices);
+        indices = move(chunk.indices);
+        blockIds = chunk.blockIds;
+        indexOffset = chunk.indexOffset;
+        needUpdate = true;
+        coords = chunk.coords;
+        blocks = move(chunk.blocks);
+        faces = chunk.faces;
     }
 };

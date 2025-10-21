@@ -252,3 +252,221 @@
             //    }
             //}
         //}
+
+
+
+
+
+//void createCubeInThread(float x, float y, float z, Chunk& repChunk, Item blockType) {
+//    if (blockType == AIR) return;
+//    float xoffset = 0, yoffset = 1, xoffsetTop = 0, yoffsetTop = 0, xoffsetBottom = 0, yoffsetBottom = 0, transparency = 1.0f;
+//
+//    int arbitraryoff = 0;
+//    if (blockType == AIR) {
+//        xoffset = 3; yoffset = 3;
+//    }
+//
+//    else if (blockType == GRASS_BLOCK) {
+//        xoffset = 0, yoffset = 2; xoffsetTop = 2; yoffsetTop = 0; xoffsetBottom = 2; yoffsetBottom = 2;
+//    }
+//
+//    else if (blockType == IRON_ORE) {
+//        xoffset = 1; yoffset = 1 + arbitraryoff;
+//    }
+//
+//    else if (blockType == STONE_BLOCK) {
+//        xoffset = 1; yoffset = 2;
+//    }
+//
+//    else if (blockType == DIRT_BLOCK) {
+//        xoffset = 2; yoffset = 0;
+//    }
+//
+//    else if (blockType == OAK_WOOD) {
+//        xoffset = 2, yoffset = 1; xoffsetTop = -2; yoffsetTop = 2; xoffsetBottom = -2; yoffsetBottom = 2;
+//    }
+//
+//    else if (blockType == CLOUD) {
+//        xoffset = 1, yoffset = 0, transparency = 0.25f;
+//    }
+//
+//    else if (blockType == OAK_PLANK) {
+//        xoffset = 3, yoffset = 0;
+//    }
+//
+//    else if (blockType == OAK_LEAVES) {
+//        xoffset = 0, yoffset = 0;
+//    }
+//
+//    else if (blockType == GRASS) {
+//        xoffset = 3, yoffset = 1; xoffsetTop = 0, xoffsetBottom = 0; yoffsetTop = 1, yoffsetBottom = 1;
+//    }
+//
+//    else if (blockType == POPPY) {
+//        xoffset = 3, yoffset = 2; xoffsetTop = 0, xoffsetBottom = 0; yoffsetTop = 1, yoffsetBottom = 1;
+//    }
+//
+//    else if (blockType == BLUE_ORCHID) {
+//        xoffset = 0, yoffset = 4;
+//    }
+//
+//    else if (blockType == BEDROCK) {
+//        xoffset = 4, yoffset = 0;
+//    }
+//
+//    float clipX = 0.03f, clipY = 0.97f;
+//    int num_of_faces = 6, final_face_num = 6;
+//
+//    unsigned int indexOffset = repChunk.indexOffset;
+//    //cout << indexOffset << endl;
+//    //for (int i = 0; i < repChunk.blocks.size(); i++) {
+//        //cout << "conputer index offset!" << endl;
+//    //}
+//    vector<unsigned int> indices;
+//    indices.reserve(36);
+//
+//    for (int i = 0; i < 36; i++) {
+//        indices.push_back(i + indexOffset);
+//    }
+//
+//    vector<unsigned int> blockIndices;
+//    blockIndices.reserve(36);
+//
+//    for (int i = 0; i < 36; i++) {
+//        blockIndices.push_back(i);
+//    }
+//
+//    vector<GLfloat> globalUVs;
+//    globalUVs.reserve(36);
+//
+//    for (int i = 0; i < 6; i++) {
+//        int offsetX = 0, offsetY = 0;
+//        if (i == 4) { offsetX = xoffsetTop; offsetY = yoffsetTop; }
+//        else if (i == 5) { offsetX = xoffsetBottom;  offsetY = yoffsetTop; }
+//        globalUVs.push_back((clipX + xoffset + offsetX) / xdimens); globalUVs.push_back((clipX + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+//        globalUVs.push_back((clipX + xoffset + offsetX) / xdimens); globalUVs.push_back((clipY + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+//        globalUVs.push_back((clipY + xoffset + offsetX) / xdimens); globalUVs.push_back((clipX + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+//        globalUVs.push_back((clipX + xoffset + offsetX) / xdimens); globalUVs.push_back((clipY + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+//        globalUVs.push_back((clipY + xoffset + offsetX) / xdimens); globalUVs.push_back((clipY + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+//        globalUVs.push_back((clipY + xoffset + offsetX) / xdimens); globalUVs.push_back((clipX + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+//    }
+//
+//    vector<GLfloat> triangle = {
+//        0.0f + x, 0.0f + y, 0.0f + z,
+//        0.0f + x, 1.0f + y, 0.0f + z,
+//        0.0f + x, 0.0f + y, 1.0f + z,
+//        0.0f + x, 1.0f + y, 0.0f + z,
+//        0.0f + x, 1.0f + y, 1.0f + z,
+//        0.0f + x, 0.0f + y, 1.0f + z,
+//
+//        1.0f + x, 0.0f + y, 0.0f + z,
+//        1.0f + x, 1.0f + y, 0.0f + z,
+//        1.0f + x, 0.0f + y, 1.0f + z,
+//        1.0f + x, 1.0f + y, 0.0f + z,
+//        1.0f + x, 1.0f + y, 1.0f + z,
+//        1.0f + x, 0.0f + y, 1.0f + z,
+//
+//        0.0f + x, 0.0f + y, 0.0f + z,
+//        0.0f + x, 1.0f + y, 0.0f + z,
+//        1.0f + x, 0.0f + y, 0.0f + z,
+//        0.0f + x, 1.0f + y, 0.0f + z,
+//        1.0f + x, 1.0f + y, 0.0f + z,
+//        1.0f + x, 0.0f + y, 0.0f + z,
+//
+//        0.0f + x, 0.0f + y, 1.0f + z,
+//        0.0f + x, 1.0f + y, 1.0f + z,
+//        1.0f + x, 0.0f + y, 1.0f + z,
+//        0.0f + x, 1.0f + y, 1.0f + z,
+//        1.0f + x, 1.0f + y, 1.0f + z,
+//        1.0f + x, 0.0f + y, 1.0f + z,
+//
+//        0.0f + x, 0.0f + y, 0.0f + z,
+//        1.0f + x, 0.0f + y, 0.0f + z,
+//        0.0f + x, 0.0f + y, 1.0f + z,
+//        1.0f + x, 0.0f + y, 0.0f + z,
+//        1.0f + x, 0.0f + y, 1.0f + z,
+//        0.0f + x, 0.0f + y, 1.0f + z,
+//
+//        0.0f + x, 1.0f + y, 0.0f + z,
+//        1.0f + x, 1.0f + y, 0.0f + z,
+//        0.0f + x, 1.0f + y, 1.0f + z,
+//        1.0f + x, 1.0f + y, 0.0f + z,
+//        1.0f + x, 1.0f + y, 1.0f + z,
+//        0.0f + x, 1.0f + y, 1.0f + z,
+//    };
+//    vector<GLfloat> normals;
+//
+//    for (int i = 0; i < 36 * 3; i++) {
+//        normals.push_back(0.0f);
+//    }
+//    if (blockType == GRASS || blockType == POPPY) {
+//        indices.clear();
+//        for (int i = 0; i < 12; i++) {
+//            indices.push_back(i + indexOffset);
+//        }
+//
+//        blockIndices.clear();
+//        for (int i = 0; i < 12; i++) {
+//            blockIndices.push_back(i);
+//        }
+//
+//        triangle = {
+//            0.0f + x, 0.0f + y, 0.0f + z,
+//            0.0f + x, 1.0f + y, 0.0f + z,
+//            1.0f + x, 0.0f + y, 1.0f + z,
+//            0.0f + x, 1.0f + y, 0.0f + z,
+//            1.0f + x, 1.0f + y, 1.0f + z,
+//            1.0f + x, 0.0f + y, 1.0f + z,
+//
+//            0.0f + x, 0.0f + y, 1.0f + z,
+//            0.0f + x, 1.0f + y, 1.0f + z,
+//            1.0f + x, 0.0f + y, 0.0f + z,
+//            0.0f + x, 1.0f + y, 1.0f + z,
+//            1.0f + x, 1.0f + y, 0.0f + z,
+//            1.0f + x, 0.0f + y, 0.0f + z,
+//        };
+//
+//        globalUVs.clear();
+//        for (int i = 0; i < 2; i++) {
+//            int offsetX = 0, offsetY = 0;
+//            globalUVs.push_back((clipX + xoffset + offsetX) / xdimens); globalUVs.push_back((clipX + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+//            globalUVs.push_back((clipX + xoffset + offsetX) / xdimens); globalUVs.push_back((clipY + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+//            globalUVs.push_back((clipY + xoffset + offsetX) / xdimens); globalUVs.push_back((clipX + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+//            globalUVs.push_back((clipX + xoffset + offsetX) / xdimens); globalUVs.push_back((clipY + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+//            globalUVs.push_back((clipY + xoffset + offsetX) / xdimens); globalUVs.push_back((clipY + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+//            globalUVs.push_back((clipY + xoffset + offsetX) / xdimens); globalUVs.push_back((clipX + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+//        }
+//
+//        for (int i = 0; i < 12 * 3; i++) {
+//            normals.push_back(0.0f);
+//        }
+//    }
+//
+//    vector<GLfloat> finalVerts;
+//    for (int i = 0; i < triangle.size() / 3; i++) {
+//        finalVerts.push_back(triangle[3 * i + 0]);
+//        finalVerts.push_back(triangle[3 * i + 1]);
+//        finalVerts.push_back(triangle[3 * i + 2]);
+//
+//        finalVerts.push_back(globalUVs[3 * i + 0]);
+//        finalVerts.push_back(globalUVs[3 * i + 1]);
+//        finalVerts.push_back(globalUVs[3 * i + 2]);
+//
+//        finalVerts.push_back(normals[3 * i + 0]);
+//        finalVerts.push_back(normals[3 * i + 1]);
+//        finalVerts.push_back(normals[3 * i + 2]);
+//    }
+//    calcAverageNormals(finalVerts, indices, 9, 6, indexOffset);
+//    repChunk.indexOffset += indices.size();
+//    //cout << finalVerts[6] << endl;
+//    repChunk.vertices.insert(repChunk.vertices.end(), finalVerts.begin(), finalVerts.end());
+//    repChunk.indices.insert(repChunk.indices.end(), indices.begin(), indices.end());
+//
+//    repChunk.needUpdate = true;
+//
+//    Block newBlock(vec3(x, y, z), blockType, finalVerts, blockIndices);
+//    //newBlock.blockMesh.createMesh(finalVerts, indices, finalVerts.size(), indices.size());
+//    repChunk.addBlock(newBlock);
+//    //cout << newBlock.position.x << " " << newBlock.position.y << " " << newBlock.position.z << endl;
+//    //repChunk.blockNum++;
+//}

@@ -17,6 +17,10 @@ class Mesh
 {
 public:
 	Mesh();
+	Mesh(const Mesh& mesh) {
+		vao = mesh.vao, vbo = mesh.vbo, ibo = mesh.ibo;
+		indexCount = mesh.indexCount;
+	}
 	void createMesh(vector<float> vertices, vector<unsigned int> indices, unsigned int verticesCount, unsigned int indicesCount);
 	void renderMesh();
 	void clearMesh();

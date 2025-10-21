@@ -1,5 +1,59 @@
 #pragma once
 
+vector<GLfloat> normalsLong[6] = {
+    {
+        1.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f
+    },
+    {
+        -1.0f, 0.0f, 0.0f,
+        -1.0f, 0.0f, 0.0f,
+        -1.0f, 0.0f, 0.0f,
+        -1.0f, 0.0f, 0.0f
+    },
+    {
+        0.0f, 0.0f, 1.0f,
+        0.0f, 0.0f, 1.0f,
+        0.0f, 0.0f, 1.0f,
+        0.0f, 0.0f, 1.0f
+    },
+    {
+        0.0f, 0.0f, -1.0f,
+        0.0f, 0.0f, -1.0f,
+        0.0f, 0.0f, -1.0f,
+        0.0f, 0.0f, -1.0f
+    },
+    {
+        0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f
+    },
+    {
+        0.0f, -1.0f, 0.0f,
+        0.0f, -1.0f, 0.0f,
+        0.0f, -1.0f, 0.0f,
+        0.0f, -1.0f, 0.0f
+    }
+};
+
+vector<GLfloat> normalsShort[6] = {
+    {
+        1.0f, 0.0f, 1.0f,
+        1.0f, 0.0f, 1.0f,
+        1.0f, 0.0f, 1.0f,
+        1.0f, 0.0f, 1.0f
+    },
+    {
+        -1.0f, 0.0f, -1.0f,
+        -1.0f, 0.0f, -1.0f,
+        -1.0f, 0.0f, -1.0f,
+        -1.0f, 0.0f, -1.0f
+    },
+};
+
 void calcAverageNormals(vector<GLfloat>& vertices, vector<unsigned int> indices, int vLength, int normalOffset, int indOffset) {
     for (int i = 0; i < indices.size(); i += 3) {
         unsigned int ind0 = (indices[i + 0] - indOffset) * vLength;
@@ -12,9 +66,11 @@ void calcAverageNormals(vector<GLfloat>& vertices, vector<unsigned int> indices,
 
         ind0 += normalOffset; ind1 += normalOffset; ind2 += normalOffset;
 
+
         vertices[ind0] = normal.x; vertices[ind0 + 1] = normal.y; vertices[ind0 + 2] = normal.z;
         vertices[ind1] = normal.x; vertices[ind1 + 1] = normal.y; vertices[ind1 + 2] = normal.z;
         vertices[ind2] = normal.x; vertices[ind2 + 1] = normal.y; vertices[ind2 + 2] = normal.z;
+
     }
 
     //for (int i = 0; i < vertices.size() / vLength; i++) {

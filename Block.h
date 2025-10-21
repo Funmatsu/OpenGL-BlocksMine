@@ -6,6 +6,10 @@ struct Face {
     ivec3 center = ivec3(0.0f);
     vector<float> vertices;
     vector<unsigned int> indices;
+    int faceId = 0;
+    bool operator==(const Face& face) {
+        return (vertices == face.vertices);
+    }
 };
 
 class Block {
@@ -13,9 +17,11 @@ public:
     vector<float> vertices;
     vector<unsigned int> indices;
     vec3 position = vec3(0.0f);
-    Item type = AIR;
+    Item type;
     Mesh blockMesh;
     Face faces[6];
+    int faceNum = 6;
+    int chunkId = 0;
 
     Block();
 
@@ -51,6 +57,8 @@ Block::Block(const Block& block) {
     indices = block.indices;
     type = block.type;
     blockMesh = block.blockMesh;
+    faceNum = block.faceNum;
+    chunkId = block.chunkId;
 }
 
 void Block::giveBlock(Block donor, Block receptor) {
@@ -61,3 +69,14 @@ void Block::giveBlock(Block donor, Block receptor) {
     receptor.type = donor.type;
     receptor.blockMesh = donor.blockMesh;
 }
+
+vector<GLfloat> blockVerts = {
+    0.0f,       0.0f,      0.0f , // 0
+    1.0f,       0.0f,      0.0f , // 1
+    1.0f,       1.0f,      0.0f , // 2
+    0.0f,       1.0f,      0.0f , // 3
+    0.0f,       0.0f,      1.0f , // 4
+    1.0f,       0.0f,      1.0f , // 5
+    1.0f,       1.0f,      1.0f , // 6
+    0.0f,       1.0f,      1.0f   // 7
+};

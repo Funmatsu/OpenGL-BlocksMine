@@ -131,6 +131,7 @@ vec3 lookingAtBlock() {
     for (float t = 0.0f; t < maxDistance; t += stepSize) {
         glm::vec3 point = rayOrigin + rayDir * t;
         blockPos = glm::floor(point);
+        
         if (blockExistsAt(blockPos)) {
             //if (worldBlocks[blockPos].type == AIR)
                 //cout << "AIR" << endl;
@@ -141,14 +142,15 @@ vec3 lookingAtBlock() {
 }
 
 Block World::getBlockAt(vec3 blockPos) {
-    for (int k = 0; k < chunks.size(); k++) {
+    return worldBlocks[ivec3(blockPos)];
+    /*for (int k = 0; k < chunks.size(); k++) {
         for (int i = 0; i < chunks[k].blocks.size(); i++) {
             ivec3 checkBlock = floor(chunks[k].blocks[i].position);
             if (checkBlock == ivec3(blockPos)) {
                 return chunks[k].blocks[i];
             }
         }
-    }
+    }*/
 }
 void World::addChunk(Chunk newChunk) {
     chunks.push_back(newChunk);
@@ -1179,292 +1181,474 @@ Block World::createMeshCube(vec3 blockPos, float scale, Item blockType) {
     return returnBlock;
 }
 
-void World::createCube(float xoffset, float yoffset, float zoffset, Item blockType) {
-    float x = 0, y = 1, xoffsetTop = 0, yoffsetTop = 0, xoffsetBottom = 0, yoffsetBottom = 0, transparency = 1.0f;
+//void World::createCube(float xoffset, float yoffset, float zoffset, Item blockType) {
+//    float x = 0, y = 1, xoffsetTop = 0, yoffsetTop = 0, xoffsetBottom = 0, yoffsetBottom = 0, transparency = 1.0f;
+//
+//    int arbitraryoff = 0;
+//    if (blockType == GRASS_BLOCK) {
+//        x = 0, y = 2; xoffsetTop = 2; yoffsetTop = 0; xoffsetBottom = 2; yoffsetBottom = 2;
+//    }
+//
+//    else if (blockType == IRON_ORE) {
+//        x = 1; y = 1 + arbitraryoff;
+//    }
+//
+//    else if (blockType == STONE_BLOCK) {
+//        x = 1; y = 2;
+//    }
+//
+//    else if (blockType == DIRT_BLOCK) {
+//        x = 2; y = 0;
+//    }
+//
+//    else if (blockType == OAK_WOOD) {
+//        x = 2, y = 1; xoffsetTop = -2; yoffsetTop = 2; xoffsetBottom = -2; yoffsetBottom = -2;
+//    }
+//
+//    else if (blockType == CLOUD) {
+//        x = 1, y = 0, transparency = 0.75f;
+//    }
+//
+//    else if (blockType == OAK_PLANK) {
+//        x = 3, y = 0;
+//    }
+//
+//    else if (blockType == OAK_LEAVES) {
+//        x = 0, y = 0;
+//    }
+//
+//    else if (blockType == GRASS) {
+//        x = 3, y = 1; xoffsetTop = 0, xoffsetBottom = 0; yoffsetTop = 1, yoffsetBottom = 1;
+//    }
+//
+//    else if (blockType == POPPY) {
+//        x = 3, y = 2; xoffsetTop = 0, xoffsetBottom = 0; yoffsetTop = 1, yoffsetBottom = 1;
+//    }
+//
+//    else if (blockType == CRAFTING_TABLE) {
+//        x = 2; y = 3; xoffsetTop = -1, xoffsetBottom = 1; yoffsetTop = 0, yoffsetBottom = -3;
+//    }
+//
+//    else if (blockType == BLUE_ORCHID) {
+//        x = 0, y = 4;
+//    }
+//
+//    else if (blockType == BEDROCK) {
+//        x = 4, y = 0;
+//    }
+//
+//    unsigned int indexOffset = 0;
+//    for (int i = 0; i < chunks.back().blocks.size(); i++) {
+//        if (chunks.back().blocks.size() > 0) {
+//            indexOffset += chunks.back().blocks[i].indices.size();
+//        }
+//    }
+//    vector<unsigned int> indices1 = {
+//        0 + indexOffset, 1 + indexOffset, 2 + indexOffset,
+//        3 + indexOffset, 4 + indexOffset, 5 + indexOffset,
+//        6 + indexOffset, 7 + indexOffset, 8 + indexOffset,
+//        9 + indexOffset, 10 + indexOffset, 11 + indexOffset,
+//        12 + indexOffset, 13 + indexOffset, 14 + indexOffset,
+//        15 + indexOffset, 16 + indexOffset, 17 + indexOffset,
+//        18 + indexOffset, 19 + indexOffset, 20 + indexOffset,
+//        21 + indexOffset, 22 + indexOffset, 23 + indexOffset,
+//        24 + indexOffset, 25 + indexOffset, 26 + indexOffset,
+//        27 + indexOffset, 28 + indexOffset, 29 + indexOffset,
+//        30 + indexOffset, 31 + indexOffset, 32 + indexOffset,
+//        33 + indexOffset, 34 + indexOffset, 35 + indexOffset
+//    };
+//    float clipX = 0.03f, clipY = 0.97f;
+//    vector<GLfloat> globalUVs =
+//    {
+//        (clipX + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//        (clipY + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//
+//        (clipX + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//        (clipY + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//
+//        (clipX + x + xoffsetBottom) / xdimens,   (clipX + y + yoffsetBottom) / ydimens, transparency,
+//        (clipY + x + xoffsetBottom) / xdimens,   (clipX + y + yoffsetBottom) / ydimens, transparency,
+//        (clipX + x + xoffsetBottom) / xdimens,   (clipY + y + yoffsetBottom) / ydimens, transparency,
+//        (clipX + x + xoffsetBottom) / xdimens,   (clipY + y + yoffsetBottom) / ydimens, transparency,
+//        (clipY + x + xoffsetBottom) / xdimens,   (clipX + y + yoffsetBottom) / ydimens, transparency,
+//        (clipY + x + xoffsetBottom) / xdimens,   (clipY + y + yoffsetBottom) / ydimens, transparency,
+//
+//        (clipX + x + xoffsetTop) / xdimens,   (clipX + y + yoffsetTop) / ydimens, transparency,
+//        (clipX + x + xoffsetTop) / xdimens,   (clipY + y + yoffsetTop) / ydimens, transparency,
+//        (clipY + x + xoffsetTop) / xdimens,   (clipX + y + yoffsetTop) / ydimens, transparency,
+//        (clipX + x + xoffsetTop) / xdimens,   (clipY + y + yoffsetTop) / ydimens, transparency,
+//        (clipY + x + xoffsetTop) / xdimens,   (clipY + y + yoffsetTop) / ydimens, transparency,
+//        (clipY + x + xoffsetTop) / xdimens,   (clipX + y + yoffsetTop) / ydimens, transparency,
+//
+//        (clipX + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//        (clipY + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//
+//        (clipX + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//        (clipY + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency
+//    };
+//
+//    vector<GLfloat> triangle = {
+//        0.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
+//        0.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
+//        0.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+//        0.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
+//        0.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
+//        0.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+//
+//        1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
+//        1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+//        1.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
+//        1.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
+//        1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+//        1.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
+//
+//        0.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
+//        0.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+//        1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
+//        1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
+//        0.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+//        1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+//
+//        0.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
+//        1.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
+//        0.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
+//        1.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
+//        1.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
+//        0.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
+//
+//        0.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
+//        1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
+//        0.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
+//        0.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
+//        1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
+//        1.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
+//
+//        0.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+//        0.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
+//        1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+//        0.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
+//        1.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
+//        1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+//    };
+//
+//    vector<GLfloat> normals = {
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f,
+//        0.0f, 0.0f, 0.0f
+//    };
+//
+//    if (blockType == GRASS || blockType == POPPY || blockType == BLUE_ORCHID) {
+//        indices1 = {
+//            0 + indexOffset, 1 + indexOffset, 2 + indexOffset,
+//            3 + indexOffset, 4 + indexOffset, 5 + indexOffset,
+//            6 + indexOffset, 7 + indexOffset, 8 + indexOffset,
+//            9 + indexOffset, 10 + indexOffset, 11 + indexOffset
+//        };
+//
+//        triangle = {
+//            0.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
+//            0.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
+//            1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+//            0.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
+//            1.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
+//            1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+//
+//            0.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+//            0.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
+//            1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
+//            0.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
+//            1.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
+//            1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
+//        };
+//
+//        globalUVs = {
+//            (clipX + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//            (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//            (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//            (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//            (clipY + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//            (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//
+//            (clipX + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//            (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//            (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
+//            (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//            (clipY + x) / xdimens,   (clipY + y) / ydimens, transparency,
+//            (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency
+//        };
+//
+//        normals = {
+//            0.0f, 0.0f, 0.0f,
+//            0.0f, 0.0f, 0.0f,
+//            0.0f, 0.0f, 0.0f,
+//            0.0f, 0.0f, 0.0f,
+//            0.0f, 0.0f, 0.0f,
+//            0.0f, 0.0f, 0.0f,
+//
+//            0.0f, 0.0f, 0.0f,
+//            0.0f, 0.0f, 0.0f,
+//            0.0f, 0.0f, 0.0f,
+//            0.0f, 0.0f, 0.0f,
+//            0.0f, 0.0f, 0.0f,
+//            0.0f, 0.0f, 0.0f
+//        };
+//    }
+//    vector<GLfloat> finalVerts;
+//    for (int i = 0; i < triangle.size() / 3; i++) {
+//        finalVerts.push_back(triangle[3 * i + 0]);
+//        finalVerts.push_back(triangle[3 * i + 1]);
+//        finalVerts.push_back(triangle[3 * i + 2]);
+//
+//        finalVerts.push_back(globalUVs[3 * i + 0]);
+//        finalVerts.push_back(globalUVs[3 * i + 1]);
+//        finalVerts.push_back(globalUVs[3 * i + 2]);
+//
+//        finalVerts.push_back(normals[3 * i + 0]);
+//        finalVerts.push_back(normals[3 * i + 1]);
+//        finalVerts.push_back(normals[3 * i + 2]);
+//    }
+//    calcAverageNormals(finalVerts, indices1, 9, 6, indexOffset);
+//    Block newBlock(vec3(xoffset, yoffset, zoffset), blockType, finalVerts, indices1);
+//    addBlockToWorld(Block(vec3(xoffset, yoffset, zoffset), blockType, finalVerts, indices1));
+//    //chunks.back().addBlock(Block(vec3(xoffset, yoffset, zoffset), blockType, finalVerts, indices1));
+//    //chunks[chunks.size() - 1].blocks.push_back(Block(vec3(xoffset, yoffset, zoffset), blockType, finalVerts, indices1));
+//}
 
-    int arbitraryoff = 0;
-    if (blockType == GRASS_BLOCK) {
-        x = 0, y = 2; xoffsetTop = 2; yoffsetTop = 0; xoffsetBottom = 2; yoffsetBottom = 2;
-    }
+void World::createCube(float x, float y, float z, Item blockType) {
+    if (blockType == AIR) return;
+    float UVs[7];
+    getUVs(blockType, UVs);
+    float xoffset = UVs[0],
+        yoffset = UVs[1],
+        xoffsetTop = UVs[2],
+        yoffsetTop = UVs[3],
+        xoffsetBottom = UVs[4],
+        yoffsetBottom = UVs[5],
+        transparency = 1.0f;
 
-    else if (blockType == IRON_ORE) {
-        x = 1; y = 1 + arbitraryoff;
-    }
-
-    else if (blockType == STONE_BLOCK) {
-        x = 1; y = 2;
-    }
-
-    else if (blockType == DIRT_BLOCK) {
-        x = 2; y = 0;
-    }
-
-    else if (blockType == OAK_WOOD) {
-        x = 2, y = 1; xoffsetTop = -2; yoffsetTop = 2; xoffsetBottom = -2; yoffsetBottom = -2;
-    }
-
-    else if (blockType == CLOUD) {
-        x = 1, y = 0, transparency = 0.75f;
-    }
-
-    else if (blockType == OAK_PLANK) {
-        x = 3, y = 0;
-    }
-
-    else if (blockType == OAK_LEAVES) {
-        x = 0, y = 0;
-    }
-
-    else if (blockType == GRASS) {
-        x = 3, y = 1; xoffsetTop = 0, xoffsetBottom = 0; yoffsetTop = 1, yoffsetBottom = 1;
-    }
-
-    else if (blockType == POPPY) {
-        x = 3, y = 2; xoffsetTop = 0, xoffsetBottom = 0; yoffsetTop = 1, yoffsetBottom = 1;
-    }
-
-    else if (blockType == CRAFTING_TABLE) {
-        x = 2; y = 3; xoffsetTop = -1, xoffsetBottom = 1; yoffsetTop = 0, yoffsetBottom = -3;
-    }
-
-    else if (blockType == BLUE_ORCHID) {
-        x = 0, y = 4;
-    }
-
-    else if (blockType == BEDROCK) {
-        x = 4, y = 0;
-    }
-
-    unsigned int indexOffset = 0;
-    for (int i = 0; i < chunks.back().blocks.size(); i++) {
-        if (chunks.back().blocks.size() > 0) {
-            indexOffset += chunks.back().blocks[i].indices.size();
-        }
-    }
-    vector<unsigned int> indices1 = {
-        0 + indexOffset, 1 + indexOffset, 2 + indexOffset,
-        3 + indexOffset, 4 + indexOffset, 5 + indexOffset,
-        6 + indexOffset, 7 + indexOffset, 8 + indexOffset,
-        9 + indexOffset, 10 + indexOffset, 11 + indexOffset,
-        12 + indexOffset, 13 + indexOffset, 14 + indexOffset,
-        15 + indexOffset, 16 + indexOffset, 17 + indexOffset,
-        18 + indexOffset, 19 + indexOffset, 20 + indexOffset,
-        21 + indexOffset, 22 + indexOffset, 23 + indexOffset,
-        24 + indexOffset, 25 + indexOffset, 26 + indexOffset,
-        27 + indexOffset, 28 + indexOffset, 29 + indexOffset,
-        30 + indexOffset, 31 + indexOffset, 32 + indexOffset,
-        33 + indexOffset, 34 + indexOffset, 35 + indexOffset
-    };
     float clipX = 0.03f, clipY = 0.97f;
-    vector<GLfloat> globalUVs =
-    {
-        (clipX + x) / xdimens,   (clipX + y) / ydimens, transparency,
-        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
-        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
-        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
-        (clipY + x) / xdimens,   (clipY + y) / ydimens, transparency,
-        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
+    int num_of_faces = 6;
 
-        (clipX + x) / xdimens,   (clipX + y) / ydimens, transparency,
-        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
-        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
-        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
-        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
-        (clipY + x) / xdimens,   (clipY + y) / ydimens, transparency,
+    unsigned int indexOffset = chunks.back().indexOffset;
 
-        (clipX + x + xoffsetBottom) / xdimens,   (clipX + y + yoffsetBottom) / ydimens, transparency,
-        (clipY + x + xoffsetBottom) / xdimens,   (clipX + y + yoffsetBottom) / ydimens, transparency,
-        (clipX + x + xoffsetBottom) / xdimens,   (clipY + y + yoffsetBottom) / ydimens, transparency,
-        (clipX + x + xoffsetBottom) / xdimens,   (clipY + y + yoffsetBottom) / ydimens, transparency,
-        (clipY + x + xoffsetBottom) / xdimens,   (clipX + y + yoffsetBottom) / ydimens, transparency,
-        (clipY + x + xoffsetBottom) / xdimens,   (clipY + y + yoffsetBottom) / ydimens, transparency,
+    vector<GLfloat> vertices[6] = {
+        {
+            0.0f + x, 0.0f + y, 0.0f + z,
+            0.0f + x, 1.0f + y, 0.0f + z,
+            0.0f + x, 1.0f + y, 1.0f + z,
+            0.0f + x, 0.0f + y, 1.0f + z
+        },
 
-        (clipX + x + xoffsetTop) / xdimens,   (clipX + y + yoffsetTop) / ydimens, transparency,
-        (clipX + x + xoffsetTop) / xdimens,   (clipY + y + yoffsetTop) / ydimens, transparency,
-        (clipY + x + xoffsetTop) / xdimens,   (clipX + y + yoffsetTop) / ydimens, transparency,
-        (clipX + x + xoffsetTop) / xdimens,   (clipY + y + yoffsetTop) / ydimens, transparency,
-        (clipY + x + xoffsetTop) / xdimens,   (clipY + y + yoffsetTop) / ydimens, transparency,
-        (clipY + x + xoffsetTop) / xdimens,   (clipX + y + yoffsetTop) / ydimens, transparency,
+        {
+            1.0f + x, 0.0f + y, 0.0f + z,
+            1.0f + x, 1.0f + y, 0.0f + z,
+            1.0f + x, 1.0f + y, 1.0f + z,
+            1.0f + x, 0.0f + y, 1.0f + z
+        },
 
-        (clipX + x) / xdimens,   (clipX + y) / ydimens, transparency,
-        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
-        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
-        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
-        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
-        (clipY + x) / xdimens,   (clipY + y) / ydimens, transparency,
+        {
+            0.0f + x, 0.0f + y, 0.0f + z,
+            0.0f + x, 1.0f + y, 0.0f + z,
+            1.0f + x, 1.0f + y, 0.0f + z,
+            1.0f + x, 0.0f + y, 0.0f + z
+        },
 
-        (clipX + x) / xdimens,   (clipX + y) / ydimens, transparency,
-        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
-        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
-        (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
-        (clipY + x) / xdimens,   (clipY + y) / ydimens, transparency,
-        (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency
+        {
+            0.0f + x, 0.0f + y, 1.0f + z,
+            0.0f + x, 1.0f + y, 1.0f + z,
+            1.0f + x, 1.0f + y, 1.0f + z,
+            1.0f + x, 0.0f + y, 1.0f + z
+        },
+
+        {
+            0.0f + x, 0.0f + y, 0.0f + z,
+            0.0f + x, 0.0f + y, 1.0f + z,
+            1.0f + x, 0.0f + y, 1.0f + z,
+            1.0f + x, 0.0f + y, 0.0f + z
+        },
+
+        {
+            0.0f + x, 1.0f + y, 0.0f + z,
+            0.0f + x, 1.0f + y, 1.0f + z,
+            1.0f + x, 1.0f + y, 1.0f + z,
+            1.0f + x, 1.0f + y, 0.0f + z
+        }
     };
 
-    vector<GLfloat> triangle = {
-        0.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
-        0.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
-        0.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
-        0.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
-        0.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
-        0.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+    vector<unsigned int> indices[6] = {
+        {0 + indexOffset,     1 + indexOffset,      2 + indexOffset,
+        2 + indexOffset,     3 + indexOffset,      0 + indexOffset},
 
-        1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
-        1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
-        1.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
-        1.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
-        1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
-        1.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
+        {4 + indexOffset,     5 + indexOffset,      6 + indexOffset,
+        6 + indexOffset,     7 + indexOffset,      4 + indexOffset},
 
-        0.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
-        0.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
-        1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
-        1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
-        0.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
-        1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+        {8 + indexOffset,     9 + indexOffset,      10 + indexOffset,
+        10 + indexOffset,    11 + indexOffset,     8 + indexOffset},
 
-        0.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
-        1.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
-        0.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
-        1.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
-        1.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
-        0.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
+        {12 + indexOffset,     13 + indexOffset,      14 + indexOffset,
+        14 + indexOffset,     15 + indexOffset,      12 + indexOffset},
 
-        0.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
-        1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
-        0.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
-        0.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
-        1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
-        1.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
+        {16 + indexOffset,     17 + indexOffset,      18 + indexOffset,
+        18 + indexOffset,     19 + indexOffset,      16 + indexOffset},
 
-        0.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
-        0.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
-        1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
-        0.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
-        1.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
-        1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
+        {20 + indexOffset,     21 + indexOffset,      22 + indexOffset,
+        22 + indexOffset,    23 + indexOffset,     20 + indexOffset},
     };
 
-    vector<GLfloat> normals = {
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
+    vector<GLfloat> globalUVs[6];
 
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
+    for (int i = 0; i < 6; i++) {
+        int offsetX = 0, offsetY = 0;
+        if (i == 4) { offsetX = xoffsetBottom; offsetY = yoffsetBottom; }
+        else if (i == 5) { offsetX = xoffsetTop;  offsetY = yoffsetTop; }
+        globalUVs[i].push_back((clipX + xoffset + offsetX) / xdimens); globalUVs[i].push_back((clipX + yoffset + offsetY) / ydimens); globalUVs[i].push_back(transparency);
+        globalUVs[i].push_back((clipX + xoffset + offsetX) / xdimens); globalUVs[i].push_back((clipY + yoffset + offsetY) / ydimens); globalUVs[i].push_back(transparency);
+        globalUVs[i].push_back((clipY + xoffset + offsetX) / xdimens); globalUVs[i].push_back((clipY + yoffset + offsetY) / ydimens); globalUVs[i].push_back(transparency);
+        globalUVs[i].push_back((clipY + xoffset + offsetX) / xdimens); globalUVs[i].push_back((clipX + yoffset + offsetY) / ydimens); globalUVs[i].push_back(transparency);
+    }
 
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
+    vector<GLfloat> normals[6];
 
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f
-    };
+    for (int i = 0; i < 6; i++) {
+        normals[i] = normalsLong[i];
+    }
 
     if (blockType == GRASS || blockType == POPPY || blockType == BLUE_ORCHID) {
-        indices1 = {
-            0 + indexOffset, 1 + indexOffset, 2 + indexOffset,
-            3 + indexOffset, 4 + indexOffset, 5 + indexOffset,
-            6 + indexOffset, 7 + indexOffset, 8 + indexOffset,
-            9 + indexOffset, 10 + indexOffset, 11 + indexOffset
+        num_of_faces = 2;
+        for (int i = 0; i < 6; i++) {
+            indices[i].clear();
+        }
+
+        indices[0] = {
+            {0 + indexOffset,     1 + indexOffset,      2 + indexOffset,
+            2 + indexOffset,     3 + indexOffset,      0 + indexOffset}
         };
 
-        triangle = {
-            0.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
-            0.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
-            1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
-            0.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
-            1.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
-            1.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
-
-            0.0f + xoffset, 0.0f + yoffset, 1.0f + zoffset,
-            0.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
-            1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
-            0.0f + xoffset, 1.0f + yoffset, 1.0f + zoffset,
-            1.0f + xoffset, 1.0f + yoffset, 0.0f + zoffset,
-            1.0f + xoffset, 0.0f + yoffset, 0.0f + zoffset,
+        indices[1] = {
+            {4 + indexOffset,     5 + indexOffset,      6 + indexOffset,
+            6 + indexOffset,     7 + indexOffset,      4 + indexOffset}
         };
 
-        globalUVs = {
-            (clipX + x) / xdimens,   (clipX + y) / ydimens, transparency,
-            (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
-            (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
-            (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
-            (clipY + x) / xdimens,   (clipY + y) / ydimens, transparency,
-            (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
+        for (int i = 0; i < 6; i++) {
+            vertices[i].clear();
+        }
 
-            (clipX + x) / xdimens,   (clipX + y) / ydimens, transparency,
-            (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
-            (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency,
-            (clipX + x) / xdimens,   (clipY + y) / ydimens, transparency,
-            (clipY + x) / xdimens,   (clipY + y) / ydimens, transparency,
-            (clipY + x) / xdimens,   (clipX + y) / ydimens, transparency
+        vertices[0] = {
+            0.0f + x, 0.0f + y, 0.0f + z,
+            0.0f + x, 1.0f + y, 0.0f + z,
+            1.0f + x, 1.0f + y, 1.0f + z,
+            1.0f + x, 0.0f + y, 1.0f + z
+        };
+        vertices[1] = {
+            0.0f + x, 0.0f + y, 1.0f + z,
+            0.0f + x, 1.0f + y, 1.0f + z,
+            1.0f + x, 1.0f + y, 0.0f + z,
+            1.0f + x, 0.0f + y, 0.0f + z
         };
 
-        normals = {
-            0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f,
+        for (int i = 0; i < 6; i++) {
+            globalUVs[i].clear();
+        }
+        for (int i = 0; i < 2; i++) {
+            int offsetX = 0, offsetY = 0;
+            globalUVs[i].push_back((clipX + xoffset + offsetX) / xdimens); globalUVs[i].push_back((clipX + yoffset + offsetY) / ydimens); globalUVs[i].push_back(transparency);
+            globalUVs[i].push_back((clipX + xoffset + offsetX) / xdimens); globalUVs[i].push_back((clipY + yoffset + offsetY) / ydimens); globalUVs[i].push_back(transparency);
+            globalUVs[i].push_back((clipY + xoffset + offsetX) / xdimens); globalUVs[i].push_back((clipY + yoffset + offsetY) / ydimens); globalUVs[i].push_back(transparency);
+            globalUVs[i].push_back((clipY + xoffset + offsetX) / xdimens); globalUVs[i].push_back((clipX + yoffset + offsetY) / ydimens); globalUVs[i].push_back(transparency);
+        }
 
-            0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f
-        };
+        for (int i = 0; i < 6; i++) {
+            normals[i] = normalsShort[i];
+        }
     }
+
+    vector<GLfloat> finalVertsFace[6];
+    for (int k = 0; k < num_of_faces; k++) {
+        for (int i = 0; i < vertices[k].size() / 3; i++) {
+            finalVertsFace[k].push_back(vertices[k][3 * i + 0]);
+            finalVertsFace[k].push_back(vertices[k][3 * i + 1]);
+            finalVertsFace[k].push_back(vertices[k][3 * i + 2]);
+
+            finalVertsFace[k].push_back(globalUVs[k][3 * i + 0]);
+            finalVertsFace[k].push_back(globalUVs[k][3 * i + 1]);
+            finalVertsFace[k].push_back(globalUVs[k][3 * i + 2]);
+
+            finalVertsFace[k].push_back(normals[k][3 * i + 0]);
+            finalVertsFace[k].push_back(normals[k][3 * i + 1]);
+            finalVertsFace[k].push_back(normals[k][3 * i + 2]);
+        }
+    }
+
     vector<GLfloat> finalVerts;
-    for (int i = 0; i < triangle.size() / 3; i++) {
-        finalVerts.push_back(triangle[3 * i + 0]);
-        finalVerts.push_back(triangle[3 * i + 1]);
-        finalVerts.push_back(triangle[3 * i + 2]);
-
-        finalVerts.push_back(globalUVs[3 * i + 0]);
-        finalVerts.push_back(globalUVs[3 * i + 1]);
-        finalVerts.push_back(globalUVs[3 * i + 2]);
-
-        finalVerts.push_back(normals[3 * i + 0]);
-        finalVerts.push_back(normals[3 * i + 1]);
-        finalVerts.push_back(normals[3 * i + 2]);
+    vector<unsigned int> finalInds;
+    for (int i = 0; i < num_of_faces; i++) {
+        finalVerts.insert(finalVerts.end(), finalVertsFace[i].begin(), finalVertsFace[i].end());
+        finalInds.insert(finalInds.end(), indices[i].begin(), indices[i].end());
     }
-    calcAverageNormals(finalVerts, indices1, 9, 6, indexOffset);
-    Block newBlock(vec3(xoffset, yoffset, zoffset), blockType, finalVerts, indices1);
-    addBlockToWorld(Block(vec3(xoffset, yoffset, zoffset), blockType, finalVerts, indices1));
-    chunks[chunks.size() - 1].blockNum++;
-    //chunks.back().addBlock(Block(vec3(xoffset, yoffset, zoffset), blockType, finalVerts, indices1));
-    //chunks[chunks.size() - 1].blocks.push_back(Block(vec3(xoffset, yoffset, zoffset), blockType, finalVerts, indices1));
+
+    chunks.back().vertices.insert(chunks.back().vertices.end(), finalVerts.begin(), finalVerts.end());
+    chunks.back().indices.insert(chunks.back().indices.end(), finalInds.begin(), finalInds.end());
+
+    Block newBlock(vec3(x, y, z), blockType, finalVerts, finalInds);
+
+    chunks.back().indexOffset += finalVerts.size() / 9;
+    chunks.back().needUpdate = true;
+
+    chunks.back().addBlock(newBlock);
 }
 
 void World::delBlocklook_at() {
