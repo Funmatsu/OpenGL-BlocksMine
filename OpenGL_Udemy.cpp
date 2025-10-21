@@ -6,12 +6,12 @@
 #include "shaderlist.h"
 //#include "Chunk.h"
 #include "recipes.h"
-#include "World.h"
-#include "threading.h"
 //#include "Frustum.h"
 #include "normals.h"
 #include "inventory.h"
 #include "Frustum.h"
+#include "World.h"
+#include "threading.h"
 
 using namespace std;
 using namespace glm;
@@ -138,6 +138,13 @@ void renderWorld(mat4 view, mat4 projection) {
     //}
 }
 
+#define BLOCK_TEX           0
+#define MAIN_INV_TEX        1
+#define SLOT_TEX            2
+#define LARGE_INV_TEX       3
+#define TOOLS_TEX           4
+#define CRAFT_GUI_TEX       5
+
 int main()
 {
     mainWindow = Window(WIDTH, HEIGHT);
@@ -147,7 +154,7 @@ int main()
     glEnable(GL_BLEND);
     glfwSwapInterval(0);
     /*Textures.push_back(new Texturegl("textures\\block_atlas_4.png"));*/
-    Textures.push_back(new Texturegl("textures\\block_atlas_24.png"));
+    Textures.push_back(new Texturegl("textures\\block_atlas_25.png"));
     Textures.push_back(new Texturegl("textures\\clear_toolbar_2.png"));
     Textures.push_back(new Texturegl("textures\\clear_toolbar_3.png"));
     Textures.push_back(new Texturegl("textures\\main_inventory.jpg"));
@@ -155,12 +162,12 @@ int main()
     Textures.push_back(new Texturegl("textures\\crafting_table_gui.png"));
     //Textures.push_back(new Texturegl("textures\\inventory_base.png"));
 
-    Textures[0]->loadTexture();
-    Textures[1]->loadTexture();
-    Textures[2]->loadTexture();
-    Textures[3]->loadTexture();
-    Textures[4]->loadTexture();
-    Textures[5]->loadTexture();
+    Textures[BLOCK_TEX]->loadTexture();
+    Textures[MAIN_INV_TEX]->loadTexture();
+    Textures[SLOT_TEX]->loadTexture();
+    Textures[LARGE_INV_TEX]->loadTexture();
+    Textures[TOOLS_TEX]->loadTexture();
+    Textures[CRAFT_GUI_TEX]->loadTexture();
 
     createShaders();
     worldBlocks.clear();
@@ -290,7 +297,7 @@ int main()
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 9; j++) {
             modelCurSlots[i][j] = mat4(1.0f);
-            modelCurSlots[i][j] = translate(modelCurSlots[i][j], vec3((centerX + 18.0f + (float)j * 123) / WIDTH, 2 * (centerY + offsetY + 323.0f + (3 - i) * 10 + 80.0f) / HEIGHT, 0.0f));
+            modelCurSlots[i][j] = translate(modelCurSlots[i][j], vec3((centerX + 15.0f + (float)j * 123) / WIDTH, 2 * (centerY + offsetY + 323.0f + (3 - i) * 10 + 85.0f - (i == 3 ? 0 : 10)) / HEIGHT, 0.0f));
         }
     }
     for (int i = 0; i < 2; i++) {
@@ -343,7 +350,6 @@ int main()
     bool night = false;
 
 
-
     while (!mainWindow.getShouldClose()) {
         //mainLight = Light(1.0f, 1.0f, 1.0f, camera.getCameraPos().y/20);
         mainLight = Light(1.0f, 1.0f, 1.0f, 0.2 + 1.2 * time / maxTime, 0.0000f, -0.7071f, 0.7071f, 0.85 * time / maxTime);
@@ -354,7 +360,8 @@ int main()
                     find(chunkCoords.begin(), chunkCoords.end(), vec2((int)(camera.getCameraPos().x / CHUNK_SIZE) + i, (int)(camera.getCameraPos().z / CHUNK_SIZE) + j + 1)) == chunkCoords.end() || (chunkCoords[chunkCoords.size() - 1].x == 0 && chunkCoords[chunkCoords.size() - 1].y == 0)
                     ) {
                     chunkCoords.push_back({ int(camera.getCameraPos().x / CHUNK_SIZE) + i, int(camera.getCameraPos().z / CHUNK_SIZE) + j });
-                    //generateChunkAt(chunkCoords.back());
+                    //world.chunks.push_back(Chunk());
+                    //generateChunkAt(chunkCoords.back(), world.chunks.back());
                     {
                         chunkGenRunning = true;
                         std::lock_guard<std::mutex> lock(chunkRequestMutex);
@@ -422,7 +429,7 @@ int main()
         //    renderY = renderDistance / 2;
         //}
         
-        Textures[0]->useTexture();
+        Textures[BLOCK_TEX]->useTexture();
         shaders[0]->useShader();
         GLfloat now = glfwGetTime();
         deltaTime = now - lastTime;
@@ -467,14 +474,14 @@ int main()
         if (mainWindow.getKeys()[GLFW_KEY_SPACE]) {
             //cout << jumping << " " << ctrlJump << endl;
 
-            if (flying) {
-                jumpCount += 0.1f;
-            }
-            if(jumping)
+            //if (flying) {
+            //    jumpCount += 0.1f;
+            //}
+            //if(jumping)
             camera.setCameraPos(vec3(camera.getCameraPos().x, camera.getCameraPos().y + 0.1f, camera.getCameraPos().z));
-            if (!ctrlJump) {
-                jumping = true;
-            }
+            //if (!ctrlJump) {
+            //    jumping = true;
+            //}
             //if (mainWindow.getKeys()[GLFW_KEY_SPACE]) {
             //    flying = !flying;
             //}
@@ -556,7 +563,7 @@ int main()
                 world.addBlocklook_at(items[8]);
             else if (mainWindow.getKeys()[GLFW_KEY_9])
                 world.addBlocklook_at(items[9]);
-            else if (mainWindow.getKeys()[GLFW_KEY_0])
+            if (mainWindow.getKeys()[GLFW_KEY_0])
                 world.addBlocklook_at(CRAFTING_TABLE);
         }
 
@@ -569,7 +576,7 @@ int main()
                 }
             }
             {
-                std::lock_guard<std::mutex> lock(breakResMutex);
+                //std::lock_guard<std::mutex> lock(breakResMutex);
                 if (!breakResQueue.empty() && blockBreakingOut) {
                     breakResQueue.pop();
                 }
@@ -577,7 +584,12 @@ int main()
         }
 
         if (mainWindow.rightClickButtonPressed()) {
-            if (!recipe.itemUsable(worldBlocks[{lookingAtBlock()}].type)) {
+            Block lookBlock;
+            {
+                std::lock_guard<std::mutex> lock(placeReqMutex);
+                lookBlock = worldBlocks[lookingAtBlock()];
+            }
+            if (!recipe.itemUsable(lookBlock.type)) {
                 if (inventory.inv_slots[3][slot] != AIR && recipe.itemPlaceable(inventory.inv_slots[3][slot])) {
                     {
                         blockPlacingOut = true;
@@ -585,7 +597,7 @@ int main()
                         placeReqQueue.push(vec3(1.0f));
                     }
                     {
-                        std::lock_guard<std::mutex> lock(placeResMutex);
+                        //std::lock_guard<std::mutex> lock(placeResMutex);
                         if (!placeResQueue.empty()) {
                             placeResQueue.pop();
                         }
@@ -624,7 +636,12 @@ int main()
         glUniformMatrix4fv(shaders[13]->getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
 
         if (world.chunks.size() > 20) {
-            Block cloud = world.getBlockAt(vec3(lookingAtBlock().x, lookingAtBlock().y, lookingAtBlock().z));
+            ivec3 lookingPos;
+            {
+                std::lock_guard<std::mutex> lock(chunkRequestMutex);
+                lookingPos = ivec3(lookingAtBlock());
+            }
+            Block cloud = world.getBlockAt(lookingPos);
             //if (cloud.type != AIR) {
                 cloud = world.createMeshCube(cloud.position, 0.05f, cloud.type);
                 cloud.blockMesh.createMesh(cloud.vertices, cloud.indices, cloud.vertices.size(), cloud.indices.size());
@@ -638,7 +655,7 @@ int main()
         glBindVertexArray(vao);
         glLineWidth(3.0f);
         glDrawArrays(GL_LINES, 0, 4);
-        Textures[1]->useTexture();
+        Textures[MAIN_INV_TEX]->useTexture();
 
         if (inv_change)
         {
@@ -649,22 +666,14 @@ int main()
             else {
                 currentBlock.blockMesh.clearMesh();
             }
-            float itemHeight = 0.0;
-            
-            for (int i = 0; i < (sizeof(inventory.inv_slots) / sizeof(inventory.inv_slots[0])) - 2; i++) {
-                for (int j = 0; j < (sizeof(inventory.inv_slots[0]) / sizeof(Item)); j++) {
-                    if (inventory.inv_slots[i][j] != GRASS) {
-                        itemHeight = 10.0f;
-                    }
-                    if (inventory.currInvSlot[i][j].verts.size() == 0 && inventory.inv_slots[i][j] != AIR) {
-                        inventory.currInvSlot[i][j] = world.createMeshCube(centerX / 5, (3 - i) * 90.0f, 0.0f, 35.0f, inventory.inv_slots[i][j]);
-                    }
-                }
-            }
 
             for (int j = 0; j < (sizeof(inventory.inv_slots[0]) / sizeof(Item)); j++) {
+                float itemHeight = 0.0f;
+                if (inventory.inv_slots[3][j] == GRASS || inventory.inv_slots[3][j] == POPPY || inventory.inv_slots[3][j] == BLUE_ORCHID) {
+                    itemHeight = -15.0f;
+                }
                 if (inventory.currInvSlot[3][j].verts.size() == 0 && inventory.inv_slots[3][j] != AIR) {
-                    inventory.currInvSlot[3][j] = world.createMeshCube(centerX / 5, 0.0f, 0.0f, 35.0f, inventory.inv_slots[3][j]);
+                    inventory.currInvSlot[3][j] = world.createMeshCube(centerX / 5, itemHeight, 0.0f, 35.0f, inventory.inv_slots[3][j]);
                 }
             }
 
@@ -680,10 +689,8 @@ int main()
                     craftedItem.blockMesh = world.createMeshCube(centerX / 5 + 315, centerY / 4 + 200.0f, 0.0f, 35.0f, recipe.getRecipe(inventory.craftInv));
                 }
                 craftedItem.type = recipe.getRecipe(inventory.craftInv);
-
             }
-
-            if (inventory.craftingInventoryOn) {
+            else if (inventory.craftingInventoryOn) {
                 for (int i = 0; i < (sizeof(inventory.bigCraftInv) / sizeof(inventory.bigCraftInv[0])); i++) {
                     for (int j = 0; j < (sizeof(inventory.bigCraftInv[0]) / sizeof(Item)); j++) {
                         if (inventory.bigCraftInvSlot[i][j].verts.size() == 0 && inventory.bigCraftInv[i][j] != AIR) {
@@ -717,9 +724,9 @@ int main()
 
         shaders[2]->useShader();
         glUniformMatrix4fv(glGetUniformLocation(shaders[2]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
-        Textures[1]->useTexture();
+        Textures[MAIN_INV_TEX]->useTexture();
         inventoryMesh.renderMesh();
-        Textures[3]->useTexture();
+        Textures[LARGE_INV_TEX]->useTexture();
         if (mainWindow.getKeys()[GLFW_KEY_C]) {
             bool blockAdded = false;
             if (inventory.inventoryOn) {
@@ -772,15 +779,11 @@ int main()
             }
             craftedItem.blockMesh.clearMesh();
         }
-        //if (mainWindow.getKeys()[GLFW_KEY_D]) {
-        //    craftInv[0][0] = 0;
-        //    craftInv[0][1] = 0;
-        //    craftInv[1][0] = 0;
-        //    craftInv[1][1] = 0;
-        //}
+
         if (mainWindow.getKeys()[GLFW_KEY_E]) {
             inventory.inventoryOn = true;
         }
+
         if (mainWindow.getKeys()[GLFW_KEY_RIGHT_SHIFT]) {
             if (mainWindow.getKeys()[GLFW_KEY_E]) {
                 for (int i = 0; i < (sizeof(inventory.inv_slots) / sizeof(inventory.inv_slots[3])); i++) {
@@ -833,15 +836,15 @@ int main()
 
         if (inventory.inventoryOn) {
 
-            Textures[3]->useTexture();
+            Textures[LARGE_INV_TEX]->useTexture();
             shaders[2]->useShader();
             glUniformMatrix4fv(glGetUniformLocation(shaders[2]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
             mainInventory.renderMesh();
             vector<GLfloat> versCraftInvSlotSelector = {
-                inventoryVertices[0].x + round(slotX) * 62 + 28, inventoryVertices[0].y + 323.0f + 10.0f + 5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f, 0.0f,
-                inventoryVertices[4].x + round(slotX) * 62 + 28, inventoryVertices[4].y + 323.0f + 10.0f + 5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 1.0f, 1.0f,     0.0f, 0.0f, 0.0f,
-                inventoryVertices[2].x + round(slotX) * 62 + 28, inventoryVertices[2].y + 323.0f + +5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 0.0f, 1.0f,            0.0f, 0.0f, 0.0f,
-                inventoryVertices[5].x + round(slotX) * 62 + 28, inventoryVertices[5].y + 323.0f + +5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 1.0f, 1.0f,            0.0f, 0.0f, 0.0f
+                inventoryVertices[0].x + int(slotX) * 62 + 28, inventoryVertices[0].y + 323.0f + 10.0f + 5.0f + int(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f, 0.0f,
+                inventoryVertices[4].x + int(slotX) * 62 + 28, inventoryVertices[4].y + 323.0f + 10.0f + 5.0f + int(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 1.0f, 1.0f,     0.0f, 0.0f, 0.0f,
+                inventoryVertices[2].x + int(slotX) * 62 + 28, inventoryVertices[2].y + 323.0f + +5.0f + int(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 0.0f, 1.0f,            0.0f, 0.0f, 0.0f,
+                inventoryVertices[5].x + int(slotX) * 62 + 28, inventoryVertices[5].y + 323.0f + +5.0f + int(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 1.0f, 1.0f,            0.0f, 0.0f, 0.0f
             };
 
             vector<unsigned int> indsCraftInvSlotSelector = {
@@ -849,28 +852,35 @@ int main()
                 1, 2, 3
             };
 
-            Textures[2]->useTexture();
+            Textures[SLOT_TEX]->useTexture();
             shaders[2]->useShader();
             craftInvSlotSelector.createMesh(versCraftInvSlotSelector, indsCraftInvSlotSelector, 24, 6);
             craftInvSlotSelector.renderMesh();
-            Textures[0]->useTexture();
+            Textures[BLOCK_TEX]->useTexture();
 
-            for (int i = 0; i < (sizeof(inventory.inv_slots) / sizeof(inventory.inv_slots[3])); i++) {
+            // Mesh for every inventory slot is being created here
+            for (int i = 0; i < (sizeof(inventory.inv_slots) / sizeof(inventory.inv_slots[3])) - 1; i++) {
                 for (int j = 0; j < (sizeof(inventory.inv_slots[3]) / sizeof(Item)); j++) {
+                    float itemHeight = 0.0f;
+                    if (inventory.inv_slots[i][j] != GRASS && inventory.inv_slots[i][j] != POPPY && inventory.inv_slots[i][j] != BLUE_ORCHID) {
+                        itemHeight = 10.0f;
+                    }
                     if (inventory.currInvSlot[i][j].verts.size() == 0 && inventory.inv_slots[i][j] != AIR) {
-                        inventory.currInvSlot[i][j] = world.createMeshCube(centerX / 5, (3 - i) * 90 + 10, 0.0f, 35.0f, inventory.inv_slots[i][j]);
+                        inventory.currInvSlot[i][j] = world.createMeshCube(centerX / 5, (3 - i) * 90 + 20 + itemHeight, 0.0f, 35.0f, inventory.inv_slots[i][j]);
                     }
                 }
             }
+            // Mesh for normal invertory is drawn here
             for (int i = 0; i < (sizeof(inventory.inv_slots) / sizeof(inventory.inv_slots[3])); i++) {
                 for (int j = 0; j < (sizeof(inventory.inv_slots[3]) / sizeof(Item)); j++) {
-                    Textures[0]->useTexture();
+                    Textures[BLOCK_TEX]->useTexture();
+                    if (recipe.isTool(inventory.inv_slots[i][j])) {
+                        Textures[TOOLS_TEX]->useTexture();
+                    }
                     InventoryShaders[9 * i + j]->useShader();
                     glUniformMatrix4fv(glGetUniformLocation(InventoryShaders[9 * i + j]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
                     glUniformMatrix4fv(InventoryShaders[9 * i + j]->getModelLocation(), 1, GL_FALSE, value_ptr(modelCurSlots[i][j]));
-                    if (recipe.isTool(inventory.inv_slots[i][j])){
-                        Textures[4]->useTexture();
-                    }
+                    
                     inventory.currInvSlot[i][j].renderMesh();
                     inv_change = true;
                 }
@@ -944,14 +954,16 @@ int main()
             //        }
             //    }
             //}
+
+            //Crafting inventory slots are being drawn here.
             for (int i = 0; i < (sizeof(inventory.craftInv) / sizeof(inventory.craftInv[0])); i++) {
                 for (int j = 0; j < (sizeof(inventory.craftInv[0]) / sizeof(Item)); j++) {
-                    Textures[0]->useTexture();
+                    Textures[BLOCK_TEX]->useTexture();
                     craftInvShaders[2 * i + j]->useShader();
                     glUniformMatrix4fv(glGetUniformLocation(craftInvShaders[2 * i + j]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
                     glUniformMatrix4fv(craftInvShaders[2 * i + j]->getModelLocation(), 1, GL_FALSE, value_ptr(modelCraftInvSlots[i][j]));
                     if (recipe.isTool(inventory.craftInv[i][j])) {
-                        Textures[4]->useTexture();
+                        Textures[TOOLS_TEX]->useTexture();
                     }
                     inventory.craftInvSlot[i][j].renderMesh();
                     inv_change = true;
@@ -960,15 +972,16 @@ int main()
                 glUniformMatrix4fv(glGetUniformLocation(craftInvShaders[4]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
                 glUniformMatrix4fv(craftInvShaders[4]->getModelLocation(), 1, GL_FALSE, value_ptr(modelCraftedInvSlot));
                 if (recipe.isTool(craftedItem.type)) {
-                    Textures[4]->useTexture();
+                    Textures[TOOLS_TEX]->useTexture();
                 }
                 else {
-                    Textures[0]->useTexture();
+                    Textures[BLOCK_TEX]->useTexture();
                 }
                 craftedItem.blockMesh.renderMesh();
             }
         }
 
+        // crafting inventory GUI appears here
         if (inventory.craftingInventoryOn) {
             if (mainWindow.getKeys()[GLFW_KEY_RIGHT_SHIFT]) {
                 if (mainWindow.getKeys()[GLFW_KEY_ENTER]) {
@@ -1041,7 +1054,7 @@ int main()
                 }
             }
 
-            Textures[5]->useTexture();
+            Textures[CRAFT_GUI_TEX]->useTexture();
             shaders[2]->useShader();
             glUniformMatrix4fv(glGetUniformLocation(shaders[2]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
             mainInventory.renderMesh();
@@ -1058,28 +1071,32 @@ int main()
                 1, 2, 3
             };
 
-            Textures[2]->useTexture();
+            Textures[SLOT_TEX]->useTexture();
             shaders[2]->useShader();
             craftInvSlotSelector.createMesh(versCraftInvSlotSelector, indsCraftInvSlotSelector, 24, 6);
             craftInvSlotSelector.renderMesh();
-            Textures[0]->useTexture();
+            Textures[BLOCK_TEX]->useTexture();
 
             for (int i = 0; i < (sizeof(inventory.inv_slots) / sizeof(inventory.inv_slots[3])); i++) {
                 for (int j = 0; j < (sizeof(inventory.inv_slots[3]) / sizeof(Item)); j++) {
+                    float itemHeight = 0.0f;
+                    if (inventory.inv_slots[i][j] != GRASS && inventory.inv_slots[i][j] != POPPY || inventory.inv_slots[i][j] != BLUE_ORCHID) {
+                        itemHeight = 10.0f;
+                    }
                     if (inventory.currInvSlot[i][j].verts.size() == 0 && inventory.inv_slots[i][j] != AIR) {
-                        inventory.currInvSlot[i][j] = world.createMeshCube(centerX / 5, (3 - i) * 90 + 10, 0.0f, 35.0f, inventory.inv_slots[i][j]);
+                        inventory.currInvSlot[i][j] = world.createMeshCube(centerX / 5, (3 - i) * 90 + 10 + itemHeight, 0.0f, 35.0f, inventory.inv_slots[i][j]);
                     }
                 }
             }
 
             for (int i = 0; i < (sizeof(inventory.inv_slots) / sizeof(inventory.inv_slots[3])); i++) {
                 for (int j = 0; j < (sizeof(inventory.inv_slots[3]) / sizeof(Item)); j++) {
-                    Textures[0]->useTexture();
+                    Textures[BLOCK_TEX]->useTexture();
                     InventoryShaders[9 * i + j]->useShader();
                     glUniformMatrix4fv(glGetUniformLocation(InventoryShaders[9 * i + j]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
                     glUniformMatrix4fv(InventoryShaders[9 * i + j]->getModelLocation(), 1, GL_FALSE, value_ptr(modelCurSlots[i][j]));
                     if (recipe.isTool(inventory.inv_slots[i][j])) {
-                        Textures[4]->useTexture();
+                        Textures[TOOLS_TEX]->useTexture();
                     }
                     inventory.currInvSlot[i][j].renderMesh();
                     inv_change = true;
@@ -1088,12 +1105,12 @@ int main()
 
             for (int i = 0; i < (sizeof(inventory.bigCraftInv) / sizeof(inventory.bigCraftInv[0])); i++) {
                 for (int j = 0; j < (sizeof(inventory.bigCraftInv[0]) / sizeof(Item)); j++) {
-                    Textures[0]->useTexture();
+                    Textures[BLOCK_TEX]->useTexture();
                     bigCraftInvShaders[3 * i + j]->useShader();
                     glUniformMatrix4fv(glGetUniformLocation(bigCraftInvShaders[3 * i + j]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
                     glUniformMatrix4fv(bigCraftInvShaders[3 * i + j]->getModelLocation(), 1, GL_FALSE, value_ptr(modelbigCraftInvSlots[i][j]));
                     if (recipe.isTool(inventory.bigCraftInv[i][j])) {
-                        Textures[4]->useTexture();
+                        Textures[TOOLS_TEX]->useTexture();
                     }
                     inventory.bigCraftInvSlot[i][j].renderMesh();
                     //cout << "printed!" << endl;
@@ -1104,28 +1121,28 @@ int main()
             glUniformMatrix4fv(glGetUniformLocation(bigCraftInvShaders[9]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
             glUniformMatrix4fv(bigCraftInvShaders[9]->getModelLocation(), 1, GL_FALSE, value_ptr(modelbigCraftedInvSlot));
             if (recipe.isTool(craftedItem.type)) {
-                Textures[4]->useTexture();
+                Textures[TOOLS_TEX]->useTexture();
             }
             else {
-                Textures[0]->useTexture();
+                Textures[BLOCK_TEX]->useTexture();
             }
             craftedItem.blockMesh.renderMesh();
         }
 
-        Textures[2]->useTexture();
+        Textures[SLOT_TEX]->useTexture();
         shaders[2]->useShader();
         currInvSlotSelector.renderMesh();
-        Textures[0]->useTexture();
+        Textures[BLOCK_TEX]->useTexture();
         
         for (int i = 0; i < 9; i++) {
             shaders[4 + i]->useShader();
             glUniformMatrix4fv(glGetUniformLocation(shaders[4 + i]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
             glUniformMatrix4fv(shaders[4 + i]->getModelLocation(), 1, GL_FALSE, value_ptr(modelCurSlotsMain[i]));
             if (recipe.isTool(inventory.inv_slots[3][i])) {
-                Textures[4]->useTexture();
+                Textures[TOOLS_TEX]->useTexture();
             }
             else {
-                Textures[0]->useTexture();
+                Textures[BLOCK_TEX]->useTexture();
             }
             inventory.currInvSlot[3][i].renderMesh();
             inv_change = true;
@@ -1148,10 +1165,10 @@ int main()
         glUniformMatrix4fv(shaders[3]->getModelLocation(), 1, GL_FALSE, value_ptr(modelCur));
         glEnable(GL_DEPTH_TEST);
         if (recipe.isTool(currentBlock.type)) {
-            Textures[4]->useTexture();
+            Textures[TOOLS_TEX]->useTexture();
         }
         else {
-            Textures[0]->useTexture();
+            Textures[BLOCK_TEX]->useTexture();
         }
         currentBlock.blockMesh.renderMesh();
         glDisable(GL_DEPTH_TEST);
