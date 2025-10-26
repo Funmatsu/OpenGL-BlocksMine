@@ -50,7 +50,11 @@ public:
 	}
 
 	Item(int item_id, bool placeable, bool useable, bool toolable, bool breakable, bool flatable) {
-		Item(item_id, placeable, useable, toolable, breakable);
+		id = item_id;
+		isPlaceable = placeable;
+		isUsable = useable;
+		isTool = toolable;
+		isBreakable = breakable;
 		isFlat = flatable;
 	}
 
@@ -68,28 +72,29 @@ public:
 		isUsable = item.isUsable;
 		isTool = item.isTool;
 		isBreakable = item.isBreakable;
+		isFlat = item.isFlat;
 	}
 };
 
-Item AIR(0, 0, 0, 0, 1) ;
-Item DIAMOND_ORE(1, 1, 0, 0, 1);
-Item GRASS_BLOCK(2, 1, 0, 0, 1);
-Item IRON_ORE(3, 1, 0, 0, 1);
-Item STONE_BLOCK(4, 1, 0, 0, 1);
-Item DIRT_BLOCK(5, 1, 0, 0, 1);
-Item OAK_WOOD(6, 1, 0, 0, 1);
-Item CLOUD(7, 1, 0, 0, 1);
-Item OAK_LEAVES(8, 1, 0, 0, 1);
-Item OAK_PLANK(9, 1, 0, 0, 1);
-Item POPPY(10, 1, 0, 0, 1, 1);
-Item BLUE_ORCHID(11, 1, 0, 0, 1, 1);
-Item GRASS(12, 1, 0, 0, 1, 1);
+Item AIR				(0,  0, 0, 0, 1);
+Item DIAMOND_ORE		(1,  1, 0, 0, 1);
+Item GRASS_BLOCK		(2,  1, 0, 0, 1);
+Item IRON_ORE			(3,  1, 0, 0, 1);
+Item STONE_BLOCK		(4,  1, 0, 0, 1);
+Item DIRT_BLOCK			(5,  1, 0, 0, 1);
+Item OAK_WOOD			(6,  1, 0, 0, 1);
+Item CLOUD				(7,  1, 0, 0, 1);
+Item OAK_LEAVES			(8,  1, 0, 0, 1);
+Item OAK_PLANK			(9,  1, 0, 0, 1);
+Item POPPY				(10, 1, 0, 0, 1, 1);
+Item BLUE_ORCHID		(11, 1, 0, 0, 1, 1);
+Item GRASS				(12, 1, 0, 0, 1, 1);
 
-Item CRAFTING_TABLE(13, 1, 1, 0, 1);
-Item BEDROCK(14, 1, 0, 0, 0);
+Item CRAFTING_TABLE		(13, 1, 1, 0, 1);
+Item BEDROCK			(14, 1, 0, 0, 0);
 
-Item WOODEN_PICKAXE(15, 1, 0, 1, 1);
-Item STICK(16, 1, 0, 1, 1);
+Item WOODEN_PICKAXE		(15, 1, 0, 1, 1);
+Item STICK				(16, 1, 0, 1, 1);
 
 vector<Item> items{
 	AIR,
@@ -111,11 +116,15 @@ vector<Item> items{
 	STICK
 };
 
-void getUVs(Item blockType, float* attrs) {
-	attrs[0] = 0, attrs[1] = 1, attrs[2] = 0, attrs[3] = 0, attrs[4] = 0, attrs[5] = 0, attrs[6] = 1.0f;
+void getUVs(Item blockType, float* attrs) {	
+	attrs[0] = 1, attrs[1] = 0, attrs[2] = 0, attrs[3] = 0, attrs[4] = 0, attrs[5] = 0, attrs[6] = 1.0f;
 
 	if (blockType == AIR) {
 		attrs[0] = 3; attrs[1] = 3;
+	}
+
+	else if (blockType == DIAMOND_ORE) {
+		attrs[0] = 0, attrs[1] = 1;
 	}
 
 	else if (blockType == GRASS_BLOCK) {
@@ -151,11 +160,11 @@ void getUVs(Item blockType, float* attrs) {
 	}
 
 	else if (blockType == GRASS) {
-		attrs[0] = 3, attrs[1] = 1; attrs[2] = 0, attrs[4] = 0; attrs[3] = 1, attrs[5] = 1;
+		attrs[0] = 3, attrs[1] = 1;
 	}
 
 	else if (blockType == POPPY) {
-		attrs[0] = 3, attrs[1] = 2; attrs[2] = 0, attrs[4] = 0; attrs[3] = 1, attrs[5] = 1;
+		attrs[0] = 3, attrs[1] = 2;
 	}
 
 	else if (blockType == BLUE_ORCHID) {
@@ -164,5 +173,9 @@ void getUVs(Item blockType, float* attrs) {
 
 	else if (blockType == BEDROCK) {
 		attrs[0] = 4, attrs[1] = 0;
+	}
+
+	else if (blockType == CRAFTING_TABLE) {
+		attrs[0] = 2, attrs[1] = 3; attrs[2] = -1; attrs[3] = 0; attrs[4] = 1; attrs[5] = -3;
 	}
 }

@@ -37,7 +37,11 @@ void Camera::update() {
 	up = normalize(cross(right, front));
 }
 
-void Camera::keyControl(bool* keys, float deltaTime) {
+void Camera::keyControl(bool* keys, float deltaT) {
+	float deltaTime = deltaT;
+	if (keys[GLFW_KEY_CAPS_LOCK]) {
+		deltaTime = deltaT * 2;
+	}
 	if (keys[GLFW_KEY_W] && !GLFW_RELEASE) {
 		position.x += front.x * movementSpeed * deltaTime;
 		position.z += front.z * movementSpeed * deltaTime;
@@ -54,7 +58,7 @@ void Camera::keyControl(bool* keys, float deltaTime) {
 		position += right * movementSpeed * deltaTime;
 	}
 	if (keys[GLFW_KEY_SPACE]) {
-		position.y += movementSpeed * deltaTime * 2;
+		position.y += movementSpeed * deltaTime;
 	}
 	if (keys[GLFW_KEY_LEFT_SHIFT]) {
 		position.y -= movementSpeed * deltaTime;
@@ -67,6 +71,7 @@ void Camera::keyControl(bool* keys, float deltaTime) {
 		movementSpeed /= 1.4;
 		keys[GLFW_KEY_LEFT_CONTROL] = false;
 	}
+	
 	if(keys[GLFW_KEY_L]) {
 		//cout << "Camera Position: \nx: " << position.x << ", y: " << position.y << ", z: " << position.z << endl;
 		position = vec3(0.0f, 1.0f, 0.0f);

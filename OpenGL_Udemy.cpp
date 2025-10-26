@@ -19,9 +19,9 @@ using namespace glm;
 #define WIDTH         1800
 #define HEIGHT        1800
 
-// TO DO : Implement spectator mode kind of face culling;;;; Block right next to block of Air can be rendered.
+// TO DO : Implement spectator mode kind of face culling;;;; Block right next to block of Air can be rendered. (Done but not for face culling)
 
-int renderDistance = CHUNK_SIZE * 5;
+int renderDistance = 20;
 
 vector<Mesh> meshes;
 
@@ -103,12 +103,37 @@ void renderWorld(mat4 view, mat4 projection) {
     //        world.chunks[i].blocks[j].blockMesh.renderMesh();
     //    }
     //}
-    for (int i = 0; i < world.chunks.size(); i++) {
-        if (world.chunks[i].needUpdate) {
-            world.chunks[i].mesh.createMesh(world.chunks[i].vertices, world.chunks[i].indices, world.chunks[i].vertices.size(), world.chunks[i].indices.size());
-            world.chunks[i].needUpdate = false;
+    
+    //for (auto it = world.chunks.begin(); it != world.chunks.end(); it++) {
+    //    Chunk& ch = it->second;
+    //    if (ch.needUpdate) {
+    //        ch.mesh.createMesh(ch.vertices, ch.indices, ch.vertices.size(), ch.indices.size());
+    //        ch.needUpdate = false;
+    //    }
+    //    ch.mesh.renderMesh();
+    //}
+    
+
+    //for (int i = 0; i < world.chunks.size(); i++) {
+    //    if (world.chunks[i].needUpdate) {
+    //        //regenerateChunk(world.chunks[i].coords, world.chunks[i]);
+    //        world.chunks[i].mesh.createMesh(world.chunks[i].vertices, world.chunks[i].indices, world.chunks[i].vertices.size(), world.chunks[i].indices.size());
+    //        world.chunks[i].needUpdate = false;
+    //    }
+    //    world.chunks[i].mesh.renderMesh();
+    //}
+    for (auto& chunks : world.chunkData) {
+        Chunk& chunk = chunks.second;
+        if ((chunk.coords.x >= camera.getCameraPos().x / CHUNK_SIZE - renderDistance && chunk.coords.x <= camera.getCameraPos().x / CHUNK_SIZE + renderDistance) &&
+            (chunk.coords.y >= camera.getCameraPos().z / CHUNK_SIZE - renderDistance && chunk.coords.y <= camera.getCameraPos().z / CHUNK_SIZE + renderDistance)) {
+        
+            if (chunk.needUpdate) {
+                //regenerateChunk(chunk.coords, chunk);
+                chunk.mesh.createMesh(chunk.vertices, chunk.indices, chunk.vertices.size(), chunk.indices.size());
+                chunk.needUpdate = false;
+            }
+            chunk.mesh.renderMesh();
         }
-        world.chunks[i].mesh.renderMesh();
     }
     // int c = 0, numblocks = 0;
     //for (int i = 0; i < world.chunks.size(); i++) {
@@ -174,25 +199,8 @@ int main()
     
 
     //glEnable(GL_CULL_FACE);
-    //glCullFace(GL_BACK);
-    //glFrontFace(GL_CW);
-    
-    chunkCoords.push_back({ 0, 0 });
-    //generateChunkWith(1);
-    {
-        chunkGenRunning = true;
-        std::lock_guard<std::mutex> lock(chunkRequestMutex);
-        chunkRequestQueue.push(chunkCoords.back());
-    }
-    {
-        std::lock_guard<std::mutex> lock(chunkResultMutex);
-        //cout << chunkResultQueue.empty() << endl;
-        while (!chunkResultQueue.empty()) {
-            Chunk chunk = std::move(chunkResultQueue.front());
-            chunkResultQueue.pop();
-            world.chunks.push_back(std::move(chunk));
-        }
-    }
+    //glCullFace(GL_FRONT);
+    //glFrontFace(GL_CCW);
 
     camera.setCameraPos(vec3(CHUNK_SIZE / 2, CHUNK_SIZE * CHUNK_SIZE + 10, CHUNK_SIZE / 2));
 
@@ -346,7 +354,7 @@ int main()
     float jumpCount = 0;
     float lastXChange = 0.0f, lastYChange = 0.0f;
 
-    float time = 10.0f, lowTime = 10.0f, maxTime = 1000.0;
+    float time = 300.0f, lowTime = 10.0f, maxTime = 1000.0;
     bool night = false;
 
 
@@ -356,10 +364,8 @@ int main()
         for (int i = -renderX; i < renderX; i++) {
             for (int j = -renderY; j < renderY; j += 1) {
 
-                if (find(chunkCoords.begin(), chunkCoords.end(), vec2((int)(camera.getCameraPos().x / CHUNK_SIZE) + i, (int)(camera.getCameraPos().z / CHUNK_SIZE) + j)) == chunkCoords.end() || (chunkCoords[chunkCoords.size() - 1].x == 0 && chunkCoords[chunkCoords.size() - 1].y == 0) &&
-                    find(chunkCoords.begin(), chunkCoords.end(), vec2((int)(camera.getCameraPos().x / CHUNK_SIZE) + i, (int)(camera.getCameraPos().z / CHUNK_SIZE) + j + 1)) == chunkCoords.end() || (chunkCoords[chunkCoords.size() - 1].x == 0 && chunkCoords[chunkCoords.size() - 1].y == 0)
-                    ) {
-                    chunkCoords.push_back({ int(camera.getCameraPos().x / CHUNK_SIZE) + i, int(camera.getCameraPos().z / CHUNK_SIZE) + j });
+                if (find(chunkCoords.begin(), chunkCoords.end(), vec2(floor(camera.getCameraPos().x / CHUNK_SIZE) + i, floor(camera.getCameraPos().z / CHUNK_SIZE) + j)) == chunkCoords.end()                    ) {
+                    chunkCoords.push_back({ floor(camera.getCameraPos().x / CHUNK_SIZE) + i, floor(camera.getCameraPos().z / CHUNK_SIZE) + j });
                     //world.chunks.push_back(Chunk());
                     //generateChunkAt(chunkCoords.back(), world.chunks.back());
                     {
@@ -367,57 +373,17 @@ int main()
                         std::lock_guard<std::mutex> lock(chunkRequestMutex);
                         chunkRequestQueue.push(chunkCoords.back());
                     }
-
-                    //chunkCoords.push_back({ int(camera.getCameraPos().x / CHUNK_SIZE) + i, int(camera.getCameraPos().z / CHUNK_SIZE) + j + 1 });
-                    ////generateChunkAt(chunkCoords[chunkCoords.size() - 1]);
-                    //{
-                    //    chunkGenRunning2 = true;
-                    //    std::lock_guard<std::mutex> lock(chunkRequestMutex2);
-                    //    chunkRequestQueue2.push(chunkCoords.back());
-                    //}
-
-                    //chunkCoords.push_back({ int(camera.getCameraPos().x / CHUNK_SIZE) + i, int(camera.getCameraPos().z / CHUNK_SIZE) + j + 2 });
-                    ////generateChunkAt(chunkCoords[chunkCoords.size() - 1]);
-                    //{
-                    //    chunkGenRunning3 = true;
-                    //    std::lock_guard<std::mutex> lock(chunkRequestMutex3);
-                    //    chunkRequestQueue3.push(chunkCoords.back());
-                    //}
-
                 }
 
                 {
                     std::lock_guard<std::mutex> lock(chunkResultMutex);
-                    //cout << chunkResultQueue.empty() << endl;
                     while (!chunkResultQueue.empty()) {
                         Chunk chunk = std::move(chunkResultQueue.front());
                         chunkResultQueue.pop();
-                        world.addChunk(std::move(chunk));
+                        world.addChunk(std::move(chunk), ivec2(chunk.coords));
                     }
                 }
-
-                //{
-                //    std::lock_guard<std::mutex> lock(chunkResultMutex2);
-                //    //cout << chunkResultQueue.empty() << endl;
-                //    while (!chunkResultQueue2.empty()) {
-                //        Chunk chunk = std::move(chunkResultQueue2.front());
-                //        chunkResultQueue2.pop();
-                //        world.addChunk(std::move(chunk));
-                //    }
-                //}
-
-                //{
-                //    std::lock_guard<std::mutex> lock(chunkResultMutex3);
-                //    //cout << chunkResultQueue.empty() << endl;
-                //    while (!chunkResultQueue3.empty()) {
-                //        Chunk chunk = std::move(chunkResultQueue3.front());
-                //        chunkResultQueue3.pop();
-                //        world.addChunk(std::move(chunk));
-                //    }
-                //}
-
             }
-
         }
  
         if (renderX < renderDistance) {
@@ -425,8 +391,8 @@ int main()
             renderY++;
         }
         //else {
-        //    renderX = renderDistance / 2;
-        //    renderY = renderDistance / 2;
+        //    renderX = 1;
+        //    renderY = 1;
         //}
         
         Textures[BLOCK_TEX]->useTexture();
@@ -584,11 +550,7 @@ int main()
         }
 
         if (mainWindow.rightClickButtonPressed()) {
-            Block lookBlock;
-            {
-                std::lock_guard<std::mutex> lock(placeReqMutex);
-                lookBlock = worldBlocks[lookingAtBlock()];
-            }
+            Block lookBlock = world.getBlockAt(lookingAtBlock());
             if (!recipe.itemUsable(lookBlock.type)) {
                 if (inventory.inv_slots[3][slot] != AIR && recipe.itemPlaceable(inventory.inv_slots[3][slot])) {
                     {
@@ -635,19 +597,18 @@ int main()
         glUniformMatrix4fv(shaders[13]->getViewLocation(), 1, GL_FALSE, value_ptr(view));
         glUniformMatrix4fv(shaders[13]->getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
 
-        if (world.chunks.size() > 20) {
-            ivec3 lookingPos;
-            {
-                std::lock_guard<std::mutex> lock(chunkRequestMutex);
-                lookingPos = ivec3(lookingAtBlock());
-            }
-            Block cloud = world.getBlockAt(lookingPos);
-            //if (cloud.type != AIR) {
-                cloud = world.createMeshCube(cloud.position, 0.05f, cloud.type);
-                cloud.blockMesh.createMesh(cloud.vertices, cloud.indices, cloud.vertices.size(), cloud.indices.size());
-                cloud.blockMesh.renderMesh();
-            //}
+
+        //For block highlighting
+
+        ivec3 lookingPos;
+        {
+            std::lock_guard<std::mutex> lock(chunkRequestMutex);
+            lookingPos = ivec3(lookingAtBlock());
         }
+        Block cloud = world.getBlockAt(lookingPos);
+        cloud = world.createMeshCube(cloud.position, 0.05f, CLOUD);
+        cloud.blockMesh.createMesh(cloud.vertices, cloud.indices, cloud.vertices.size(), cloud.indices.size());
+        cloud.blockMesh.renderMesh();
 
         glDisable(GL_DEPTH_TEST); // so crosshair draws on top
         shaders[1]->useShader();
@@ -862,7 +823,7 @@ int main()
             for (int i = 0; i < (sizeof(inventory.inv_slots) / sizeof(inventory.inv_slots[3])) - 1; i++) {
                 for (int j = 0; j < (sizeof(inventory.inv_slots[3]) / sizeof(Item)); j++) {
                     float itemHeight = 0.0f;
-                    if (inventory.inv_slots[i][j] != GRASS && inventory.inv_slots[i][j] != POPPY && inventory.inv_slots[i][j] != BLUE_ORCHID) {
+                    if (!inventory.inv_slots[i][j].isFlat) {
                         itemHeight = 10.0f;
                     }
                     if (inventory.currInvSlot[i][j].verts.size() == 0 && inventory.inv_slots[i][j] != AIR) {
@@ -922,38 +883,6 @@ int main()
                     inv_change = true;
                 }
             }
-            //if (mainWindow.getKeys()[GLFW_KEY_RIGHT_SHIFT]) {
-            //    if (mainWindow.getKeys()[GLFW_KEY_ENTER]) {
-            //        for (int i = 0; i < (sizeof(inventory.inv_slots) / sizeof(inventory.inv_slots[3])); i++) {
-            //            for (int j = 0; j < (sizeof(inventory.inv_slots[3]) / sizeof(Item)); j++) {
-            //                if (inventory.inv_slots[i][j] != NULL) {
-            //                     //inventory.craftInv[0][0] = inventory.inv_slots[i][j];
-            //                    for (int k = 0; k < sizeof(inventory.craftInv) / sizeof(inventory.craftInv[0]); k++) {
-            //                        for (int l = 0; l < sizeof(inventory.craftInv[0]) / sizeof(Item); l++) {
-            //                            if (inventory.craftInv[k][l] == NULL) {
-            //                                inventory.craftInv[k][l] = inventory.inv_slots[i][j];
-            //                                blockCrafting = true;
-            //                                blockAdded = true;
-            //                                currInvSlot[i][j] = Mesh();
-            //                                inventory.inv_slots[i][j] = NULL;
-            //                                break;
-            //                            }
-            //                        }
-            //                        if (blockCrafting) {
-            //                            break;
-            //                        }
-            //                    }
-            //                    if (blockAdded) {
-            //                        break;
-            //                    }
-            //                }
-            //            }
-            //            if (blockAdded) {
-            //                break;
-            //            }
-            //        }
-            //    }
-            //}
 
             //Crafting inventory slots are being drawn here.
             for (int i = 0; i < (sizeof(inventory.craftInv) / sizeof(inventory.craftInv[0])); i++) {
@@ -1077,14 +1006,14 @@ int main()
             craftInvSlotSelector.renderMesh();
             Textures[BLOCK_TEX]->useTexture();
 
-            for (int i = 0; i < (sizeof(inventory.inv_slots) / sizeof(inventory.inv_slots[3])); i++) {
+            for (int i = 0; i < (sizeof(inventory.inv_slots) / sizeof(inventory.inv_slots[3]) - 1); i++) {
                 for (int j = 0; j < (sizeof(inventory.inv_slots[3]) / sizeof(Item)); j++) {
                     float itemHeight = 0.0f;
-                    if (inventory.inv_slots[i][j] != GRASS && inventory.inv_slots[i][j] != POPPY || inventory.inv_slots[i][j] != BLUE_ORCHID) {
+                    if (!inventory.inv_slots[i][j].isFlat) {
                         itemHeight = 10.0f;
                     }
                     if (inventory.currInvSlot[i][j].verts.size() == 0 && inventory.inv_slots[i][j] != AIR) {
-                        inventory.currInvSlot[i][j] = world.createMeshCube(centerX / 5, (3 - i) * 90 + 10 + itemHeight, 0.0f, 35.0f, inventory.inv_slots[i][j]);
+                        inventory.currInvSlot[i][j] = world.createMeshCube(centerX / 5, (3 - i) * 90 + 20 + itemHeight, 0.0f, 35.0f, inventory.inv_slots[i][j]);
                     }
                 }
             }
