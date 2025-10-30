@@ -5,24 +5,60 @@ in vec4 pdc;
 in vec2 texCoords;
 in float transparency;
 in vec3 normal;
-
-struct DirectionalLight{
-	vec3 color;
+in vec3 FragPos;
+const int MAX_POINT_LIGHTS = 10;
+struct Light{
+		vec3 color;
 	float ambientIntensity;
-        vec3 direction;
 	float diffuseIntensity;
 };
+
+struct DirectionalLight{
+	Light base;
+        vec3 direction;
+};
+
+struct PointLight{
+	Light base;
+    vec3 position;
+	float constant, linear, exponent;
+};
+
 uniform sampler2D theTexture;
 uniform DirectionalLight directionalLight;
+uniform PointLight pointLights[MAX_POINT_LIGHTS];
+
+uniform int pointLightCount;
+
+vec4 calcLightByDirection(Light light, vec3 direction){
+	vec4 ambientColor = vec4(light.color * light.ambientIntensity, 1.0f);
+        float diffuseFactor = max(dot(normalize(normal), normalize(direction)), 0.0f);
+	vec4 diffuseColor = vec4(light.color * light.diffuseIntensity * diffuseFactor, 1.0f);
+	return (ambientColor + diffuseColor);
+}
+vec4 calcDirLight(){ return calcLightByDirection(directionalLight.base, directionalLight.direction); }
+vec4 calcPointLight() {
+	vec4 totalColor = vec4(0, 0, 0, 0);
+	for(int i = 0; i < pointLightCount; i++){
+		vec3 direction = -(pointLights[i].position - FragPos);
+		float distance = length(direction);
+		direction = normalize(direction);
+		
+		vec4 color = calcLightByDirection(pointLights[i].base, direction);
+		float attenuation = (pointLights[i].exponent * (distance * distance) +
+							 pointLights[i].linear * distance +
+							 pointLights[i].constant);
+		totalColor += (color) / attenuation;
+	}
+	
+	return totalColor;
+}
 
 void main(){
-	if (texture(theTexture, texCoords).a < 0.5)
-    		discard;
-	vec4 ambientColor = vec4(directionalLight.color * directionalLight.ambientIntensity, 1.0f);
-        float diffuseFactor = max(dot(normalize(normal), normalize(directionalLight.direction)), 0.0f);
-	vec4 diffuseColor = vec4(directionalLight.color * directionalLight.diffuseIntensity * diffuseFactor, 1.0f);
-
-	//vec3 N = normalize(normal);
-    	color = texture(theTexture, texCoords) * vec4(1.0, 1.0f, 1.0f, transparency) * (ambientColor + diffuseColor) ;
-	//color = vec4(N * 0.5 + 0.5, 1.0);
+	if (texture(theTexture, texCoords).a < 0.5) discard;
+	
+	vec4 finalColor = calcDirLight();
+	finalColor += calcPointLight();
+	
+	color = texture(theTexture, texCoords) * vec4(1.0, 1.0f, 1.0f, transparency) * vec4(finalColor.xyz, 1.0) ;
 };
