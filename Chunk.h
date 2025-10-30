@@ -2,7 +2,7 @@
 
 #include "Block.h"
 
-int CHUNK_SIZE = 8;
+int CHUNK_SIZE = 10;
 
 struct ivec2_hash {
     size_t operator()(const glm::ivec2& v) const noexcept {
@@ -97,12 +97,12 @@ public:
         mesh = chunk.mesh;
         vertices = chunk.vertices;
         indices = chunk.indices;
-        blockIds = chunk.blockIds;
+        //blockIds = chunk.blockIds;
         indexOffset = chunk.indexOffset;
         needUpdate = true;
         coords = chunk.coords;
-        blocks = chunk.blocks;
-        faces = chunk.faces;
-        blockData = chunk.blockData;
+        //blocks = chunk.blocks;
+        //faces = chunk.faces;
+        blockData = move(chunk.blockData);
     }
 };

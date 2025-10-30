@@ -1,6 +1,10 @@
 #define GLEW_STATIC
 
 #include "libraries.h"
+
+PointLight pointLights[MAX_POINT_LIGHTS];
+unsigned int pointLightCount = 0;
+
 #include "items.h"
 #include "Block.h"
 #include "shaderlist.h"
@@ -12,6 +16,7 @@
 #include "Frustum.h"
 #include "World.h"
 #include "threading.h"
+#include "Sky.h"
 
 using namespace std;
 using namespace glm;
@@ -19,113 +24,26 @@ using namespace glm;
 #define WIDTH         1800
 #define HEIGHT        1800
 
-// TO DO : Implement spectator mode kind of face culling;;;; Block right next to block of Air can be rendered. (Done but not for face culling)
+//(DONE!!!) TO DO : Implement spectator mode kind of face culling;;;; Block right next to block of Air can be rendered. 
 
-int renderDistance = 20;
+int renderDistance = 26;
 
-vector<Mesh> meshes;
-
+Sky sky;
 Window mainWindow;
 
 vector<Texturegl*> Textures;
-Light mainLight;
+DirectionalLight mainLight;
 
 GLfloat deltaTime = 2.0f;
 GLfloat lastTime = 0.0f;
 
 int currentBlockType = 1;
 
-//
 void renderWorld(mat4 view, mat4 projection) {
-    //mat4 projection(1.0f), view(1.0f);
-    //projection = perspective(radians(45.0f), (float(mainWindow.getBufferWidth()) / float(mainWindow.getBufferHeight())), 0.1f, 500.0f);
-    //view = camera.calcViewMatrix();
-    // compute VP once per frame
-    //glm::mat4 VP = projection * view;
-    //Plane frustum[6];
-    //extractFrustumPlanes(VP, frustum);
-
-    //for (int i = 0; i < world.chunks.size(); ++i) {
-    //    Chunk& ch = world.chunks[i];
-
-    //    // compute chunk AABB in world coords (store it in Chunk for reuse)
-    //    vec3 chunkOrigin = vec3(ch.coords.x * CHUNK_SIZE, 
-    //                            0.0f, 
-    //                            ch.coords.y * CHUNK_SIZE);
-    //    glm::vec3 chunkMin = chunkOrigin - vec3(50.0f);
-    //    glm::vec3 chunkMax = chunkOrigin + vec3(CHUNK_SIZE, CHUNK_SIZE * CHUNK_SIZE + 25, CHUNK_SIZE) + vec3(50.0f);
-
-    //    if (!aabbIntersectsFrustum(chunkMin, chunkMax, frustum)) {  
-    //        continue; // skip mesh creation and rendering for this chunk
-    //    }
-
-    //    // chunk is visible or intersects; ensure mesh exists and render
-    //    if (ch.needUpdate) {
-    //        ch.mesh.createMesh(ch.vertices, ch.indices, ch.vertices.size(), ch.indices.size());
-    //        ch.needUpdate = false;
-    //    }
-    //    ch.mesh.renderMesh();
-    //    //cout << ch.coords.x << " " << ch.coords.y << endl;
-    //}
-
-    //mat4 view = camera.calcViewMatrix();
-    //mat4 projection = perspective(radians(45.0f), (float(mainWindow.getBufferWidth()) / float(mainWindow.getBufferHeight())), 0.1f, 1000.0f);
-    //Frustum frustum = extractFrustumPlanes(projection * view);
-    //for (int i = 0; i >= 0 && i < world.chunks.size(); i++) {
-    //    //if (!isChunkVisible(frustum, world.chunks[i].coords)) {
-    //    //    continue;
-    //    //}
-    //    //cout << i << " " << world.chunks.size() << endl;
-    //    if (world.chunks[i].needUpdate) {
-    //        //if (!clearDistantChunks(world.chunks[i])) {
-    //        world.chunks[i].mesh.createMesh(world.chunks[i].vertices, world.chunks[i].indices, world.chunks[i].vertices.size(), world.chunks[i].indices.size());
-    //        world.chunks[i].needUpdate = false;
-    //        //}
-    //    }
-    //    //if (!clearDistantChunks(world.chunks[i])) {
-    //        world.chunks[i].mesh.renderMesh();
-    //    //}
-    //}
-  
-
-    //for (int i = 0; i < world.chunks.size(); i++) {
-    //    world.chunks[i].vertices = {};
-    //    world.chunks[i].vertices = {};
-    //    for (int j = 0; j < world.chunks[i].blocks.size(); j++) {
-    //        if (world.chunks[i].needUpdate) {
-    //            world.chunks[i].vertices.insert(world.chunks[i].vertices.end(), world.chunks[i].blocks[j].vertices.begin(), world.chunks[i].blocks[j].vertices.end());
-    //            world.chunks[i].indices.insert(world.chunks[i].indices.end(), world.chunks[i].blocks[j].indices.begin(), world.chunks[i].blocks[j].indices.end());
-    //            world.chunks[i].needUpdate = false;
-    //        }
-    //        //world.chunks[i].mesh.createMesh(world.chunks[i].vertices, world.chunks[i].indices, world.chunks[i].vertices.size(), world.chunks[i].indices.size());
-    //        //world.chunks[i].mesh.renderMesh();
-    //        world.chunks[i].blocks[j].blockMesh.createMesh(world.chunks[i].blocks[j].vertices, world.chunks[i].blocks[j].indices, world.chunks[i].blocks[j].vertices.size(), world.chunks[i].blocks[j].indices.size());
-    //        world.chunks[i].blocks[j].blockMesh.renderMesh();
-    //    }
-    //}
-    
-    //for (auto it = world.chunks.begin(); it != world.chunks.end(); it++) {
-    //    Chunk& ch = it->second;
-    //    if (ch.needUpdate) {
-    //        ch.mesh.createMesh(ch.vertices, ch.indices, ch.vertices.size(), ch.indices.size());
-    //        ch.needUpdate = false;
-    //    }
-    //    ch.mesh.renderMesh();
-    //}
-    
-
-    //for (int i = 0; i < world.chunks.size(); i++) {
-    //    if (world.chunks[i].needUpdate) {
-    //        //regenerateChunk(world.chunks[i].coords, world.chunks[i]);
-    //        world.chunks[i].mesh.createMesh(world.chunks[i].vertices, world.chunks[i].indices, world.chunks[i].vertices.size(), world.chunks[i].indices.size());
-    //        world.chunks[i].needUpdate = false;
-    //    }
-    //    world.chunks[i].mesh.renderMesh();
-    //}
     for (auto& chunks : world.chunkData) {
         Chunk& chunk = chunks.second;
-        if ((chunk.coords.x >= camera.getCameraPos().x / CHUNK_SIZE - renderDistance && chunk.coords.x <= camera.getCameraPos().x / CHUNK_SIZE + renderDistance) &&
-            (chunk.coords.y >= camera.getCameraPos().z / CHUNK_SIZE - renderDistance && chunk.coords.y <= camera.getCameraPos().z / CHUNK_SIZE + renderDistance)) {
+        if ((chunk.coords.x >= camera.getCameraPos().x / CHUNK_SIZE - renderDistance * 1.5 && chunk.coords.x <= camera.getCameraPos().x / CHUNK_SIZE + renderDistance * 1.5) &&
+            (chunk.coords.y >= camera.getCameraPos().z / CHUNK_SIZE - renderDistance * 1.5 && chunk.coords.y <= camera.getCameraPos().z / CHUNK_SIZE + renderDistance * 1.5)) {
         
             if (chunk.needUpdate) {
                 //regenerateChunk(chunk.coords, chunk);
@@ -135,32 +53,6 @@ void renderWorld(mat4 view, mat4 projection) {
             chunk.mesh.renderMesh();
         }
     }
-    // int c = 0, numblocks = 0;
-    //for (int i = 0; i < world.chunks.size(); i++) {
-    //    //cout << " C " << world.chunks[i].blocks.size() << endl;
-    //    for (int j = 0; j < world.chunks[i].blocks.size(); j++) {
-    //        //cout << " B " << world.chunks[i].blocks[j].indices.size() << endl;
-    //        //for (int k = 1; k < 6; k++) {
-    //        if(
-    //            !blockExistsAt(world.chunks[i].blocks[j].position + vec3(-1.0f, 0.0, 0.0f)) || 
-    //            !blockExistsAt(world.chunks[i].blocks[j].position + vec3( 1.0f, 0.0, 0.0f)) || 
-    //            !blockExistsAt(world.chunks[i].blocks[j].position + vec3(0.0f, -1.0, 0.0f)) || 
-    //            !blockExistsAt(world.chunks[i].blocks[j].position + vec3(0.0f,  1.0, 0.0f)) ||
-    //            !blockExistsAt(world.chunks[i].blocks[j].position + vec3(0.0f, 0.0, -1.0f)) ||
-    //            !blockExistsAt(world.chunks[i].blocks[j].position + vec3(0.0f, 0.0,  1.0f))
-    //        ) {
-    //            if (world.chunks[i].needUpdate) {
-    //                world.chunks[i].blocks[j].blockMesh.createMesh(world.chunks[i].blocks[j].vertices, world.chunks[i].blocks[j].indices, world.chunks[i].blocks[j].vertices.size(), world.chunks[i].blocks[j].indices.size());
-    //                //cout << " Done creating Mesh! " << c++ << endl;
-    //                //cout << numblocks << endl;
-    //                
-    //            }
-    //        }
-    //        world.chunks[i].blocks[j].blockMesh.renderMesh();
-    //    }
-    //    numblocks += world.chunks[i].blocks.size();
-    //    world.chunks[i].needUpdate = false;
-    //}
 }
 
 #define BLOCK_TEX           0
@@ -179,7 +71,7 @@ int main()
     glEnable(GL_BLEND);
     glfwSwapInterval(0);
     /*Textures.push_back(new Texturegl("textures\\block_atlas_4.png"));*/
-    Textures.push_back(new Texturegl("textures\\block_atlas_25.png"));
+    Textures.push_back(new Texturegl("textures\\block_atlas_27.png"));
     Textures.push_back(new Texturegl("textures\\clear_toolbar_2.png"));
     Textures.push_back(new Texturegl("textures\\clear_toolbar_3.png"));
     Textures.push_back(new Texturegl("textures\\main_inventory.jpg"));
@@ -199,10 +91,10 @@ int main()
     
 
     //glEnable(GL_CULL_FACE);
-    //glCullFace(GL_FRONT);
-    //glFrontFace(GL_CCW);
+    //glCullFace(GL_BACK);
+    //glFrontFace(GL_CW);
 
-    camera.setCameraPos(vec3(CHUNK_SIZE / 2, CHUNK_SIZE * CHUNK_SIZE + 10, CHUNK_SIZE / 2));
+    camera.setCameraPos(vec3(CHUNK_SIZE / 2, CHUNK_SIZE * CHUNK_SIZE / 2, CHUNK_SIZE / 2));
 
     float centerX = WIDTH / 2.0f;
     float centerY = HEIGHT / 2.0;
@@ -268,8 +160,7 @@ int main()
     Block currentBlock;
 
     mat4 model(1.0f), projection(1.0f), view(1.0f);
-    //mat4 modelCur(1.0f);
-    projection = perspective(radians(45.0f), (float(mainWindow.getBufferWidth()) / float(mainWindow.getBufferHeight())), 0.5f, 200.0f);    
+    projection = perspective(radians(45.0f), (float(mainWindow.getBufferWidth()) / float(mainWindow.getBufferHeight())), 0.5f, 500.0f);    
 
     glm::mat4 ortho = glm::ortho(0.0f, float(WIDTH), 0.0f, float(HEIGHT));
 
@@ -285,9 +176,6 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (void*)0);
-    //world.chunks.push_back(Chunk());
-    //createCube((int)camera.getCameraPos().x, (int)camera.getCameraPos().y - 3, (int)camera.getCameraPos().z, 6);
-    //deleteBlockFromWorld(0.0f, 0.0f, 0.0f, 8);
     int offs = 1, ctrl = 0;
     inventoryMesh.createMesh(versInv, indsInv, 24, 6);
     mat4 modelCurSlots[4][9];
@@ -296,8 +184,7 @@ int main()
     mat4 modelCurSlotsMain[9];
     mat4 modelCurSlot(1.0f);
     mat4 modelCur(1.0f);
-    //modelCur = translate(modelCur, vec3((2 * (-200.0) / (float)WIDTH), 2 * (-200.0) / (float)HEIGHT, 0.5f));
-    //modelCur = translate(modelCur, vec3(((centerX + offsetX)) / WIDTH, -(centerY - 200) / HEIGHT, 0.0f));
+
     for (int j = 0; j < 9; j++) {
         modelCurSlotsMain[j] = mat4(1.0f);
         modelCurSlotsMain[j] = translate(modelCurSlotsMain[j], vec3((centerX - 40.0f + j * 137) / WIDTH, 2 * (centerY + offsetY + 70.0f) / HEIGHT, 0.0f));
@@ -356,15 +243,25 @@ int main()
 
     float time = 300.0f, lowTime = 10.0f, maxTime = 1000.0;
     bool night = false;
+    sky.buildSky();
 
+    //std::vector<std::thread> workers;
+    //for (int i = 0; i < 1; ++i) {
+    //    workers.emplace_back(chunkWorker); // worker thread is somewhere in threading.h
+    //}
 
+    //Hand arm;
+    //arm.createHand();
     while (!mainWindow.getShouldClose()) {
-        //mainLight = Light(1.0f, 1.0f, 1.0f, camera.getCameraPos().y/20);
-        mainLight = Light(1.0f, 1.0f, 1.0f, 0.2 + 1.2 * time / maxTime, 0.0000f, -0.7071f, 0.7071f, 0.85 * time / maxTime);
+        mainLight = DirectionalLight(1.0f, 1.0f, 1.0f,
+                                     0.2 + 1.2 * time / maxTime,
+                                     0.0000f, -0.7071f, 0.7071f, 
+                                     0.85 * time / maxTime);
+
         for (int i = -renderX; i < renderX; i++) {
             for (int j = -renderY; j < renderY; j += 1) {
 
-                if (find(chunkCoords.begin(), chunkCoords.end(), vec2(floor(camera.getCameraPos().x / CHUNK_SIZE) + i, floor(camera.getCameraPos().z / CHUNK_SIZE) + j)) == chunkCoords.end()                    ) {
+                if (find(chunkCoords.begin(), chunkCoords.end(), vec2(floor(camera.getCameraPos().x / CHUNK_SIZE) + i, floor(camera.getCameraPos().z / CHUNK_SIZE) + j)) == chunkCoords.end()) {
                     chunkCoords.push_back({ floor(camera.getCameraPos().x / CHUNK_SIZE) + i, floor(camera.getCameraPos().z / CHUNK_SIZE) + j });
                     //world.chunks.push_back(Chunk());
                     //generateChunkAt(chunkCoords.back(), world.chunks.back());
@@ -373,16 +270,17 @@ int main()
                         std::lock_guard<std::mutex> lock(chunkRequestMutex);
                         chunkRequestQueue.push(chunkCoords.back());
                     }
-                }
 
-                {
-                    std::lock_guard<std::mutex> lock(chunkResultMutex);
-                    while (!chunkResultQueue.empty()) {
-                        Chunk chunk = std::move(chunkResultQueue.front());
-                        chunkResultQueue.pop();
-                        world.addChunk(std::move(chunk), ivec2(chunk.coords));
-                    }
                 }
+            }
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(chunkResultMutex);
+            while (!chunkResultQueue.empty()) {
+                Chunk chunk = std::move(chunkResultQueue.front());
+                chunkResultQueue.pop();
+                world.addChunk(std::move(chunk), ivec2(chunk.coords));
             }
         }
  
@@ -390,10 +288,6 @@ int main()
             renderX++;
             renderY++;
         }
-        //else {
-        //    renderX = 1;
-        //    renderY = 1;
-        //}
         
         Textures[BLOCK_TEX]->useTexture();
         shaders[0]->useShader();
@@ -415,9 +309,11 @@ int main()
             time+=1.5;
         }
 
-        glClearColor(0.2f + 0.1 * time / maxTime,time / maxTime + 0.1, 0.4 + time / maxTime, 1.0f);
+        //glClearColor(0.2f + 0.1 * time / maxTime,time / maxTime + 0.1, 0.4 + time / maxTime, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glfwPollEvents();
+        view = camera.calcViewMatrix();
+
         int sensitivity = 1.01f;
         camera.keyControl(mainWindow.getKeys(), deltaTime);
         if (inventory.inventoryOn || inventory.craftingInventoryOn) {
@@ -429,13 +325,14 @@ int main()
             camera.mouseControl(mainWindow.getXChange(), mainWindow.getYChange());
             lastXChange = mainWindow.getXChange(); lastYChange = mainWindow.getYChange();
         }
-
-        view = camera.calcViewMatrix();
+        
         glUniformMatrix4fv(shaders[0]->getModelLocation(), 1, GL_FALSE, value_ptr(model));
         glUniformMatrix4fv(shaders[0]->getViewLocation(), 1, GL_FALSE, value_ptr(view));
         glUniformMatrix4fv(shaders[0]->getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
 
-        mainLight.useLight(shaders[0]->getAmbientIntensityLocation(), shaders[0]->getAmbientColorLocation(), shaders[0]->getDiffuseIntensityLocation(), shaders[0]->getDirectionLocation());
+        //mainLight.useLight(shaders[0]->getAmbientIntensityLocation(), shaders[0]->getAmbientColorLocation(), shaders[0]->getDiffuseIntensityLocation(), shaders[0]->getDirectionLocation());
+        shaders[0]->setDirectionalLight(&mainLight);
+        shaders[0]->setPointLights(pointLights, pointLightCount);
 
         if (mainWindow.getKeys()[GLFW_KEY_SPACE]) {
             //cout << jumping << " " << ctrlJump << endl;
@@ -501,6 +398,7 @@ int main()
             slot = 8;
             inv_change = true;
         }
+        if (mainWindow.getKeys()[GLFW_KEY_P]) {
 
         if (mainWindow.getKeys()[GLFW_KEY_I]) {
             //currentBlockType = 6;
@@ -510,9 +408,8 @@ int main()
             inventory.inf_blocks = false;
         }
         //slot = currentBlockType - 1;
-        if (mainWindow.getKeys()[GLFW_KEY_P]) {
             if (mainWindow.getKeys()[GLFW_KEY_1])
-                world.addBlocklook_at(items[1]);
+                world.addBlocklook_at(items[TORCH.id]);
             else if (mainWindow.getKeys()[GLFW_KEY_2])
                 world.addBlocklook_at(items[2]);
             else if (mainWindow.getKeys()[GLFW_KEY_3])
@@ -572,6 +469,12 @@ int main()
         }
 
         if (mainWindow.getShouldClose()) {
+            //chunkGenRunning = false;
+            //queueCV.notify_all(); // wake up sleeping threads
+
+            //for (auto& t : workers)
+            //    t.join();
+
             chunkGenRunning = false;
             chunkGenRunning2 = false;
             chunkGenRunning3 = false;
@@ -588,15 +491,17 @@ int main()
             inventory.currInvSlot[3][slot].clearMesh();
             inv_change = true;
         }
-
+        sky.applySky(view, projection);
         glEnable(GL_DEPTH_TEST);
-        renderWorld(view, projection); // your blocks, terrain, etc.
+
+        shaders[0]->useShader();
+        renderWorld(view, projection);
+
         shaders[13]->useShader();
         view = camera.calcViewMatrix();
-        glUniformMatrix4fv(shaders[13]->getModelLocation(), 1, GL_FALSE, value_ptr(model));
-        glUniformMatrix4fv(shaders[13]->getViewLocation(), 1, GL_FALSE, value_ptr(view));
-        glUniformMatrix4fv(shaders[13]->getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
-
+        glUniformMatrix4fv(shaders[13]->getModelLocation(),         1, GL_FALSE, value_ptr(model));
+        glUniformMatrix4fv(shaders[13]->getViewLocation(),          1, GL_FALSE, value_ptr(view));
+        glUniformMatrix4fv(shaders[13]->getProjectionLocation(),    1, GL_FALSE, value_ptr(projection));
 
         //For block highlighting
 
@@ -612,12 +517,22 @@ int main()
 
         glDisable(GL_DEPTH_TEST); // so crosshair draws on top
         shaders[1]->useShader();
+        //glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
+
         glUniformMatrix4fv(glGetUniformLocation(shaders[1]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
         glBindVertexArray(vao);
         glLineWidth(3.0f);
         glDrawArrays(GL_LINES, 0, 4);
-        Textures[MAIN_INV_TEX]->useTexture();
 
+        //glDisable(GL_BLEND);
+
+        //Textures[BLOCK_TEX]->useTexture();
+        //shaders[0]->useShader();
+        ////arm.drawHand(ortho);
+        //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        Textures[MAIN_INV_TEX]->useTexture();
         if (inv_change)
         {
             if (inventory.inv_slots[3][slot] != AIR) {
@@ -686,7 +601,9 @@ int main()
         shaders[2]->useShader();
         glUniformMatrix4fv(glGetUniformLocation(shaders[2]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
         Textures[MAIN_INV_TEX]->useTexture();
+        glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
         inventoryMesh.renderMesh();
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         Textures[LARGE_INV_TEX]->useTexture();
         if (mainWindow.getKeys()[GLFW_KEY_C]) {
             bool blockAdded = false;
@@ -800,7 +717,9 @@ int main()
             Textures[LARGE_INV_TEX]->useTexture();
             shaders[2]->useShader();
             glUniformMatrix4fv(glGetUniformLocation(shaders[2]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
+            glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
             mainInventory.renderMesh();
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             vector<GLfloat> versCraftInvSlotSelector = {
                 inventoryVertices[0].x + int(slotX) * 62 + 28, inventoryVertices[0].y + 323.0f + 10.0f + 5.0f + int(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f, 0.0f,
                 inventoryVertices[4].x + int(slotX) * 62 + 28, inventoryVertices[4].y + 323.0f + 10.0f + 5.0f + int(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 1.0f, 1.0f,     0.0f, 0.0f, 0.0f,
@@ -816,7 +735,9 @@ int main()
             Textures[SLOT_TEX]->useTexture();
             shaders[2]->useShader();
             craftInvSlotSelector.createMesh(versCraftInvSlotSelector, indsCraftInvSlotSelector, 24, 6);
+            glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
             craftInvSlotSelector.renderMesh();
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             Textures[BLOCK_TEX]->useTexture();
 
             // Mesh for every inventory slot is being created here
@@ -986,7 +907,9 @@ int main()
             Textures[CRAFT_GUI_TEX]->useTexture();
             shaders[2]->useShader();
             glUniformMatrix4fv(glGetUniformLocation(shaders[2]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
+            glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
             mainInventory.renderMesh();
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
             vector<GLfloat> versCraftInvSlotSelector = {
                 inventoryVertices[0].x + (int)(slotX) * 62 + 28, inventoryVertices[0].y + 323.0f + 10.0f + 5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 0.0f, 1.0f,      0.0f, 0.0f, 0.0f,
@@ -1003,7 +926,9 @@ int main()
             Textures[SLOT_TEX]->useTexture();
             shaders[2]->useShader();
             craftInvSlotSelector.createMesh(versCraftInvSlotSelector, indsCraftInvSlotSelector, 24, 6);
+            glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
             craftInvSlotSelector.renderMesh();
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             Textures[BLOCK_TEX]->useTexture();
 
             for (int i = 0; i < (sizeof(inventory.inv_slots) / sizeof(inventory.inv_slots[3]) - 1); i++) {
@@ -1060,7 +985,10 @@ int main()
 
         Textures[SLOT_TEX]->useTexture();
         shaders[2]->useShader();
+        
+        glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
         currInvSlotSelector.renderMesh();
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         Textures[BLOCK_TEX]->useTexture();
         
         for (int i = 0; i < 9; i++) {
@@ -1117,7 +1045,7 @@ int main()
         //if (!flying) {
         //ivec3 blockPos = ivec3((floor(vec3(camera.getCameraPos().x, camera.getCameraPos().y - 2, camera.getCameraPos().z))));
         //    if (!blockExistsAt(blockPos)) {
-        //        camera.setCameraPos(vec3(camera.getCameraPos().x, camera.getCameraPos().y - 0.01 * ctrl, camera.getCameraPos().z));
+        //        camera.setCameraPos(vec3(camera.getCameraPos().x, camera.getCameraPos().y + 1, camera.getCameraPos().z));
         //        ctrl = true;
         //    }
         //    else {

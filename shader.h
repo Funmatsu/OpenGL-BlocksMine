@@ -5,11 +5,14 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include "DirectionalLight.h"
+#include "PointLIght.h"
 
 using namespace std;
 class Shadergl
 {
 public:
+	int pointLightCount;
 	Shadergl();
 	~Shadergl();
 	void createShaderFromString(const char* vertexCode, const char* fragmentCode);
@@ -21,6 +24,26 @@ public:
 	unsigned int getAmbientColorLocation();
 	unsigned int getDiffuseIntensityLocation();
 	unsigned int getDirectionLocation();
+
+	struct {
+		int uniformColor;
+		int uniformAmbientIntensity, uniformDiffuseIntensity;
+		int uniformDirection;
+	} uniformDirectionalLight;
+
+	int uniformPointLightCount;
+
+	struct {
+		int uniformColor;
+		int uniformAmbientIntensity, uniformDiffuseIntensity;
+		int uniformPosition;
+
+		int uniformConstant, uniformLinear, uniformExponent;
+	} uniformPointLight[MAX_POINT_LIGHTS];
+
+	void setDirectionalLight(DirectionalLight* dLight);
+	void setPointLights(PointLight* pLight, unsigned int lightCount);
+
 	unsigned int getShaderId() { return shaderId; }
 
 	string readShaderFiles(const char* fileLocation);

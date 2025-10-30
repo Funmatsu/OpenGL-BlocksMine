@@ -7,9 +7,16 @@
 vector<vec2> chunkCoords;
 
 std::queue<vec2> chunkRequestQueue;
-std::mutex chunkRequestMutex;
+std::mutex queueMutex;
+std::condition_variable queueCV;
 
 std::queue<Chunk> chunkResultQueue;
+std::mutex resultMutex;
+
+//std::queue<vec2> chunkRequestQueue;
+std::mutex chunkRequestMutex;
+
+//std::queue<Chunk> chunkResultQueue;
 std::mutex chunkResultMutex;
 
 std::queue<vec2> chunkRequestQueue2;
@@ -64,33 +71,63 @@ void generateBlocks(vec2 xyChunk, Chunk& repChunk) {
     std::uniform_int_distribution<> dist2(0, sizeof(blockTypes2) / sizeof(int) - 1);
     std::uniform_int_distribution<> dist3(0, sizeof(blockTypes3) / sizeof(int) - 1);
 
-    FastNoiseLite noise;   
-    noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-    noise.SetFractalType(FastNoiseLite::FractalType_FBm);
-    noise.SetFractalOctaves(5);
-    noise.SetFractalLacunarity(1.0f);
-    noise.SetFractalGain(0.5f);
+    // Base hills: smooth FBm Perlin
+    FastNoiseLite baseNoise;
+    baseNoise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    baseNoise.SetFractalType(FastNoiseLite::FractalType_FBm);
+    baseNoise.SetFrequency(0.005f);      // low frequency = broad features
+    baseNoise.SetFractalOctaves(3);
+    baseNoise.SetFractalLacunarity(2.0f);
+    baseNoise.SetFractalGain(0.5f);
+
+    // Ridged mountains: sharp features
+    FastNoiseLite ridgedNoise;
+    ridgedNoise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    ridgedNoise.SetFractalType(FastNoiseLite::FractalType_Ridged);
+    ridgedNoise.SetFrequency(0.01f);     // higher frequency = more detail
+    ridgedNoise.SetFractalOctaves(4);
+    ridgedNoise.SetFractalLacunarity(2.0f);
+    ridgedNoise.SetFractalGain(0.5f);
+
+    // Mask: controls where mountains vs plains appear
+    FastNoiseLite maskNoise;
+    maskNoise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    maskNoise.SetFractalType(FastNoiseLite::FractalType_FBm);
+    maskNoise.SetFrequency(0.002f);      // very low frequency = large biome regions
+    maskNoise.SetFractalOctaves(2);
+    maskNoise.SetFractalGain(0.5f);
+
+    //FastNoiseLite noise;   
+    //noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    //noise.SetFractalType(FastNoiseLite::FractalType_FBm);
+    //noise.SetFractalOctaves(6);
+    //noise.SetFractalLacunarity(2.0f);
+    //noise.SetFractalGain(0.5f);
 
     FastNoiseLite caveNoise;
     caveNoise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-    //FastNoiseLite warp;
-    //warp.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    //warp.SetFrequency(0.05f);
-
-    //caveNoise.SetDomainWarpType(FastNoiseLite::DomainWarpType_OpenSimplex2);
-    //caveNoise.SetDomainWarpAmp(5.0f);
 
     caveNoise.SetFrequency(0.05f);
     FastNoiseLite cloudNoise;
-    cloudNoise.SetFrequency(0.045);
+    cloudNoise.SetFrequency(0.045);    
 
     float cloudDensity = 0;
     float density = 0;
     for (int x = (xyChunk.x) * CHUNK_SIZE; x < (xyChunk.x + 1) * CHUNK_SIZE; x++) {
         for (int z = (xyChunk.y) * CHUNK_SIZE; z < (xyChunk.y + 1) * CHUNK_SIZE; z++) {
             repChunk.blockData[ivec3(x, -1, z)] = blockData(ivec3(x, -1, z), BEDROCK);
-            float height = noise.GetNoise((float)x, (float)z); // returns value in range [-1, 1]
-            float scaledHeight = ((height + 1.0f) * (CHUNK_SIZE * CHUNK_SIZE));
+            auto norm = [](float n) { return n * 0.5f + 0.5f; };
+            float base = norm(baseNoise.GetNoise((float)x, (float)z)) * 10.0f;
+            float ridged = norm(ridgedNoise.GetNoise((float)x, (float)z)) * 30.0f;
+            float mask = norm(maskNoise.GetNoise((float)x, (float)z));
+
+            // Blend between base and ridged using the mask
+            float blend = smoothstep(0.3f, 0.7f, mask);
+            float height = mix(base, ridged, blend);
+
+            //float scaledHeight = height;
+            float scaledHeight = height * 2 + 20;
+            /*float scaledHeight = ((height + 1.0f) * (CHUNK_SIZE * CHUNK_SIZE));*/
             float treeHeight = randomFloat(5.0, 12.0), treeDistrib = rand();
 
             for (int y = 0; y < scaledHeight; y++) {
@@ -121,8 +158,8 @@ void generateBlocks(vec2 xyChunk, Chunk& repChunk) {
                 
                 //"Decorations"
 
-                if (cloudDensity < -0.55f) {
-                        repChunk.blockData[ivec3(x, CHUNK_SIZE * CHUNK_SIZE + 5 * CHUNK_SIZE, z)] = blockData(ivec3(x, CHUNK_SIZE * CHUNK_SIZE + 5 * CHUNK_SIZE, z), CLOUD);
+                if (cloudDensity < -0.85f) {
+                        repChunk.blockData[ivec3(x, CHUNK_SIZE * CHUNK_SIZE + 5 * CHUNK_SIZE - 1, z)] = blockData(ivec3(x, CHUNK_SIZE * CHUNK_SIZE + 5 * CHUNK_SIZE - 1, z), CLOUD);
                 }
 
                 if (blockType == GRASS_BLOCK) {
@@ -177,18 +214,9 @@ void generateBlocks(vec2 xyChunk, Chunk& repChunk) {
 bool isAir(Item item) { return item == AIR; }
 
 bool shouldEmitFace(vec2 xyChunk, Chunk& cd, int x, int y, int z, int dx, int dy, int dz) {
+    //return 1;
     int nx = x + dx, ny = y + dy, nz = z + dz;
     ivec3 checkPos = ivec3(nx, ny, nz);
-    if (nx == (xyChunk.x - 1) * CHUNK_SIZE || nz == (xyChunk.y - 1) * CHUNK_SIZE && world.chunkData.find(ivec2(nx / CHUNK_SIZE, nz / CHUNK_SIZE)) != world.chunkData.end() && world.chunkData[ivec2(nx / CHUNK_SIZE, nz / CHUNK_SIZE)].blockData[checkPos].blockType == AIR) {
-        return false;
-    }
-    //else if(nx == (xyChunk.x + 1) * CHUNK_SIZE || nz == (xyChunk.y + 1) * CHUNK_SIZE) {
-    //    if(world.chunkData.find(ivec2(nx / CHUNK_SIZE, nz / CHUNK_SIZE)) != world.chunkData.end() && 
-    //        (world.chunkData[ivec2((nx + 1) / CHUNK_SIZE, nz / CHUNK_SIZE)].blockData[checkPos].blockType == AIR ||
-    //            world.chunkData[ivec2(nx / CHUNK_SIZE, (nz + 1) / CHUNK_SIZE)].blockData[checkPos].blockType == AIR))
-    //    return true;
-    //}
-    //cout << world.chunkData[ivec2(checkPos.x, checkPos.z)].blockData[checkPos].blockType.id << endl;
     if (((nx <= xyChunk.x * CHUNK_SIZE || nz <= xyChunk.y * CHUNK_SIZE)              ||
           nx >= (xyChunk.x + 1) * CHUNK_SIZE || nz >= (xyChunk.y + 1) * CHUNK_SIZE)   &&
           dy == 0 &&
@@ -196,9 +224,11 @@ bool shouldEmitFace(vec2 xyChunk, Chunk& cd, int x, int y, int z, int dx, int dy
           cd.blockData[ivec3(x, y, z)].blockType == DIAMOND_ORE || 
           cd.blockData[ivec3(x, y, z)].blockType == IRON_ORE    ||
           cd.blockData[ivec3(x, y, z)].blockType == BEDROCK)) return false;
-    if (nx < xyChunk.x * CHUNK_SIZE - 10 || ny < -1 || nz < xyChunk.y * CHUNK_SIZE - 10 || nx >= (xyChunk.x + 1) * CHUNK_SIZE + 10 || ny >= CHUNK_SIZE * CHUNK_SIZE + 10 * CHUNK_SIZE || nz >= (xyChunk.y + 1) * CHUNK_SIZE + 10) return true;
-    checkPos = ivec3(nx, ny, nz);
-    return isAir(cd.blockData[checkPos].blockType) || cd.blockData[checkPos].blockType.isFlat;
+    if (nx < xyChunk.x * CHUNK_SIZE || ny < -1 || nz < xyChunk.y * CHUNK_SIZE || nx >= (xyChunk.x + 1) * CHUNK_SIZE || ny >= CHUNK_SIZE * CHUNK_SIZE + 10 * CHUNK_SIZE || nz >= (xyChunk.y + 1) * CHUNK_SIZE) return true;
+    return isAir(cd.blockData[checkPos].blockType)          ||
+           cd.blockData[checkPos].blockType.isFlat          ||
+           cd.blockData[checkPos].blockType == OAK_LEAVES   ||
+           cd.blockData[ivec3(x, y, z)].blockType == TORCH;
 }
 
 void emitFace(Mesh& m, int baseX, int baseY, int baseZ,
@@ -206,12 +236,23 @@ void emitFace(Mesh& m, int baseX, int baseY, int baseZ,
     // face: 0=-X,1=+X,2=-Z,3=+Z,4=+Z,5=-Z
     // Define 4 positions and normal per face
     static const glm::vec3 normals[6] = {
-        { 1, 0, 0}, {-1, 0, 0}, { 0, 1, 0}, { 0,-1, 0}, { 0, 0, -1}, { 0, 0,1}
+        {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, 1, 0}, { 0, -1, 0 }
     };
     glm::vec3 n = normals[face];
 
     glm::vec3 v[4];
-    if (!blockType.isFlat){
+    float diff = -0.045;
+    if (blockType == TORCH) {
+        switch (face) {
+            case 0: v[0] = { x + 0.4 - diff,y + 0,z + 0 }; v[1] = { x + 0.4 - diff,y + 1,z + 0 }; v[2] = { x + 0.4 - diff,y + 1,z + 1 }; v[3] = { x + 0.4 - diff,y + 0,z + 1 }; break; // -X
+            case 1: v[0] = { x + 0.615 + diff,y + 0,z + 0 }; v[1] = { x + 0.615 + diff,y + 1,z + 0 }; v[2] = { x + 0.615 + diff,y + 1,z + 1 }; v[3] = { x + 0.615 + diff,y + 0,z + 1 }; break; // +X
+            case 2: v[0] = { x + 0,y + 0,z + 0.4 - diff }; v[1] = { x + 0,y + 1,z + 0.4 - diff }; v[2] = { x + 1,y + 1,z + 0.4 - diff }; v[3] = { x + 1,y + 0,z + 0.4 - diff }; break; // -Z
+            case 3: v[0] = { x + 0,y + 0,z + 0.615 + diff }; v[1] = { x + 0,y + 1,z + 0.615 + diff }; v[2] = { x + 1,y + 1,z + 0.615 + diff }; v[3] = { x + 1,y + 0,z + 0.615 + diff }; break; // +Z
+            case 4: v[0] = { x + 0,y + 0,z + 1 }; v[1] = { x + 1,y + 0,z + 0 }; v[2] = { x + 1,y + 0,z + 1 }; v[3] = { x + 0,y + 0,z + 1 }; break; // -Y
+            case 5: v[0] = { x + 0,y + 1,z + 0 }; v[1] = { x + 1,y + 1,z + 0 }; v[2] = { x + 1,y + 1,z + 1 }; v[3] = { x + 0,y + 1,z + 1 }; break; // +Y
+        }
+    }
+    else if (!blockType.isFlat){
         switch (face) {
             case 0: v[0] = { x + 0,y + 0,z + 0 }; v[1] = { x + 0,y + 1,z + 0 }; v[2] = { x + 0,y + 1,z + 1 }; v[3] = { x + 0,y + 0,z + 1 }; break; // -X
             case 1: v[0] = { x + 1,y + 0,z + 0 }; v[1] = { x + 1,y + 1,z + 0 }; v[2] = { x + 1,y + 1,z + 1 }; v[3] = { x + 1,y + 0,z + 1 }; break; // +X
@@ -273,14 +314,14 @@ void meshChunk(vec2 xyChunk, Chunk& cd, Mesh& out) {
     out.verts.reserve(CHUNK_SIZE * (CHUNK_SIZE * CHUNK_SIZE) * CHUNK_SIZE * 24 * 8); // heuristic
     out.inds.reserve(CHUNK_SIZE * (CHUNK_SIZE * CHUNK_SIZE) * CHUNK_SIZE * 6 * 6);
 
-    for (int x = (xyChunk.x) * CHUNK_SIZE; x < (xyChunk.x + 1) * CHUNK_SIZE; ++x)
+    for (int x = (xyChunk.x) * CHUNK_SIZE - 1; x < (xyChunk.x + 1) * CHUNK_SIZE + 1; ++x)
         for (int y = -1; y < (CHUNK_SIZE * CHUNK_SIZE) + 5 * CHUNK_SIZE; ++y)
-            for (int z = (xyChunk.y) * CHUNK_SIZE; z < (xyChunk.y + 1) * CHUNK_SIZE; ++z) {
+            for (int z = (xyChunk.y) * CHUNK_SIZE - 1; z < (xyChunk.y + 1) * CHUNK_SIZE + 1; ++z) {
                 Item blockType = cd.blockData[ivec3(x, y, z)].blockType;
                 if (isAir(blockType)) continue;
 
                 float fx = float(x), fy = float(y), fz = float(z);
-                if (!blockType.isFlat)
+                if (!blockType.isFlat || blockType == TORCH)
                 {
                     if (shouldEmitFace(xyChunk, cd, x, y, z, -1, 0, 0)) emitFace(out, x, y, z, 0, blockType, fx, fy, fz);
                     if (shouldEmitFace(xyChunk, cd, x, y, z, +1, 0, 0)) emitFace(out, x, y, z, 1, blockType, fx, fy, fz);
@@ -366,7 +407,7 @@ std::thread chunkGenThread2([&]() {
             generateChunkAt(coord, newChunk);
         }
 
-        newChunk.coords = chunkCoords.back();
+        newChunk.coords = coord;
         newChunk.needUpdate = true;
         //cout << newChunk.blockNum << endl;
         {
@@ -439,3 +480,29 @@ std::thread blockPlaceThread([&]() {
         }
     }
     });
+
+
+void chunkWorker() {
+    while (chunkGenRunning) {
+        vec2 coord;
+        {
+            std::unique_lock<std::mutex> lock(queueMutex);
+            queueCV.wait(lock, [] { return !chunkRequestQueue.empty(); });
+            coord = chunkRequestQueue.front();
+            chunkRequestQueue.pop();
+        }
+
+        Chunk newChunk;
+        {
+            std::lock_guard<std::mutex> lock(queueMutex);
+            generateChunkAt(coord, newChunk);
+            newChunk.coords = coord;
+            newChunk.needUpdate = true;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(resultMutex);
+            chunkResultQueue.push(std::move(newChunk));
+        }
+    }
+}

@@ -1,4 +1,3 @@
-#pragma once
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
@@ -35,4 +34,5 @@
 #include "Camera.h"
 #include "Texture.h"
 #include "FastNoiseLite.h"
-#include "Light.h"
+#include "DirectionalLight.h"
+#include "PointLight.h"

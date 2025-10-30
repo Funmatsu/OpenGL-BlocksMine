@@ -15,7 +15,7 @@ bool contains(vector<vec2> vec, vec2 value) {
     return std::find(vec.begin(), vec.end(), value) != vec.end();
 }
 
-Camera camera = Camera(vec3(CHUNK_SIZE / 2, CHUNK_SIZE * CHUNK_SIZE + 5, CHUNK_SIZE / 2), vec3(0.0f, 1.0f, 0.0f), 0.0f, 0.0f, 2.5f, 0.5f);
+Camera camera = Camera(vec3(CHUNK_SIZE / 2, CHUNK_SIZE / 2, CHUNK_SIZE / 2), vec3(0.0f, 1.0f, 0.0f), 0.0f, 0.0f, 2.5f, 0.5f);
 int xdimens = 5, ydimens = 5;
 int xdimensItem = 2, ydimensItem = 2;
 
@@ -34,35 +34,36 @@ class World {
 
     Block createMeshCube(vec3 blockPos, float scale, Item blockType);
 
-    void createCube(vec3 blockPos, Item blockType);
+    void createItem(vec3 blockPos, Item blockType);
 
     void deleteBlockFromWorld(vec3 blockPos);
 
     void delBlocklook_at();
 
-    void addBlocklook_at(Item blockType);
+    vec3 addBlocklook_at(Item blockType);
 };
 
 World world;
-bool inv_change;
-int slot = 0;
-float slotX = 0.0f, slotY = 0.0f;
-
 
 
 //.cpp part-----------------------------------------------------------------------------------------------------------------------
 
 Block World::getBlockAt(vec3 blockPos) {
-    ivec2 chunkPos = ivec2(blockPos.x / CHUNK_SIZE, blockPos.z / CHUNK_SIZE);
+    ivec2 chunkPos = ivec2(floor(blockPos.x / CHUNK_SIZE), floor(blockPos.z / CHUNK_SIZE));
     return Block(blockPos, world.chunkData[chunkPos].blockData[blockPos].blockType, {}, {});
+}
+
+inline int floorDiv(float a, float b) {
+    return (a >= 0) ? int(a / b) : int((a - b + 1) / b);
 }
 
 bool blockExistsAt(ivec3 blockPos) {
     if (world.chunkData.empty()) return false;
 
-    ivec2 chunkCoord(blockPos.x / CHUNK_SIZE, blockPos.z / CHUNK_SIZE);
+    ivec2 chunkCoord = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
     auto chunkIt = world.chunkData.find(chunkCoord);
     if (chunkIt == world.chunkData.end()) return false;
+    
 
     const auto& blockMap = chunkIt->second.blockData;
     return (blockMap.find(blockPos) != blockMap.end());
@@ -79,7 +80,7 @@ vec3 lookingAtBlock() {
     for (float t = 0.0f; t < maxDistance; t += stepSize) {
         glm::vec3 point = rayOrigin + rayDir * t;
         blockPos = glm::floor(point);
-        ivec2 chunkPos = ivec2(blockPos.x / CHUNK_SIZE, blockPos.z / CHUNK_SIZE);
+        ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
         if (blockExistsAt(blockPos) &&
             world.chunkData[chunkPos].blockData[blockPos].blockType != AIR) {
             return blockPos;
@@ -89,92 +90,16 @@ vec3 lookingAtBlock() {
 }
 
 void World::addChunk(Chunk newChunk, ivec2 xyChunk) {
-    chunkData[ivec2(xyChunk)] = newChunk;
+    chunkData[ivec2(xyChunk)] = move(newChunk);
 }
 
-//void World::addBlockToWorld(vec3 position, vector<float> vertices, vector<unsigned int> indices, int vertNum, int indNum, Item blockType) {
-//    for (int i = 0; i < vertNum; i++) {
-//        chunks[chunks.size() - 1].vertices.push_back(vertices[i]);
-//    }
-//    for (int i = 0; i < indNum; i++) {
-//        chunks[chunks.size() - 1].indices.push_back(indices[i]);
-//    }
-//    chunks[chunks.size() - 1].needUpdate = true;
-//    Block newBlock(position, blockType, vertices, indices);
-//    chunks.back().blocks.push_back(newBlock);
-//    chunks.back().addBlock(newBlock);
-//}
-
-//void World::addBlockToWorld(Block block) {
-//    chunks.back().vertices.insert(chunks.back().vertices.end(), block.vertices.begin(), block.vertices.end());
-//    chunks.back().indices.insert(chunks.back().indices.end(), block.indices.begin(), block.indices.end());
-//    chunks.back().addBlock(block);
-//    chunks.back().needUpdate = true;
-//}
-
-//void World::deleteBlockFromWorld(vec3 blockPos) {
-//    for (int k = 0; k < chunks.size(); k++) {
-//        int blockVertNums = 0;
-//        bool blockBroken = false;
-//        for (int i = 0; i < chunks[k].blocks.size(); i++) {
-//            if (chunks[k].blocks[i].position == blockPos) {
-//
-//                for (int m = 0; m < 4; m++) {
-//                    for (int l = 0; l < 9; l++) {
-//                        if (inventory.inv_slots[3 - m][l] == AIR) {
-//                            inventory.inv_slots[3 - m][l] = chunks[k].blocks[i].type;
-//                            inv_change = true;
-//                            blockBroken = true;
-//                            break;
-//                        }
-//                    }
-//                    if (blockBroken) {
-//                        break;
-//                    }
-//                }
-//
-//                chunks[k].vertices.erase(chunks[k].vertices.begin() + blockVertNums, chunks[k].vertices.begin() + blockVertNums + chunks[k].blocks[i].vertices.size());
-//                chunks[k].blocks.erase(chunks[k].blocks.begin() + i);
-//
-//                chunks[k].needUpdate = true;
-//                return;
-//            }
-//            blockVertNums += chunks[k].blocks[i].vertices.size();
-//        }
-//    }
-//    worldBlocks.erase(ivec3(floor(blockPos)));
-//}
-
-//void World::deleteBlockFromWorld(vec3 blockPos) {
-//    for (int k = 0; k < chunks.size(); k++) {
-//        if (chunks[k].blockData.find(blockPos) != chunks[k].blockData.end()) {
-//            chunks[k].blockData[blockPos].blockType = AIR;
-//            chunks[k].needUpdate = true;
-//
-//            return;
-//        }
-//    }
-//}
-
 void World::deleteBlockFromWorld(vec3 blockPos) {
-    ivec2 chunkPos = ivec2(blockPos.x / CHUNK_SIZE, blockPos.z / CHUNK_SIZE);
+    ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
     if (chunkData[chunkPos].blockData[blockPos].blockType.isBreakable) {
-        bool blockBroken = false;
-        for (int m = 0; m < 4; m++) {
-            for (int l = 0; l < 9; l++) {
-                if (inventory.inv_slots[3 - m][l] == AIR) {
-                    inventory.inv_slots[3 - m][l] = chunkData[chunkPos].blockData[blockPos].blockType;
-                    inv_change = true;
-                    blockBroken = true;
-                    break;
-                }
-            }
-            if (blockBroken) {
-                break;
-            }
-        }
+        inventory.assignAvailableSlot(chunkData[chunkPos].blockData[blockPos].blockType);
+        chunkData[chunkPos].blockData[blockPos].blockType.deassignLight(pointLights, blockPos);
         chunkData[chunkPos].blockData[blockPos].blockType = AIR;
-
+        
         updateChunk(chunkPos);
     }
 }
@@ -193,57 +118,17 @@ Mesh World::createMeshCube(float x, float y, float z, float scale, Item blockTyp
     vector<GLfloat> normals;
     if (!recipe.isTool(blockType)) {
 
-        if (blockType == GRASS_BLOCK) {
-            xoffset = 0, yoffset = 2; xoffsetTop = 2; yoffsetTop = 0; xoffsetBottom = 2; yoffsetBottom = 2;
-        }
+        float UVs[7];
+        getUVs(blockType, UVs);
+        float xoffset = UVs[0],
+            yoffset = UVs[1],
+            xoffsetTop = UVs[2],
+            yoffsetTop = UVs[3],
+            xoffsetBottom = UVs[4],
+            yoffsetBottom = UVs[5],
+            transparency = UVs[6];
 
-        else if (blockType == IRON_ORE) {
-            xoffset = 1; yoffset = 1 + arbitraryoff;
-        }
-
-        else if (blockType == STONE_BLOCK) {
-            xoffset = 1; yoffset = 2;
-        }
-
-        else if (blockType == DIRT_BLOCK) {
-            xoffset = 2; yoffset = 0;
-        }
-
-        else if (blockType == OAK_WOOD) {
-            xoffset = 2, yoffset = 1; xoffsetTop = -2; yoffsetTop = 2; xoffsetBottom = -2; yoffsetBottom = 2;
-        }
-
-        else if (blockType == CLOUD) {
-            xoffset = 1, yoffset = 0, transparency = 0.75f;
-        }
-
-        else if (blockType == OAK_PLANK) {
-            xoffset = 3, yoffset = 0;
-        }
-
-        else if (blockType == OAK_LEAVES) {
-            xoffset = 0, yoffset = 0;
-        }
-
-        else if (blockType == GRASS) {
-            xoffset = 3, yoffset = 1; xoffsetTop = 0, xoffsetBottom = 0; yoffsetTop = 1, yoffsetBottom = 1;
-        }
-
-        else if (blockType == POPPY) {
-            xoffset = 3, yoffset = 2; xoffsetTop = 0, xoffsetBottom = 0; yoffsetTop = 1, yoffsetBottom = 1;
-        }
-
-        else if (blockType == CRAFTING_TABLE) {
-            xoffset = 2; yoffset = 3; xoffsetTop = -1, xoffsetBottom = 1; yoffsetTop = 0, yoffsetBottom = -3;
-        }
-
-        else if (blockType == BLUE_ORCHID) {
-            xoffset = 0, yoffset = 4;
-        }
-
-        else if (blockType == BEDROCK) {
-            xoffset = 4, yoffset = 0;
-        }
+        float clipX = 0.03f, clipY = 0.97f;
 
         indices = {
             0,  1,  2,
@@ -259,7 +144,6 @@ Mesh World::createMeshCube(float x, float y, float z, float scale, Item blockTyp
             30, 31, 32,
             33, 34, 35
         };
-        float clipX = 0.03f, clipY = 0.97f;
         globalUVs =
         {
             (clipX + xoffset) / xdimens,                   (clipX + yoffset) / ydimens, transparency,
@@ -394,6 +278,16 @@ Mesh World::createMeshCube(float x, float y, float z, float scale, Item blockTyp
         };
 
         if (blockType == GRASS || blockType == POPPY) {
+            float UVs[7];
+            getUVs(blockType, UVs);
+            float xoffset = UVs[0],
+                yoffset = UVs[1],
+                xoffsetTop = UVs[2],
+                yoffsetTop = UVs[3],
+                xoffsetBottom = UVs[4],
+                yoffsetBottom = UVs[5],
+                transparency = UVs[6];
+
             indices = {
                 0 , 1 , 2 ,
                 3 , 4 , 5 
@@ -589,10 +483,12 @@ Block World::createMeshCube(vec3 blockPos, float scale, Item blockType) {
     return returnBlock;
 }
 
-void World::createCube(vec3 blockPos, Item blockType) {
-    ivec2 chunkPos = ivec2(blockPos.x / CHUNK_SIZE, blockPos.z / CHUNK_SIZE);
+void World::createItem(vec3 blockPos, Item blockType) {
+    ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
     chunkData[chunkPos].blockData[blockPos] = blockData(blockPos, blockType);
     updateChunk(chunkPos);
+
+    chunkData[chunkPos].blockData[blockPos].blockType.assignLight(pointLights, blockPos);
 }
 
 bool isAir(Item item);
@@ -644,9 +540,9 @@ void World::delBlocklook_at() {
     deleteBlockFromWorld(blockPos);
 }
 
-void World::addBlocklook_at(Item blockType) {
+vec3 World::addBlocklook_at(Item blockType) {
     if (recipe.isTool(blockType)) {
-        return;
+        return vec3(-404.0f);
     }
     ivec3 blockPos = vec3(0.0f);
     glm::vec3 rayDir;
@@ -658,11 +554,12 @@ void World::addBlocklook_at(Item blockType) {
     for (float t = 0.0f; t < maxDistance; t += stepSize) {
         glm::vec3 point = rayOrigin + rayDir * t;
         blockPos = glm::floor(point);
-        ivec2 chunkPos = ivec2(blockPos.x / CHUNK_SIZE, blockPos.z / CHUNK_SIZE);
+        ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
         if (blockExistsAt(blockPos) &&
             world.chunkData[chunkPos].blockData[blockPos].blockType != AIR &&
             blockType.isPlaceable) {
-            createCube(floor(point - rayDir * stepSize), blockType);
+            createItem(floor(point - rayDir * stepSize), blockType);
+            return floor(point - rayDir * stepSize);
         }
     }
 }

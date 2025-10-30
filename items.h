@@ -31,6 +31,7 @@ public:
 	bool isTool;
 	bool isBreakable;
 	bool isFlat;
+	int isLuminous;
 
 	Item() {
 		id = 0;
@@ -39,6 +40,16 @@ public:
 		isTool = 0;
 		isBreakable = 0;
 		isFlat = 0;
+		isLuminous = 0;
+	}
+	~Item() {
+		id = 0;
+		isPlaceable = 0;
+		isUsable = 0;
+		isTool = 0;
+		isBreakable = 0;
+		isFlat = 0;
+		isLuminous = 0;
 	}
 	Item(int item_id, bool placeable, bool useable, bool toolable, bool breakable) {
 		id = item_id;
@@ -47,6 +58,7 @@ public:
 		isTool = toolable;
 		isBreakable = breakable;
 		isFlat = 0;
+		isLuminous = 0;
 	}
 
 	Item(int item_id, bool placeable, bool useable, bool toolable, bool breakable, bool flatable) {
@@ -56,6 +68,38 @@ public:
 		isTool = toolable;
 		isBreakable = breakable;
 		isFlat = flatable;
+		isLuminous = 0;
+	}
+
+	Item(int item_id, bool placeable, bool useable, bool toolable, bool breakable, bool flatable, int luminable) {
+		id = item_id;
+		isPlaceable = placeable;
+		isUsable = useable;
+		isTool = toolable;
+		isBreakable = breakable;
+		isFlat = flatable;
+		isLuminous = luminable;
+	}
+
+	void assignLuminousId(unsigned int& id) {
+		isLuminous = ++id;
+	}
+
+	void assignLight(PointLight* pLight, vec3 position) {		
+		if (isLuminous) {
+			pLight[pointLightCount] = PointLight(1.0f, 0.9f, 0.2f,
+				1.0f, 0.5f,
+				position.x + 0.5, position.y + 1.25, position.z + 0.5,
+				0.2, 0.1f, 0.05f);
+			assignLuminousId(pointLightCount);
+		}
+	}
+
+	void deassignLight(PointLight* pLight, vec3 position) {
+		pLight[pointLightCount] = PointLight();
+		if (isLuminous) {
+			pointLightCount--;
+		}
 	}
 
 	bool operator==(const Item& item) {
@@ -73,6 +117,7 @@ public:
 		isTool = item.isTool;
 		isBreakable = item.isBreakable;
 		isFlat = item.isFlat;
+		isLuminous = item.isLuminous;
 	}
 };
 
@@ -92,9 +137,10 @@ Item GRASS				(12, 1, 0, 0, 1, 1);
 
 Item CRAFTING_TABLE		(13, 1, 1, 0, 1);
 Item BEDROCK			(14, 1, 0, 0, 0);
+Item TORCH				(15, 1, 0, 0, 1, 1, 1);
 
-Item WOODEN_PICKAXE		(15, 1, 0, 1, 1);
-Item STICK				(16, 1, 0, 1, 1);
+Item WOODEN_PICKAXE		(16, 1, 0, 1, 1);
+Item STICK				(17, 1, 0, 1, 1);
 
 vector<Item> items{
 	AIR,
@@ -112,6 +158,7 @@ vector<Item> items{
 	GRASS,
 	CRAFTING_TABLE,
 	BEDROCK,
+	TORCH,
 	WOODEN_PICKAXE,
 	STICK
 };
@@ -128,7 +175,7 @@ void getUVs(Item blockType, float* attrs) {
 	}
 
 	else if (blockType == GRASS_BLOCK) {
-		attrs[0] = 0, attrs[1] = 2; attrs[2] = 2; attrs[3] = 0; attrs[4] = 2; attrs[5] = 2;
+		attrs[0] = 0, attrs[1] = 2; attrs[2] = 2; attrs[3] = 0; attrs[4] = 2; attrs[5] = -2;
 	}
 
 	else if (blockType == IRON_ORE) {
@@ -148,7 +195,7 @@ void getUVs(Item blockType, float* attrs) {
 	}
 
 	else if (blockType == CLOUD) {
-		attrs[0] = 1, attrs[1] = 0, attrs[6] = 0.25f;
+		attrs[0] = 1, attrs[1] = 0, attrs[6] = 0.5f;
 	}
 
 	else if (blockType == OAK_PLANK) {
@@ -177,5 +224,9 @@ void getUVs(Item blockType, float* attrs) {
 
 	else if (blockType == CRAFTING_TABLE) {
 		attrs[0] = 2, attrs[1] = 3; attrs[2] = -1; attrs[3] = 0; attrs[4] = 1; attrs[5] = -3;
+	}
+
+	else if (blockType == TORCH) {
+		attrs[0] = 4, attrs[1] = 1; attrs[2] = 0; attrs[3] = 1; attrs[4] = 0; attrs[5] = 1;
 	}
 }
