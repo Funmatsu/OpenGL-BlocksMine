@@ -21,6 +21,7 @@
 #include <atomic>
 
 #include <unordered_map>
+#include <unordered_set>
 #include <functional>
 #include <cstdint>
 #include <cstddef>

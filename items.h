@@ -88,7 +88,7 @@ public:
 	void assignLight(PointLight* pLight, vec3 position) {		
 		if (isLuminous) {
 			pLight[pointLightCount] = PointLight(1.0f, 0.9f, 0.2f,
-				1.0f, 0.5f,
+				1.0f, 0.2f,
 				position.x + 0.5, position.y + 1.25, position.z + 0.5,
 				0.2, 0.1f, 0.05f);
 			assignLuminousId(pointLightCount);
@@ -195,7 +195,7 @@ void getUVs(Item blockType, float* attrs) {
 	}
 
 	else if (blockType == CLOUD) {
-		attrs[0] = 1, attrs[1] = 0, attrs[6] = 0.5f;
+		attrs[0] = 1, attrs[1] = 0, attrs[6] = 0.75f;
 	}
 
 	else if (blockType == OAK_PLANK) {

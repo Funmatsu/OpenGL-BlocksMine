@@ -66,19 +66,14 @@ public:
     Mesh mesh;
     vector<float> vertices;
     vector<unsigned int> indices;
-    unsigned int blockIds = 0;
     unsigned int indexOffset = 0;
     bool needUpdate = false;
     vec2 coords;
-    vector<Block> blocks;
     unordered_map<glm::ivec3, blockData, ivec3_hash, ivec3_eq> blockData;
-    //vector<Item> blocks;
-    unordered_map<glm::ivec3, Face, ivec3_hash, ivec3_eq> faces;
 
     void addBlock(Block block) {
         {
             std::lock_guard<std::mutex> lk(worldBlocksMutex);
-            blocks.push_back(block);
             glm::ivec3 key = block.position;
 
             //worldBlocks[key] = block;
@@ -97,12 +92,9 @@ public:
         mesh = chunk.mesh;
         vertices = chunk.vertices;
         indices = chunk.indices;
-        //blockIds = chunk.blockIds;
         indexOffset = chunk.indexOffset;
         needUpdate = true;
         coords = chunk.coords;
-        //blocks = chunk.blocks;
-        //faces = chunk.faces;
-        blockData = move(chunk.blockData);
+        blockData = chunk.blockData;
     }
 };

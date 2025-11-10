@@ -24,7 +24,7 @@ class World {
     //vector<Chunk> chunks;
     unordered_map<glm::ivec2, Chunk, ivec2_hash, ivec2_eq> chunkData;
 
-    Block getBlockAt(vec3 blockPos);
+    Block getBlockAt(ivec3 blockPos);
 
     void addChunk(Chunk newChunk, ivec2 xyChunk);
 
@@ -32,7 +32,7 @@ class World {
 
     Mesh createMeshCube(float x, float y, float z, float scale, Item blockType);
 
-    Block createMeshCube(vec3 blockPos, float scale, Item blockType);
+    Block createMeshCube(ivec3 blockPos, float scale, Item blockType);
 
     void createItem(vec3 blockPos, Item blockType);
 
@@ -48,7 +48,7 @@ World world;
 
 //.cpp part-----------------------------------------------------------------------------------------------------------------------
 
-Block World::getBlockAt(vec3 blockPos) {
+Block World::getBlockAt(ivec3 blockPos) {
     ivec2 chunkPos = ivec2(floor(blockPos.x / CHUNK_SIZE), floor(blockPos.z / CHUNK_SIZE));
     return Block(blockPos, world.chunkData[chunkPos].blockData[blockPos].blockType, {}, {});
 }
@@ -70,7 +70,7 @@ bool blockExistsAt(ivec3 blockPos) {
 }
 
 vec3 lookingAtBlock() {
-    ivec3 blockPos = vec3(0.0f);
+    ivec3 blockPos = ivec3(0.0f);
     glm::vec3 rayDir;
     glm::vec3 rayOrigin = camera.getCameraPos();
     rayDir = normalize(camera.getCameraFront());
@@ -83,6 +83,7 @@ vec3 lookingAtBlock() {
         ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
         if (blockExistsAt(blockPos) &&
             world.chunkData[chunkPos].blockData[blockPos].blockType != AIR) {
+            //cout << blockPos.x << blockPos.z << endl;
             return blockPos;
         }
     }
@@ -384,7 +385,7 @@ Mesh World::createMeshCube(float x, float y, float z, float scale, Item blockTyp
     return cubeMesh;
 }
 
-Block World::createMeshCube(vec3 blockPos, float scale, Item blockType) {
+Block World::createMeshCube(ivec3 blockPos, float scale, Item blockType) {
     float UVs[7] = { 1, 0, 0, 0, 0, 0, 1 };
     if (!blockType.isFlat)
         getUVs(blockType, UVs);
@@ -534,7 +535,8 @@ void World::updateChunk(const ivec2& chunkCoord) {
 
 void World::delBlocklook_at() {
     ivec3 blockPos = lookingAtBlock();
-    if (!recipe.isBreakable(world.chunkData[ivec2(blockPos.x / CHUNK_SIZE, blockPos.z / CHUNK_SIZE)].blockData[blockPos].blockType) || blockPos.x == 404.0f) {
+    ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
+    if (!recipe.isBreakable(world.chunkData[chunkPos].blockData[blockPos].blockType) || blockPos.x == 404.0f) {
         return;
     }
     deleteBlockFromWorld(blockPos);

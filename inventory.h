@@ -20,13 +20,16 @@ public:
                 if (inv_slots[3 - m][l] == AIR) {
                     inv_slots[3 - m][l] = replaceItem;
                     inv_change = true;
-                    blockBroken = true;
-                    break;
+                    return;
                 }
             }
-            if (blockBroken) {
-                break;
-            }
+        }
+    }
+    void deassignInvSlot(int x, int y) {
+        if (inv_slots[y][x] != AIR) {
+            inv_slots[y][x] = AIR;
+            currInvSlot[y][x].clearMesh();
+            inv_change = true;
         }
     }
 };

@@ -145,7 +145,7 @@
     <ClCompile Include="general_variables.h" />
     <ClCompile Include="Light.cpp" />
     <ClCompile Include="Mesh.cpp" />
-    <ClCompile Include="OpenGL_Udemy.cpp" />
+    <ClCompile Include="glBlocksMines.cpp" />
     <ClCompile Include="PointLight.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="Sky.cpp" />

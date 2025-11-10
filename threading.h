@@ -4,7 +4,8 @@
 #include "normals.h"
 #include "inventory.h"
 
-vector<vec2> chunkCoords;
+//vector<vec2> chunkCoords;
+std::unordered_set<ivec2, ivec2_hash> chunkCoords;
 
 std::queue<vec2> chunkRequestQueue;
 std::mutex queueMutex;
@@ -113,8 +114,11 @@ void generateBlocks(vec2 xyChunk, Chunk& repChunk) {
 
     float cloudDensity = 0;
     float density = 0;
-    for (int x = (xyChunk.x) * CHUNK_SIZE; x < (xyChunk.x + 1) * CHUNK_SIZE; x++) {
-        for (int z = (xyChunk.y) * CHUNK_SIZE; z < (xyChunk.y + 1) * CHUNK_SIZE; z++) {
+
+    for (int x = (xyChunk.x) * CHUNK_SIZE - 1; x < (xyChunk.x + 1) * CHUNK_SIZE + 1; x++) {
+        for (int z = (xyChunk.y) * CHUNK_SIZE - 1; z < (xyChunk.y + 1) * CHUNK_SIZE + 1; z++) {
+            if (x != (xyChunk.x) * CHUNK_SIZE - 1 && x != (xyChunk.x + 1) * CHUNK_SIZE + 1
+                && z != (xyChunk.y) * CHUNK_SIZE - 1 && z != (xyChunk.y + 1) * CHUNK_SIZE + 1)
             repChunk.blockData[ivec3(x, -1, z)] = blockData(ivec3(x, -1, z), BEDROCK);
             auto norm = [](float n) { return n * 0.5f + 0.5f; };
             float base = norm(baseNoise.GetNoise((float)x, (float)z)) * 10.0f;
@@ -126,12 +130,16 @@ void generateBlocks(vec2 xyChunk, Chunk& repChunk) {
             float height = mix(base, ridged, blend);
 
             //float scaledHeight = height;
-            float scaledHeight = height * 2 + 20;
+            float scaledHeight = height * 2 + 40;
             /*float scaledHeight = ((height + 1.0f) * (CHUNK_SIZE * CHUNK_SIZE));*/
             float treeHeight = randomFloat(5.0, 12.0), treeDistrib = rand();
-
+            
             for (int y = 0; y < scaledHeight; y++) {
-                
+                if (x == (xyChunk.x) * CHUNK_SIZE - 1 || x == (xyChunk.x + 1) * CHUNK_SIZE + 1
+                    || z == (xyChunk.y) * CHUNK_SIZE - 1 || z == (xyChunk.y + 1) * CHUNK_SIZE + 1) {
+                    repChunk.blockData.insert({ ivec3(x, y, z), blockData(ivec3(x, y, z), AIR) });
+                    continue;
+                }
                 if (y >= scaledHeight - 1) {
                     blockType = GRASS_BLOCK;
                 }
@@ -154,16 +162,18 @@ void generateBlocks(vec2 xyChunk, Chunk& repChunk) {
                 if (density < -0.4f) {
                     continue;
                 }
-                    repChunk.blockData.insert({ ivec3(x, y, z), blockData(ivec3(x, y, z), blockType) });
+                repChunk.blockData.insert({ ivec3(x, y, z), blockData(ivec3(x, y, z), blockType) });
                 
                 //"Decorations"
 
                 if (cloudDensity < -0.85f) {
-                        repChunk.blockData[ivec3(x, CHUNK_SIZE * CHUNK_SIZE + 5 * CHUNK_SIZE - 1, z)] = blockData(ivec3(x, CHUNK_SIZE * CHUNK_SIZE + 5 * CHUNK_SIZE - 1, z), CLOUD);
+                    repChunk.blockData[ivec3(x, CHUNK_SIZE * CHUNK_SIZE + 5 * CHUNK_SIZE - 1, z)] = blockData(ivec3(x, CHUNK_SIZE * CHUNK_SIZE + 5 * CHUNK_SIZE - 1, z), CLOUD);
                 }
 
                 if (blockType == GRASS_BLOCK) {
                     // Making the trees and leaves
+                    if (x >= (xyChunk.x + 1) * CHUNK_SIZE || x <= (xyChunk.x) * CHUNK_SIZE ||
+                        z >= (xyChunk.y + 1) * CHUNK_SIZE || z <= (xyChunk.y) * CHUNK_SIZE) { goto notree; }
                     if (treeDistrib > 0.0 && treeDistrib <= 150) {
 
                         for (int i = y + 1; i < y + treeHeight; i++) {
@@ -188,21 +198,21 @@ void generateBlocks(vec2 xyChunk, Chunk& repChunk) {
                         }
                     }                    
                 }
-
+                notree: // No trees should be created if they are near the chunks border
                 float randomNumberForGrass = rand(), randomNumberForPoppy = rand(), randomNumberForOrchid = rand();
                 if (blockType == GRASS_BLOCK && blockType != OAK_WOOD) {
                     if (randomNumberForGrass < 2000.0) {
-                        repChunk.blockData[ivec3(x, scaledHeight + 1, z)] = blockData(ivec3(x, scaledHeight + 1, z), GRASS);
+                        repChunk.blockData.insert(make_pair(ivec3(x, scaledHeight + 1, z), blockData(ivec3(x, scaledHeight + 1, z), GRASS)));
                         break;
                     }
 
                     if (randomNumberForPoppy < 500.0) {
-                        repChunk.blockData[ivec3(x, scaledHeight + 1, z)] = blockData(ivec3(x, scaledHeight + 1, z), POPPY);
+                        repChunk.blockData.insert(make_pair(ivec3(x, scaledHeight + 1, z), blockData(ivec3(x, scaledHeight + 1, z), POPPY)));
                         break;
                     }
 
                     if (randomNumberForOrchid < 200.0) {
-                        repChunk.blockData[ivec3(x, scaledHeight + 1, z)] = blockData(ivec3(x, scaledHeight + 1, z), BLUE_ORCHID);
+                        repChunk.blockData.insert(make_pair(ivec3(x, scaledHeight + 1, z), blockData(ivec3(x, scaledHeight + 1, z), BLUE_ORCHID)));
                         break;
                     }
                 }
@@ -216,19 +226,15 @@ bool isAir(Item item) { return item == AIR; }
 bool shouldEmitFace(vec2 xyChunk, Chunk& cd, int x, int y, int z, int dx, int dy, int dz) {
     //return 1;
     int nx = x + dx, ny = y + dy, nz = z + dz;
-    ivec3 checkPos = ivec3(nx, ny, nz);
-    if (((nx <= xyChunk.x * CHUNK_SIZE || nz <= xyChunk.y * CHUNK_SIZE)              ||
-          nx >= (xyChunk.x + 1) * CHUNK_SIZE || nz >= (xyChunk.y + 1) * CHUNK_SIZE)   &&
-          dy == 0 &&
-         (cd.blockData[ivec3(x, y, z)].blockType == STONE_BLOCK ||
-          cd.blockData[ivec3(x, y, z)].blockType == DIAMOND_ORE || 
-          cd.blockData[ivec3(x, y, z)].blockType == IRON_ORE    ||
-          cd.blockData[ivec3(x, y, z)].blockType == BEDROCK)) return false;
-    if (nx < xyChunk.x * CHUNK_SIZE || ny < -1 || nz < xyChunk.y * CHUNK_SIZE || nx >= (xyChunk.x + 1) * CHUNK_SIZE || ny >= CHUNK_SIZE * CHUNK_SIZE + 10 * CHUNK_SIZE || nz >= (xyChunk.y + 1) * CHUNK_SIZE) return true;
+    ivec3 checkPos = ivec3(nx, ny, nz), blockPos = ivec3(x, y, z);
+    //if (cd.blockData[checkPos].blockType == OAK_WOOD) return true;
+    if (((nx <= xyChunk.x * CHUNK_SIZE - 1 || nz <= xyChunk.y * CHUNK_SIZE - 1)              ||
+          nx >= (xyChunk.x + 1) * CHUNK_SIZE + 1 || nz >= (xyChunk.y + 1) * CHUNK_SIZE + 1) && cd.blockData[checkPos].blockType != OAK_LEAVES) return false;
+    //if (nx < xyChunk.x * CHUNK_SIZE || ny < -1 || nz < xyChunk.y * CHUNK_SIZE || nx >= (xyChunk.x + 1) * CHUNK_SIZE || ny >= CHUNK_SIZE * CHUNK_SIZE + 10 * CHUNK_SIZE || nz >= (xyChunk.y + 1) * CHUNK_SIZE) return true;
     return isAir(cd.blockData[checkPos].blockType)          ||
            cd.blockData[checkPos].blockType.isFlat          ||
            cd.blockData[checkPos].blockType == OAK_LEAVES   ||
-           cd.blockData[ivec3(x, y, z)].blockType == TORCH;
+           cd.blockData[ivec3(x, y, z)].blockType == TORCH  ;
 }
 
 void emitFace(Mesh& m, int baseX, int baseY, int baseZ,
@@ -241,13 +247,13 @@ void emitFace(Mesh& m, int baseX, int baseY, int baseZ,
     glm::vec3 n = normals[face];
 
     glm::vec3 v[4];
-    float diff = -0.045;
+    float torchdiff = -0.045;
     if (blockType == TORCH) {
         switch (face) {
-            case 0: v[0] = { x + 0.4 - diff,y + 0,z + 0 }; v[1] = { x + 0.4 - diff,y + 1,z + 0 }; v[2] = { x + 0.4 - diff,y + 1,z + 1 }; v[3] = { x + 0.4 - diff,y + 0,z + 1 }; break; // -X
-            case 1: v[0] = { x + 0.615 + diff,y + 0,z + 0 }; v[1] = { x + 0.615 + diff,y + 1,z + 0 }; v[2] = { x + 0.615 + diff,y + 1,z + 1 }; v[3] = { x + 0.615 + diff,y + 0,z + 1 }; break; // +X
-            case 2: v[0] = { x + 0,y + 0,z + 0.4 - diff }; v[1] = { x + 0,y + 1,z + 0.4 - diff }; v[2] = { x + 1,y + 1,z + 0.4 - diff }; v[3] = { x + 1,y + 0,z + 0.4 - diff }; break; // -Z
-            case 3: v[0] = { x + 0,y + 0,z + 0.615 + diff }; v[1] = { x + 0,y + 1,z + 0.615 + diff }; v[2] = { x + 1,y + 1,z + 0.615 + diff }; v[3] = { x + 1,y + 0,z + 0.615 + diff }; break; // +Z
+            case 0: v[0] = { x + 0.4 - torchdiff,y + 0,z + 0 }; v[1] = { x + 0.4 - torchdiff,y + 1,z + 0 }; v[2] = { x + 0.4 - torchdiff,y + 1,z + 1 }; v[3] = { x + 0.4 - torchdiff,y + 0,z + 1 }; break; // -X
+            case 1: v[0] = { x + 0.615 + torchdiff,y + 0,z + 0 }; v[1] = { x + 0.615 + torchdiff,y + 0,z + 1 }; v[2] = { x + 0.615 + torchdiff,y + 1,z + 1 }; v[3] = { x + 0.615 + torchdiff,y + 1,z + 0 }; break; // +X
+            case 2: v[0] = { x + 0,y + 0,z + 0.4 - torchdiff }; v[1] = { x + 1,y + 0,z + 0.4 - torchdiff }; v[2] = { x + 1,y + 1,z + 0.4 - torchdiff }; v[3] = { x + 0,y + 1,z + 0.4 - torchdiff }; break; // -Z
+            case 3: v[0] = { x + 0,y + 0,z + 0.615 + torchdiff }; v[1] = { x + 0,y + 1,z + 0.615 + torchdiff }; v[2] = { x + 1,y + 1,z + 0.615 + torchdiff }; v[3] = { x + 1,y + 0,z + 0.615 + torchdiff }; break; // +Z
             case 4: v[0] = { x + 0,y + 0,z + 1 }; v[1] = { x + 1,y + 0,z + 0 }; v[2] = { x + 1,y + 0,z + 1 }; v[3] = { x + 0,y + 0,z + 1 }; break; // -Y
             case 5: v[0] = { x + 0,y + 1,z + 0 }; v[1] = { x + 1,y + 1,z + 0 }; v[2] = { x + 1,y + 1,z + 1 }; v[3] = { x + 0,y + 1,z + 1 }; break; // +Y
         }
@@ -255,10 +261,10 @@ void emitFace(Mesh& m, int baseX, int baseY, int baseZ,
     else if (!blockType.isFlat){
         switch (face) {
             case 0: v[0] = { x + 0,y + 0,z + 0 }; v[1] = { x + 0,y + 1,z + 0 }; v[2] = { x + 0,y + 1,z + 1 }; v[3] = { x + 0,y + 0,z + 1 }; break; // -X
-            case 1: v[0] = { x + 1,y + 0,z + 0 }; v[1] = { x + 1,y + 1,z + 0 }; v[2] = { x + 1,y + 1,z + 1 }; v[3] = { x + 1,y + 0,z + 1 }; break; // +X
-            case 2: v[0] = { x + 0,y + 0,z + 0 }; v[1] = { x + 0,y + 1,z + 0 }; v[2] = { x + 1,y + 1,z + 0 }; v[3] = { x + 1,y + 0,z + 0 }; break; // -Z
+            case 1: v[0] = { x + 1,y + 0,z + 0 }; v[1] = { x + 1,y + 0,z + 1 }; v[2] = { x + 1,y + 1,z + 1 }; v[3] = { x + 1,y + 1,z + 0 }; break; // +X
+            case 2: v[0] = { x + 0,y + 0,z + 0 }; v[1] = { x + 1,y + 0,z + 0 }; v[2] = { x + 1,y + 1,z + 0 }; v[3] = { x + 0,y + 1,z + 0 }; break; // -Z
             case 3: v[0] = { x + 0,y + 0,z + 1 }; v[1] = { x + 0,y + 1,z + 1 }; v[2] = { x + 1,y + 1,z + 1 }; v[3] = { x + 1,y + 0,z + 1 }; break; // +Z
-            case 4: v[0] = { x + 0,y + 0,z + 0 }; v[1] = { x + 1,y + 0,z + 0 }; v[2] = { x + 1,y + 0,z + 1 }; v[3] = { x + 0,y + 0,z + 1 }; break; // -Y
+            case 4: v[0] = { x + 0,y + 0,z + 0 }; v[1] = { x + 0,y + 0,z + 1 }; v[2] = { x + 1,y + 0,z + 1 }; v[3] = { x + 1,y + 0,z + 0 }; break; // -Y
             case 5: v[0] = { x + 0,y + 1,z + 0 }; v[1] = { x + 1,y + 1,z + 0 }; v[2] = { x + 1,y + 1,z + 1 }; v[3] = { x + 0,y + 1,z + 1 }; break; // +Y
         }
     }
@@ -287,6 +293,21 @@ void emitFace(Mesh& m, int baseX, int baseY, int baseZ,
     int offsetX = 0, offsetY = 0;       
     if (face == 4) { offsetX = xoffsetBottom; offsetY = yoffsetBottom; }
     else if (face == 5) { offsetX = xoffsetTop;  offsetY = yoffsetTop; }
+    switch (face) {
+        case 1:  
+        case 2:       if (!blockType.isFlat || blockType == TORCH) {
+                            uv.push_back(vec3((clipX + xoffset + offsetX) / xdimens, (clipX + yoffset + offsetY) / ydimens, transparency));
+                            uv.push_back(vec3((clipY + xoffset + offsetX) / xdimens, (clipX + yoffset + offsetY) / ydimens, transparency));
+                            uv.push_back(vec3((clipY + xoffset + offsetX) / xdimens, (clipY + yoffset + offsetY) / ydimens, transparency));
+                            uv.push_back(vec3((clipX + xoffset + offsetX) / xdimens, (clipY + yoffset + offsetY) / ydimens, transparency));
+                      }
+                      break;
+        default :     uv.push_back(vec3((clipX + xoffset + offsetX) / xdimens, (clipX + yoffset + offsetY) / ydimens, transparency));
+                      uv.push_back(vec3((clipX + xoffset + offsetX) / xdimens, (clipY + yoffset + offsetY) / ydimens, transparency));
+                      uv.push_back(vec3((clipY + xoffset + offsetX) / xdimens, (clipY + yoffset + offsetY) / ydimens, transparency));
+                      uv.push_back(vec3((clipY + xoffset + offsetX) / xdimens, (clipX + yoffset + offsetY) / ydimens, transparency)); 
+                      break;
+    }
     uv.push_back(vec3((clipX + xoffset + offsetX) / xdimens, (clipX + yoffset + offsetY) / ydimens, transparency));
     uv.push_back(vec3((clipX + xoffset + offsetX) / xdimens, (clipY + yoffset + offsetY) / ydimens, transparency));
     uv.push_back(vec3((clipY + xoffset + offsetX) / xdimens, (clipY + yoffset + offsetY) / ydimens, transparency));
@@ -357,91 +378,91 @@ void generateChunkAt(vec2 xyChunk, Chunk& repChunk) {
     //std::cout << repChunk.mesh.verts.size() << " : Elapsed: " << std::chrono::duration<double>(end - start).count() << " s\n";
 }
 
-std::thread chunkGenThread([&]() {
-    while (chunkGenRunning) {
-        vec2 coord;
-        {
-            std::lock_guard<std::mutex> lock(chunkRequestMutex);
-            if (!chunkRequestQueue.empty()) {
-                coord = chunkRequestQueue.front();
-                chunkRequestQueue.pop();
-            }
-            else {
-                continue;
-            }
-        }
+//std::thread chunkGenThread([&]() {
+//    while (chunkGenRunning) {
+//        vec2 coord;
+//        {
+//            std::lock_guard<std::mutex> lock(chunkRequestMutex);
+//            if (!chunkRequestQueue.empty()) {
+//                coord = chunkRequestQueue.front();
+//                chunkRequestQueue.pop();
+//            }
+//            else {
+//                continue;
+//            }
+//        }
+//
+//        Chunk newChunk;
+//        {
+//            //std::lock_guard<std::mutex> lock(chunkRequestMutex);
+//            generateChunkAt(coord, newChunk);
+//            newChunk.coords = coord;
+//            newChunk.needUpdate = true;
+//        }
+//
+//        //cout << newChunk.blockNum << endl;
+//        {
+//            std::lock_guard<std::mutex> lock(chunkResultMutex);
+//            chunkResultQueue.push(std::move(newChunk));
+//        }
+//    }
+//    });
 
-        Chunk newChunk;
-        {
-            //std::lock_guard<std::mutex> lock(chunkRequestMutex);
-            generateChunkAt(coord, newChunk);
-            newChunk.coords = coord;
-            newChunk.needUpdate = true;
-        }
-
-        //cout << newChunk.blockNum << endl;
-        {
-            std::lock_guard<std::mutex> lock(chunkResultMutex);
-            chunkResultQueue.push(std::move(newChunk));
-        }
-    }
-    });
-
-std::thread chunkGenThread2([&]() {
-    while (chunkGenRunning2) {
-        vec2 coord;
-        {
-            std::lock_guard<std::mutex> lock(chunkRequestMutex2);
-            if (!chunkRequestQueue2.empty()) {
-                coord = chunkRequestQueue2.front();
-                chunkRequestQueue2.pop();
-            }
-            else {
-                continue;
-            }
-        }
-
-        Chunk newChunk;
-        {
-            std::lock_guard<std::mutex> lock(chunkRequestMutex2);
-            generateChunkAt(coord, newChunk);
-        }
-
-        newChunk.coords = coord;
-        newChunk.needUpdate = true;
-        //cout << newChunk.blockNum << endl;
-        {
-            std::lock_guard<std::mutex> lock(chunkResultMutex2);
-            chunkResultQueue2.push(std::move(newChunk));
-        }
-    }
-    });
-
-std::thread chunkGenThread3([&]() {
-    while (chunkGenRunning3) {
-        vec2 coord;
-        {
-            std::lock_guard<std::mutex> lock(chunkRequestMutex3);
-            if (!chunkRequestQueue3.empty()) {
-                coord = chunkRequestQueue3.front();
-                chunkRequestQueue3.pop();
-            }
-            else {
-                continue;
-            }
-        }
-
-        Chunk newChunk;
-        generateChunkAt(coord, newChunk);
-
-        newChunk.coords = chunkCoords.back();
-        newChunk.needUpdate = true;
-        {
-            std::lock_guard<std::mutex> lock(chunkResultMutex3);
-            chunkResultQueue3.push(std::move(newChunk));
-        }
-    }
-    });
+//std::thread chunkGenThread2([&]() {
+//    while (chunkGenRunning2) {
+//        vec2 coord;
+//        {
+//            std::lock_guard<std::mutex> lock(chunkRequestMutex2);
+//            if (!chunkRequestQueue2.empty()) {
+//                coord = chunkRequestQueue2.front();
+//                chunkRequestQueue2.pop();
+//            }
+//            else {
+//                continue;
+//            }
+//        }
+//
+//        Chunk newChunk;
+//        {
+//            std::lock_guard<std::mutex> lock(chunkRequestMutex2);
+//            generateChunkAt(coord, newChunk);
+//        }
+//
+//        newChunk.coords = coord;
+//        newChunk.needUpdate = true;
+//        //cout << newChunk.blockNum << endl;
+//        {
+//            std::lock_guard<std::mutex> lock(chunkResultMutex2);
+//            chunkResultQueue2.push(std::move(newChunk));
+//        }
+//    }
+//    });
+//
+//std::thread chunkGenThread3([&]() {
+//    while (chunkGenRunning3) {
+//        vec2 coord;
+//        {
+//            std::lock_guard<std::mutex> lock(chunkRequestMutex3);
+//            if (!chunkRequestQueue3.empty()) {
+//                coord = chunkRequestQueue3.front();
+//                chunkRequestQueue3.pop();
+//            }
+//            else {
+//                continue;
+//            }
+//        }
+//
+//        Chunk newChunk;
+//        generateChunkAt(coord, newChunk);
+//
+//        newChunk.coords = chunkCoords.back();
+//        newChunk.needUpdate = true;
+//        {
+//            std::lock_guard<std::mutex> lock(chunkResultMutex3);
+//            chunkResultQueue3.push(std::move(newChunk));
+//        }
+//    }
+//    });
 
 std::thread blockBreakThread([&]() {
     while (blockBreaking) {
@@ -484,7 +505,7 @@ std::thread blockPlaceThread([&]() {
 
 void chunkWorker() {
     while (chunkGenRunning) {
-        vec2 coord;
+        vec2 coord; 
         {
             std::unique_lock<std::mutex> lock(queueMutex);
             queueCV.wait(lock, [] { return !chunkRequestQueue.empty(); });
