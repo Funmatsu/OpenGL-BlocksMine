@@ -18,10 +18,14 @@ static const char* fshaderInvSlot = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\sh
 static const char* vshaderLooking = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/vshaderLooking.txt";
 static const char* fshaderLooking = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/fshaderLooking.txt";
 
+static const char* shadowMapvshader = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/shadowMapvshader.txt";
+static const char* shadowMapfshader = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/shadowMapfshader.txt";
+
 vector<Shadergl*> shaders;
 vector<Shadergl*> InventoryShaders;
 vector<Shadergl*> craftInvShaders;
 vector<Shadergl*> bigCraftInvShaders;
+Shadergl directionalShadowShader;
 
 void createShaders() {
     Shadergl* shader1 = new Shadergl();
@@ -71,4 +75,7 @@ void createShaders() {
         shaderCraftInvSlot->createShaderFromFiles(vshaderInvSlot, fshaderInvSlot);
         bigCraftInvShaders.push_back(shaderCraftInvSlot);
     }
+
+    directionalShadowShader = Shadergl();
+    directionalShadowShader.createShaderFromFiles(shadowMapvshader, shadowMapfshader);
 }

@@ -43,6 +43,9 @@ public:
 
 	void setDirectionalLight(DirectionalLight* dLight);
 	void setPointLights(PointLight* pLight, unsigned int lightCount);
+	void setTexture(GLenum texture_unit);
+	void setDirectionalShadowMap(GLenum texture_unit);
+	void setDirectionalLightTransform(mat4 lTransform);
 
 	unsigned int getShaderId() { return shaderId; }
 
@@ -52,7 +55,9 @@ public:
 	void clearShader();
 
 private:
-	unsigned int shaderId, uniformModel, uniformProjection, uniformView;
+	unsigned int shaderId, uniformModel, uniformProjection, uniformView, 
+		         uniformDirectionalLightTransform, uniformDirectionalShadowMap,
+				 uniformTexture;
 	unsigned int compileShader(unsigned int type, const char* source);
 	void addShader(const char* vertexCode, const char* fragmentCode);
 };

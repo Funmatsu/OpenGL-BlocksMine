@@ -23,6 +23,7 @@ public:
 	}
 	void createMesh(vector<float> vertices, vector<unsigned int> indices, unsigned int verticesCount, unsigned int indicesCount);
 	void renderMesh();
+	void renderMeshAsLines();
 	void clearMesh();
 	vector<float> verts;
 	vector<unsigned int> inds;

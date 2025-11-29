@@ -79,6 +79,10 @@ void Shadergl::addShader(const char* vertexCode, const char* fragmentCode) {
         snprintf(locBuff, sizeof(locBuff), "pointLights[%d].exponent", i);
         uniformPointLight[i].uniformExponent = glGetUniformLocation(shaderId, locBuff);
     }
+
+    uniformTexture = glGetUniformLocation(shaderId, "theTexture");
+    uniformDirectionalLightTransform = glGetUniformLocation(shaderId, "directionalLightTransform");
+    uniformDirectionalShadowMap = glGetUniformLocation(shaderId, "directionalShadowMap");
 }
 
 string Shadergl::readShaderFiles(const char* fileLocation) {
@@ -147,6 +151,22 @@ void Shadergl::setPointLights(PointLight* pLight, unsigned int lightCount) {
             , uniformPointLight[i].uniformPosition, uniformPointLight[i].uniformConstant, uniformPointLight[i].uniformLinear, uniformPointLight[i].uniformExponent);
 
     }
+}
+
+void Shadergl::setTexture(GLenum texture_unit) {
+    glUniform1i(uniformTexture, texture_unit);
+}
+
+void Shadergl::setDirectionalShadowMap(GLenum texture_unit) {
+    glUniform1i(uniformDirectionalShadowMap, texture_unit);
+}
+
+void Shadergl::setDirectionalLightTransform(mat4 lTransform) {
+    glUniformMatrix4fv(uniformDirectionalLightTransform, 1, GL_FALSE, glm::value_ptr(lTransform));
+    //cout << lTransform[0].x << " " << lTransform[0].y << " " << lTransform[0].z << endl;
+    //cout << lTransform[1].x << " " << lTransform[1].y << " " << lTransform[1].z << endl;
+    //cout << lTransform[2].x << " " << lTransform[2].y << " " << lTransform[2].z << endl;
+    //cout << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<" << endl;
 }
 
 Shadergl::~Shadergl() {

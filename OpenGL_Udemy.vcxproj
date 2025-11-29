@@ -148,6 +148,7 @@
     <ClCompile Include="glBlocksMines.cpp" />
     <ClCompile Include="PointLight.cpp" />
     <ClCompile Include="Shader.cpp" />
+    <ClCompile Include="shadowMap.cpp" />
     <ClCompile Include="Sky.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="unusedCode.cpp" />
@@ -170,6 +171,7 @@
     <ClInclude Include="recipes.h" />
     <ClInclude Include="shader.h" />
     <ClInclude Include="shaderlist.h" />
+    <ClInclude Include="shadowMap.h" />
     <ClInclude Include="Sky.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="threading.h" />

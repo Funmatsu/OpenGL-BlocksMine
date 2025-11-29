@@ -49,6 +49,15 @@ void Mesh::renderMesh() {
     }
 }
 
+void Mesh::renderMeshAsLines() {
+    if (indexCount != 0) {
+        glLineWidth(10.0f);
+        glBindVertexArray(vao);
+        glDrawElements(GL_LINES, indexCount, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+    }
+}
+
 void Mesh::clearMesh() {
     if (ibo != 0) {
         glDeleteBuffers(1, &ibo);

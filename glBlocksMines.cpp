@@ -26,7 +26,7 @@ using namespace glm;
 
 //(DONE!!!) TO DO : Implement spectator mode kind of face culling;;;; Block right next to block of Air can be rendered. 
 
-int renderDistance = 26;
+int renderDistance = 10;
 
 Sky sky;
 Window mainWindow;
@@ -39,20 +39,32 @@ GLfloat lastTime = 0.0f;
 
 int currentBlockType = 1;
 
-void renderWorld(mat4 view, mat4 projection) {
+void renderWorld() {
     for (auto& chunks : world.chunkData) {
-        Chunk& chunk = chunks.second;
-        if ((chunk.coords.x >= camera.getCameraPos().x / CHUNK_SIZE - renderDistance * 1.5 && chunk.coords.x <= camera.getCameraPos().x / CHUNK_SIZE + renderDistance * 1.5) &&
-            (chunk.coords.y >= camera.getCameraPos().z / CHUNK_SIZE - renderDistance * 1.5 && chunk.coords.y <= camera.getCameraPos().z / CHUNK_SIZE + renderDistance * 1.5)) {
+        if ((chunks.second.coords.x >= camera.getCameraPos().x / CHUNK_SIZE - renderDistance * 1.5 && chunks.second.coords.x <= camera.getCameraPos().x / CHUNK_SIZE + renderDistance * 1.5) &&
+            (chunks.second.coords.y >= camera.getCameraPos().z / CHUNK_SIZE - renderDistance * 1.5 && chunks.second.coords.y <= camera.getCameraPos().z / CHUNK_SIZE + renderDistance * 1.5)) {
         
-            if (chunk.needUpdate) {
+            if (chunks.second.needUpdate) {
                 //regenerateChunk(chunk.coords, chunk);
-                chunk.mesh.createMesh(chunk.vertices, chunk.indices, chunk.vertices.size(), chunk.indices.size());
-                chunk.needUpdate = false;
+                chunks.second.mesh.createMesh(chunks.second.vertices, chunks.second.indices, chunks.second.vertices.size(), chunks.second.indices.size());
+                chunks.second.needUpdate = false;
             }
-            chunk.mesh.renderMesh();
+            chunks.second.mesh.renderMesh();
         }
     }
+}
+
+void directionalShadowPass(DirectionalLight* light, mat4 model) {
+    directionalShadowShader.useShader();
+    directionalShadowShader.setDirectionalLightTransform(light->calcLightTransform());
+    glUniformMatrix4fv(directionalShadowShader.getModelLocation(), 1, GL_FALSE, value_ptr(model));
+    light->shadow_map->write();
+    glClear(GL_DEPTH_BUFFER_BIT);
+    renderWorld();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    shaders[0]->useShader();
+    shaders[0]->setDirectionalLightTransform(light->directionalLightTransform);
 }
 
 #define BLOCK_TEX           0
@@ -71,7 +83,7 @@ int main()
     glEnable(GL_BLEND);
     glfwSwapInterval(0);
     /*Textures.push_back(new Texturegl("textures\\block_atlas_4.png"));*/
-    Textures.push_back(new Texturegl("textures\\block_atlas_27.png"));
+    Textures.push_back(new Texturegl("textures\\block_atlas_28.png"));
     Textures.push_back(new Texturegl("textures\\clear_toolbar_2.png"));
     Textures.push_back(new Texturegl("textures\\clear_toolbar_3.png"));
     Textures.push_back(new Texturegl("textures\\main_inventory.jpg"));
@@ -86,9 +98,7 @@ int main()
     Textures[TOOLS_TEX]->loadTexture();
     Textures[CRAFT_GUI_TEX]->loadTexture();
 
-    createShaders();
-    worldBlocks.clear();
-    
+    createShaders();    
 
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
@@ -250,57 +260,47 @@ int main()
         workers.emplace_back(chunkWorker); // worker thread is somewhere in threading.h
     }
 
-    //Hand arm;
-    //arm.createHand();
-    while (!mainWindow.getShouldClose()) {
-        mainLight = DirectionalLight(1.0f, 1.0f, 1.0f,
-                                     0.2 + 1.2 * time / maxTime,
-                                     0.0000f, -0.7071f, 0.7071f, 
-                                     0.85 * time / maxTime);
+    mainLight = DirectionalLight(1920, 1059,
+        1.0f, 1.0f, 1.0f,
+        0.2 + 1.2 * time / maxTime, 0.85 * time / maxTime,
+        0.0f, -CHUNK_SIZE * CHUNK_SIZE, 1.0f);
 
+    float rot = 0.0f;
+
+    //GLfloat range[2];
+    //glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, range);
+    //std::cout << "Line width range: " << range[0] << " to " << range[1] << std::endl;
+    while (!mainWindow.getShouldClose()) {
+
+        mainLight.setShadowPos(vec2(camera.getCameraPos().x, camera.getCameraPos().z));
+        int count = 0, count2 = 0;
         for (int i = -renderX; i < renderX; i++) {
             for (int j = -renderY; j < renderY; j += 1) {
+                //if (count >= CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE ) break; // Just in case to limit the number of chunks generated per frame
                 ivec2 chunkPos = ivec2(floorDiv(camera.getCameraPos().x, CHUNK_SIZE) + i, floorDiv(camera.getCameraPos().z, CHUNK_SIZE) + j);
                 if (chunkCoords.count(chunkPos) <= 0) {
-                //if (find(chunkCoords.begin(), chunkCoords.end(), vec2(floor(camera.getCameraPos().x / CHUNK_SIZE) + i, floor(camera.getCameraPos().z / CHUNK_SIZE) + j)) == chunkCoords.end()) {
-                    //chunkCoords.push_back({ floor(camera.getCameraPos().x / CHUNK_SIZE) + i, floor(camera.getCameraPos().z / CHUNK_SIZE) + j });
                     chunkCoords.insert({ chunkPos });
-                    //world.chunks.push_back(Chunk());
-                    //generateChunkAt(chunkCoords.back(), world.chunks.back());
-                    //{
-                    //    chunkGenRunning = true;
-                    //    std::lock_guard<std::mutex> lock(chunkRequestMutex);
-                    //    chunkRequestQueue.push(chunkCoords.back());
-                    //}
                     {
                         chunkGenRunning = true;
                         std::lock_guard<std::mutex> lock(queueMutex);
                         chunkRequestQueue.push(chunkPos);
                         queueCV.notify_one();
                     }
-
-                }
+                } //count++;
             }
+ /*         count2++;
+            if (count2 >= CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) break;*/
         }
 
         {
             std::lock_guard<std::mutex> lock(resultMutex);
             while (!chunkResultQueue.empty()) {
-                Chunk chunk = std::move(chunkResultQueue.front());
+                Chunk& chunk = chunkResultQueue.front();   // Using a refference here instead of a copy is actually cracked! massive speed up
+                world.addChunk(chunk, ivec2(chunk.coords));
                 chunkResultQueue.pop();
-                world.addChunk(std::move(chunk), ivec2(chunk.coords));
             }
         }
 
-        //{
-        //    std::lock_guard<std::mutex> lock(chunkResultMutex);
-        //    while (!chunkResultQueue.empty()) {
-        //        Chunk chunk = std::move(chunkResultQueue.front());
-        //        chunkResultQueue.pop();
-        //        world.addChunk(std::move(chunk), ivec2(chunk.coords));
-        //    }
-        //}
- 
         if (renderX < renderDistance) {
             renderX++;
             renderY++;
@@ -327,9 +327,29 @@ int main()
         }
 
         //glClearColor(0.2f + 0.1 * time / maxTime,time / maxTime + 0.1, 0.4 + time / maxTime, 1.0f);
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glfwPollEvents();
+
+        sky.applySky(view, projection);
+        glEnable(GL_DEPTH_TEST);
+        //glDepthFunc(GL_LESS);
+
+        directionalShadowPass(&mainLight, model);
+        Textures[BLOCK_TEX]->useTexture();
+
+        mainLight.getShadowMap()->read(GL_TEXTURE1);
+        glUniform1i(glGetUniformLocation(shaders[0]->getShaderId(), "directionalShadowMap"), 1);
+        
+        renderWorld();
+
         view = camera.calcViewMatrix();
+        //mat4 model = mat4(1.0f);
+        //rot += 0.1f;
+        //model = glm::translate(model, vec3(rot, 0.0f, 0.0f));
+        glUniformMatrix4fv(shaders[0]->getModelLocation(), 1, GL_FALSE, value_ptr(model));
+        glUniformMatrix4fv(shaders[0]->getViewLocation(), 1, GL_FALSE, value_ptr(view));
+        glUniformMatrix4fv(shaders[0]->getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
 
         int sensitivity = 1.01f;
         camera.keyControl(mainWindow.getKeys(), deltaTime);
@@ -342,13 +362,8 @@ int main()
             camera.mouseControl(mainWindow.getXChange(), mainWindow.getYChange());
             lastXChange = mainWindow.getXChange(); lastYChange = mainWindow.getYChange();
         }
-        
-        glUniformMatrix4fv(shaders[0]->getModelLocation(), 1, GL_FALSE, value_ptr(model));
-        glUniformMatrix4fv(shaders[0]->getViewLocation(), 1, GL_FALSE, value_ptr(view));
-        glUniformMatrix4fv(shaders[0]->getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
 
-        //mainLight.useLight(shaders[0]->getAmbientIntensityLocation(), shaders[0]->getAmbientColorLocation(), shaders[0]->getDiffuseIntensityLocation(), shaders[0]->getDirectionLocation());
-        shaders[0]->setDirectionalLight(&mainLight);
+        shaders[0]->setDirectionalLight(&mainLight); //replaced : mainLight.useLight(shaders[0]->getAmbientIntensityLocation(), shaders[0]->getAmbientColorLocation(), shaders[0]->getDiffuseIntensityLocation(), shaders[0]->getDirectionLocation());
         shaders[0]->setPointLights(pointLights, pointLightCount);
 
         if (mainWindow.getKeys()[GLFW_KEY_SPACE]) {
@@ -370,85 +385,22 @@ int main()
             ctrl = 20;
         }
 
-        if (mainWindow.getKeys()[GLFW_KEY_1]) {
-            currentBlockType = 1;
-            slot = 0;
-            inv_change = true;
+        if (mainWindow.getKeyPressed() >= GLFW_KEY_1 && mainWindow.getKeyPressed() <= GLFW_KEY_9) {
+            slot = mainWindow.getKeyPressed() - GLFW_KEY_1; inv_change = true;
         }
-        else if (mainWindow.getKeys()[GLFW_KEY_2]) {
-            currentBlockType = 2;
-            slot = 1;
-            inv_change = true;
-        }
-        else if (mainWindow.getKeys()[GLFW_KEY_3]) {
-            currentBlockType = 3;
-            slot = 2;
-            inv_change = true;
-        }
-        else if (mainWindow.getKeys()[GLFW_KEY_4]) {
-            currentBlockType = 4;
-            slot = 3;
-            inv_change = true;
-        }
-        else if (mainWindow.getKeys()[GLFW_KEY_5]) {
-            currentBlockType = 5;
-            slot = 4;
-            inv_change = true;
-        }
-        else if (mainWindow.getKeys()[GLFW_KEY_6]) {
-            currentBlockType = 6;
-            slot = 5;
-            inv_change = true;
-        }
-        else if (mainWindow.getKeys()[GLFW_KEY_7]) {
-            //currentBlockType = 6;
-            slot = 6;
-            inv_change = true;
-        }
-        else if (mainWindow.getKeys()[GLFW_KEY_8]) {
-            //currentBlockType = 6;
-            slot = 7;
-            inv_change = true;
-        }
-        else if (mainWindow.getKeys()[GLFW_KEY_9]) {
-            //currentBlockType = 6;
-            slot = 8;
-            inv_change = true;
-        }
+
         if (mainWindow.getKeys()[GLFW_KEY_P]) {
 
             if (mainWindow.getKeys()[GLFW_KEY_I]) {
-                //currentBlockType = 6;
                 inventory.inf_blocks = true;
             }
             else if (mainWindow.getKeys()[GLFW_KEY_N]) {
                 inventory.inf_blocks = false;
             }
-            //slot = currentBlockType - 1;
-            if (mainWindow.getKeys()[GLFW_KEY_1])
-                world.addBlocklook_at(items[TORCH.id]);
-            else if (mainWindow.getKeys()[GLFW_KEY_2])
-                world.addBlocklook_at(items[2]);
-            else if (mainWindow.getKeys()[GLFW_KEY_3])
-                world.addBlocklook_at(items[3]);
-            else if (mainWindow.getKeys()[GLFW_KEY_4])
-                world.addBlocklook_at(items[4]);
-            else if (mainWindow.getKeys()[GLFW_KEY_5])
-                world.addBlocklook_at(items[5]);
-            else if (mainWindow.getKeys()[GLFW_KEY_6])
-                world.addBlocklook_at(items[6]);
-            else if (mainWindow.getKeys()[GLFW_KEY_7])
-                world.addBlocklook_at(items[7]);
-            else if (mainWindow.getKeys()[GLFW_KEY_8])
-                world.addBlocklook_at(items[8]);
-            else if (mainWindow.getKeys()[GLFW_KEY_9])
-                world.addBlocklook_at(items[9]);
-            else if (mainWindow.getKeys()[GLFW_KEY_0])
-                world.addBlocklook_at(CRAFTING_TABLE);
-            else {
-                world.addBlocklook_at(inventory.inv_slots[3][slot]);
-            }
 
+            if(mainWindow.getKeyPressed() > GLFW_KEY_1 && mainWindow.getKeyPressed() <= GLFW_KEY_9) world.addBlocklook_at(items[mainWindow.getKeyPressed() - GLFW_KEY_1]);
+            else                                                                                   world.addBlocklook_at(inventory.inv_slots[3][slot]);
+            if      (mainWindow.getKeys()[GLFW_KEY_1]) world.addBlocklook_at(items[TORCH.id]);
         }
 
         if (mainWindow.getKeys()[GLFW_KEY_T] || mainWindow.leftClickButtonPressed()) {
@@ -503,10 +455,7 @@ int main()
             chunkGenRunning2 = false;
             chunkGenRunning3 = false;
             blockPlacing = false;
-            blockBreaking = false;
-            //chunkGenThread.join();
-            //chunkGenThread2.join();
-            //chunkGenThread3.join();
+            blockBreaking = false;//chunkGenThread.join(); //chunkGenThread2.join(); //chunkGenThread3.join();
             blockBreakThread.join();
             blockPlaceThread.join();
         }
@@ -515,17 +464,12 @@ int main()
             inventory.currInvSlot[3][slot].clearMesh();
             inv_change = true;
         }
-        sky.applySky(view, projection);
-        glEnable(GL_DEPTH_TEST);
-
-        shaders[0]->useShader();
-        renderWorld(view, projection);
-
+        
         shaders[13]->useShader();
         view = camera.calcViewMatrix();
-        glUniformMatrix4fv(shaders[13]->getModelLocation(),         1, GL_FALSE, value_ptr(model));
-        glUniformMatrix4fv(shaders[13]->getViewLocation(),          1, GL_FALSE, value_ptr(view));
-        glUniformMatrix4fv(shaders[13]->getProjectionLocation(),    1, GL_FALSE, value_ptr(projection));
+        glUniformMatrix4fv(shaders[13]->getModelLocation(), 1, GL_FALSE, value_ptr(model));
+        glUniformMatrix4fv(shaders[13]->getViewLocation(), 1, GL_FALSE, value_ptr(view));
+        glUniformMatrix4fv(shaders[13]->getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
 
         //For block highlighting
 
@@ -535,9 +479,9 @@ int main()
             lookingPos = ivec3(lookingAtBlock());
         }
         Block cloud = world.getBlockAt(lookingPos);
-        cloud = world.createMeshCube(cloud.position, 0.05f, CLOUD);
-        cloud.blockMesh.createMesh(cloud.vertices, cloud.indices, cloud.vertices.size(), cloud.indices.size());
-        cloud.blockMesh.renderMesh();
+        cloud.blockMesh = world.createVertsOnlyMesh(cloud.position, 0.2f, CLOUD);
+        //cloud.blockMesh.createMesh(cloud.vertices, cloud.indices, cloud.vertices.size(), cloud.indices.size());
+        cloud.blockMesh.renderMeshAsLines();
 
         glDisable(GL_DEPTH_TEST); // so crosshair draws on top
         shaders[1]->useShader();

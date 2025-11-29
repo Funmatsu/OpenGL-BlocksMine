@@ -71,17 +71,6 @@ public:
     vec2 coords;
     unordered_map<glm::ivec3, blockData, ivec3_hash, ivec3_eq> blockData;
 
-    void addBlock(Block block) {
-        {
-            std::lock_guard<std::mutex> lk(worldBlocksMutex);
-            glm::ivec3 key = block.position;
-
-            //worldBlocks[key] = block;
-            //worldBlocks.insert(make_pair(key, block));
-            needUpdate = true;
-        }
-    }
-
     void setBlock(ivec3 blockPos, Item type) {
         blockData[blockPos].blockType = type;
         needUpdate = true;

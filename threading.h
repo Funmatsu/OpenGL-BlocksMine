@@ -132,7 +132,7 @@ void generateBlocks(vec2 xyChunk, Chunk& repChunk) {
             //float scaledHeight = height;
             float scaledHeight = height * 2 + 40;
             /*float scaledHeight = ((height + 1.0f) * (CHUNK_SIZE * CHUNK_SIZE));*/
-            float treeHeight = randomFloat(5.0, 12.0), treeDistrib = rand();
+            float treeHeight = randomFloat(3.0, 5.0) + 2, treeDistrib = rand();
             
             for (int y = 0; y < scaledHeight; y++) {
                 if (x == (xyChunk.x) * CHUNK_SIZE - 1 || x == (xyChunk.x + 1) * CHUNK_SIZE + 1
@@ -179,7 +179,7 @@ void generateBlocks(vec2 xyChunk, Chunk& repChunk) {
                         for (int i = y + 1; i < y + treeHeight; i++) {
                             repChunk.blockData[ivec3(x, i, z)] = blockData(ivec3(x, i, z), OAK_WOOD);
                         }
-                        glm::ivec3 center(x, y + treeHeight, z);
+                        glm::ivec3 center(x, y + treeHeight + 1, z);
 
                         int radius = 3; // adjust for size
 
@@ -288,7 +288,10 @@ void emitFace(Mesh& m, int baseX, int baseY, int baseZ,
           yoffsetBottom = UVs[5],
           transparency = UVs[6];
 
-    float clipX = 0.03f, clipY = 0.97f;
+    float clipX = 0.02f, clipY = 0.98f;
+    if (blockType == OAK_WOOD && face != 5 && face != 4) {
+        clipX = 0.05f, clipY = 0.95f;
+    }
 
     int offsetX = 0, offsetY = 0;       
     if (face == 4) { offsetX = xoffsetBottom; offsetY = yoffsetBottom; }
@@ -358,21 +361,21 @@ void meshChunk(vec2 xyChunk, Chunk& cd, Mesh& out) {
             }
 }
 
-void generateChunkAt(vec2 xyChunk, Chunk& repChunk) {
+void generateChunkAt(vec2 xyChunk, Chunk* repChunk) {
     //auto start = std::chrono::high_resolution_clock::now();
 
-    generateBlocks(xyChunk, repChunk);
+    generateBlocks(xyChunk, *repChunk);
 
-    Mesh& m = repChunk.mesh;
-    meshChunk(xyChunk, repChunk, m);
+    Mesh& m = repChunk->mesh;
+    meshChunk(xyChunk, *repChunk, m);
     // meshChunk(cd, m);                 // simple visible faces
     // or:
     // greedyMeshChunk(cd, m);           // build masks and merge per orientation 
 
-    repChunk.vertices.insert(repChunk.vertices.end(), m.verts.begin(), m.verts.end());
-    uint32_t base = (uint32_t)(repChunk.indexOffset);
-    for (auto idx : repChunk.mesh.inds) repChunk.indices.push_back(base + idx);
-    repChunk.indexOffset += (uint32_t)(m.verts.size() / 9);
+    repChunk->vertices.insert(repChunk->vertices.end(), m.verts.begin(), m.verts.end());
+    uint32_t base = (uint32_t)(repChunk->indexOffset);
+    for (auto idx : repChunk->mesh.inds) repChunk->indices.push_back(base + idx);
+    repChunk->indexOffset += (uint32_t)(m.verts.size() / 9);
 
     //auto end = std::chrono::high_resolution_clock::now();
     //std::cout << repChunk.mesh.verts.size() << " : Elapsed: " << std::chrono::duration<double>(end - start).count() << " s\n";
@@ -513,17 +516,17 @@ void chunkWorker() {
             chunkRequestQueue.pop();
         }
 
-        Chunk newChunk;
+        Chunk* newChunk = new Chunk();
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             generateChunkAt(coord, newChunk);
-            newChunk.coords = coord;
-            newChunk.needUpdate = true;
+            newChunk->coords = coord;
+            newChunk->needUpdate = true;
         }
 
         {
             std::lock_guard<std::mutex> lock(resultMutex);
-            chunkResultQueue.push(std::move(newChunk));
+            chunkResultQueue.push(*newChunk);
         }
     }
 }

@@ -26,11 +26,13 @@ class World {
 
     Block getBlockAt(ivec3 blockPos);
 
-    void addChunk(Chunk newChunk, ivec2 xyChunk);
+    void addChunk(Chunk& newChunk, ivec2 xyChunk);
 
     void updateChunk(const ivec2& chunkCoord);
 
     Mesh createMeshCube(float x, float y, float z, float scale, Item blockType);
+
+    Mesh createVertsOnlyMesh(ivec3 xyz, float scale, Item blockType);
 
     Block createMeshCube(ivec3 blockPos, float scale, Item blockType);
 
@@ -47,14 +49,13 @@ World world;
 
 
 //.cpp part-----------------------------------------------------------------------------------------------------------------------
-
-Block World::getBlockAt(ivec3 blockPos) {
-    ivec2 chunkPos = ivec2(floor(blockPos.x / CHUNK_SIZE), floor(blockPos.z / CHUNK_SIZE));
-    return Block(blockPos, world.chunkData[chunkPos].blockData[blockPos].blockType, {}, {});
+int floorDiv(float a, float b) {
+    return (a >= 0) ? int(a / b) : int((a - b + 1) / b);
 }
 
-inline int floorDiv(float a, float b) {
-    return (a >= 0) ? int(a / b) : int((a - b + 1) / b);
+Block World::getBlockAt(ivec3 blockPos) {
+    ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
+    return Block(blockPos, world.chunkData[chunkPos].blockData[blockPos].blockType, {}, {});
 }
 
 bool blockExistsAt(ivec3 blockPos) {
@@ -90,8 +91,8 @@ vec3 lookingAtBlock() {
     return vec3(-404.0f);
 }
 
-void World::addChunk(Chunk newChunk, ivec2 xyChunk) {
-    chunkData[ivec2(xyChunk)] = move(newChunk);
+void World::addChunk(Chunk& newChunk, ivec2 xyChunk) {
+    chunkData.insert(make_pair(ivec2(xyChunk), newChunk));
 }
 
 void World::deleteBlockFromWorld(vec3 blockPos) {
@@ -378,6 +379,88 @@ Mesh World::createMeshCube(float x, float y, float z, float scale, Item blockTyp
         finalVerts.push_back(normals[i + 0]);
         finalVerts.push_back(normals[i + 1]);
         finalVerts.push_back(normals[i + 2]);
+    }
+
+    Mesh cubeMesh;
+    cubeMesh.createMesh(finalVerts, indices, finalVerts.size(), indices.size());
+    return cubeMesh;
+}
+
+Mesh World::createVertsOnlyMesh(ivec3 xyz, float scale, Item blockType) {
+    if (blockType == AIR) {
+        return Mesh();
+    }
+
+    vector<unsigned int> indices = {
+        0, 1, 2,
+        2, 3, 0,
+
+        4, 5, 6,
+        6, 7, 4,
+
+        8, 9, 10,
+        10, 11, 8,
+
+        12, 13, 14,
+        14, 15, 12,
+
+        16, 17, 18,
+        18, 19, 16,
+
+        20, 21, 22,
+        22, 23, 20
+    };
+
+    vector<GLfloat> triangle = {
+            0.0f + xyz.x + 0.1f * -scale,   0.0f + xyz.y + 0.1f * -scale,    0.0f + xyz.z + 0.1f * -scale,
+            0.0f + xyz.x + 0.1f * -scale,   1.0f + xyz.y + 0.1f * scale,     0.0f + xyz.z + 0.1f * -scale,
+            0.0f + xyz.x + 0.1f * -scale,   1.0f + xyz.y + 0.1f * scale,     1.0f + xyz.z + 0.1f * scale,
+            0.0f + xyz.x + 0.1f * -scale,   0.0f + xyz.y + 0.1f * -scale,    1.0f + xyz.z + 0.1f * scale,
+
+            1.0f + xyz.x + 0.1f * scale,    0.0f + xyz.y + 0.1f * -scale,    0.0f + xyz.z + 0.1f * -scale,
+            1.0f + xyz.x + 0.1f * scale,    1.0f + xyz.y + 0.1f * scale,     0.0f + xyz.z + 0.1f * -scale,
+            1.0f + xyz.x + 0.1f * scale,    1.0f + xyz.y + 0.1f * scale,     1.0f + xyz.z + 0.1f * scale,
+            1.0f + xyz.x + 0.1f * scale,    0.0f + xyz.y + 0.1f * -scale,    1.0f + xyz.z + 0.1f * scale,
+
+            0.0f + xyz.x + 0.1f * -scale,   0.0f + xyz.y + 0.1f * -scale,    0.0f + xyz.z + 0.1f * -scale,
+            1.0f + xyz.x + 0.1f * scale,    0.0f + xyz.y + 0.1f * -scale,    0.0f + xyz.z + 0.1f * -scale,
+            1.0f + xyz.x + 0.1f * scale,    1.0f + xyz.y + 0.1f * scale,     0.0f + xyz.z + 0.1f * -scale,
+            0.0f + xyz.x + 0.1f * -scale,   1.0f + xyz.y + 0.1f * scale,     0.0f + xyz.z + 0.1f * -scale,
+
+            0.0f + xyz.x + 0.1f * -scale,   0.0f + xyz.y + 0.1f * -scale,    1.0f + xyz.z + 0.1f * scale,
+            1.0f + xyz.x + 0.1f * scale,    0.0f + xyz.y + 0.1f * -scale,    1.0f + xyz.z + 0.1f * scale,
+            1.0f + xyz.x + 0.1f * scale,    1.0f + xyz.y + 0.1f * scale,     1.0f + xyz.z + 0.1f * scale,
+            0.0f + xyz.x + 0.1f * -scale,   1.0f + xyz.y + 0.1f * scale,     1.0f + xyz.z + 0.1f * scale,
+
+            0.0f + xyz.x + 0.1f * -scale,   0.0f + xyz.y + 0.1f * -scale,    0.0f + xyz.z + 0.1f * -scale,
+            1.0f + xyz.x + 0.1f * scale,    0.0f + xyz.y + 0.1f * -scale,    0.0f + xyz.z + 0.1f * -scale,
+            1.0f + xyz.x + 0.1f * scale,    0.0f + xyz.y + 0.1f * -scale,    1.0f + xyz.z + 0.1f * scale,
+            0.0f + xyz.x + 0.1f * -scale,   0.0f + xyz.y + 0.1f * -scale,    1.0f + xyz.z + 0.1f * scale,
+
+            0.0f + xyz.x + 0.1f * -scale,   1.0f + xyz.y + 0.1f * scale,     0.0f + xyz.z + 0.1f * -scale,
+            1.0f + xyz.x + 0.1f * scale,    1.0f + xyz.y + 0.1f * scale,     0.0f + xyz.z + 0.1f * -scale,
+            1.0f + xyz.x + 0.1f * scale,    1.0f + xyz.y + 0.1f * scale,     1.0f + xyz.z + 0.1f * scale,
+            0.0f + xyz.x + 0.1f * -scale,   1.0f + xyz.y + 0.1f * scale,     1.0f + xyz.z + 0.1f * scale
+    };
+    vector<GLfloat> globalUVs;
+    for (int i = 0; i < 72; i++) {
+        globalUVs.push_back(0.0f);
+    }
+
+    vector<GLfloat> normals = long_normals;
+    vector<GLfloat> finalVerts;
+    for (int i = 0; i < triangle.size() / 3; i += 1) {
+        finalVerts.push_back(triangle[3 * i + 0]);
+        finalVerts.push_back(triangle[3 * i + 1]);
+        finalVerts.push_back(triangle[3 * i + 2]);
+
+        finalVerts.push_back(globalUVs[3 * i + 0]);
+        finalVerts.push_back(globalUVs[3 * i + 1]);
+        finalVerts.push_back(globalUVs[3 * i + 2]);
+
+        finalVerts.push_back(normals[3 * i + 0]);
+        finalVerts.push_back(normals[3 * i + 1]);
+        finalVerts.push_back(normals[3 * i + 2]);
     }
 
     Mesh cubeMesh;

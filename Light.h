@@ -10,20 +10,26 @@
 #include <glm/glm.hpp>
 #include <glm\gtc/type_ptr.hpp>
 #include <glm\gtc\matrix_transform.hpp>
+#include "shadowMap.h"
 
 using namespace glm;
 
-class Light
-{
-public:
-	Light();
-	Light(GLfloat red, GLfloat green, GLfloat blue, GLfloat aIntensity, GLfloat dIntensity);
-	void useLight(GLfloat aIntensityLocation, GLfloat aColorLocation, GLfloat dIntensityLocation);
-	~Light();
+class Light {
+	public:
+		Light();
+		Light(GLuint shadowWidth, GLuint shadowHeight, GLfloat red, GLfloat green, GLfloat blue, GLfloat aIntensity, GLfloat dIntensity);
+		void useLight(GLfloat aIntensityLocation, GLfloat aColorLocation, GLfloat dIntensityLocation);
+		shadowMap* getShadowMap() { return shadow_map; }
+		shadowMap* shadow_map;
+		~Light();
+		mat4 directionalLightTransform;
 
-protected:
-	vec3 color;
-	GLfloat ambientIntensity;
-	GLfloat diffuseIntensity;
+	protected:
+		vec3 color;
+		GLfloat ambientIntensity;
+		GLfloat diffuseIntensity;
+
+		mat4 lightProj;
+		
 };
 

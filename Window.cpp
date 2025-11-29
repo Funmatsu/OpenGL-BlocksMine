@@ -80,12 +80,11 @@ void Window::handleKeys(GLFWwindow* window, int key, int code, int action, int m
     if (key >= 0 && key <= 1024) {
         if (action == GLFW_PRESS) {
             theWindow->keys[key] = true;
-            //cout << "Pressed key!" << key << endl;
         }
         else if (action == GLFW_RELEASE) {
             theWindow->keys[key] = false;
-            //cout << "Released key!" << key << endl;
         }
+        theWindow->recentlyPressedKey = key;
     }
 }
 
@@ -103,6 +102,52 @@ void Window::handleMouse(GLFWwindow* window, double xPos, double yPos) {
 
     theWindow->lastX = xPos;
     theWindow->lastY = yPos;
+}
+
+int Window::getKeyPressed() {
+    return recentlyPressedKey;
+}
+
+void Window::initializeDepthBuffer() {
+    glfwWindowHint(GLFW_DEPTH_BITS, 24); // request 24-bit depth buffer
+
+    glGenTextures(1, &depthTex);
+    glBindTexture(GL_TEXTURE_2D, depthTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+        bufferWidth, bufferHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    GLfloat borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f }; // Border color for out-of-bounds samples
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+}
+
+void Window::bindDepthBuffer() {
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    // Attach depth texture
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+        GL_TEXTURE_2D, depthTex, 0);
+
+    // No color buffer needed if you only want depth
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        cout << "Framebuffer not complete!\n";
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Window::useDepthBuffer(int shaderId) {
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, depthTex);
+    glUniform1i(glGetUniformLocation(shaderId, "depthTex"), 1);
+}
+
+void Window::updateDepthTexture() {
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glViewport(0, 0, bufferWidth, bufferHeight);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    // draw scene from light’s POV or whatever pass fills depthTex
 }
 
 Window::~Window() {
