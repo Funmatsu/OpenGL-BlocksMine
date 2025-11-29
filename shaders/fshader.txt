@@ -6,7 +6,11 @@ in vec2 texCoords;
 in float transparency;
 in vec3 normal;
 in vec3 FragPos;
-const int MAX_POINT_LIGHTS = 10;
+in vec4 directionalLightSpacePos;  
+int bufferWidth = 1920;
+int bufferHeight = 1059;
+
+const int MAX_POINT_LIGHTS = 100;
 struct Light{
 		vec3 color;
 	float ambientIntensity;
@@ -25,18 +29,43 @@ struct PointLight{
 };
 
 uniform sampler2D theTexture;
+uniform sampler2D directionalShadowMap;
+
 uniform DirectionalLight directionalLight;
 uniform PointLight pointLights[MAX_POINT_LIGHTS];
 
 uniform int pointLightCount;
 
-vec4 calcLightByDirection(Light light, vec3 direction){
+float calcDirectionalShadowFactor(DirectionalLight Light){
+	vec3 projCoords = directionalLightSpacePos.xyz / directionalLightSpacePos.w;
+	projCoords = (projCoords * 0.5) + 0.5;
+	float current = projCoords.z;
+	float shadow = 0.0, bias = 0.0001;
+	vec2 texelSize = 1.0 / textureSize(directionalShadowMap, 0);
+	int var = 2;
+	for(int x = -var; x <= var; ++x) {
+		for(int y = -var; y <= var; ++y) {
+			float pcfDepth = texture(directionalShadowMap,
+									 projCoords.xy + vec2(x,y) * texelSize).r;
+			shadow += current - bias > pcfDepth ? 1.0f : 0.0;
+		}
+	}
+	shadow /= 32.0; // average
+
+	return shadow;
+}
+
+vec4 calcLightByDirection(Light light, vec3 direction, float shadowFactor){
 	vec4 ambientColor = vec4(light.color * light.ambientIntensity, 1.0f);
         float diffuseFactor = max(dot(normalize(normal), normalize(direction)), 0.0f);
 	vec4 diffuseColor = vec4(light.color * light.diffuseIntensity * diffuseFactor, 1.0f);
-	return (ambientColor + diffuseColor);
+	return vec4((ambientColor + (1 - shadowFactor) * diffuseColor).xyz, 1.0f); //(1 - shadowFactor) *
 }
-vec4 calcDirLight(){ return calcLightByDirection(directionalLight.base, directionalLight.direction); }
+vec4 calcDirLight(){ 
+	float shadowFactor = calcDirectionalShadowFactor(directionalLight);
+	//float shadowFactor = 1.0f;
+	return calcLightByDirection(directionalLight.base, directionalLight.direction, shadowFactor);
+}
 vec4 calcPointLight() {
 	vec4 totalColor = vec4(0, 0, 0, 0);
 	for(int i = 0; i < pointLightCount; i++){
@@ -44,7 +73,7 @@ vec4 calcPointLight() {
 		float distance = length(direction);
 		direction = normalize(direction);
 		
-		vec4 color = calcLightByDirection(pointLights[i].base, direction);
+		vec4 color = calcLightByDirection(pointLights[i].base, direction, 0.0);
 		float attenuation = (pointLights[i].exponent * (distance * distance) +
 							 pointLights[i].linear * distance +
 							 pointLights[i].constant);
@@ -54,11 +83,29 @@ vec4 calcPointLight() {
 	return totalColor;
 }
 
+float LinearizeDepth(float depth, float near, float far) {
+    return (2.0 * near) / (far + near - depth * (far - near));
+}
+
+float logisticDepth(float depth, float steepness, float offset){
+	float zval = LinearizeDepth(depth, 0.5, 500.0);
+	return (1 / 
+				(1 + 
+					exp(-steepness * 
+						(zval - offset)
+					)
+				)
+		   );
+}
+
 void main(){
-	if (texture(theTexture, texCoords).a < 0.5) discard;
 	
 	vec4 finalColor = calcDirLight();
 	finalColor += calcPointLight();
+	int bufferWidth = 1920, bufferHeight = 1059;
 	
-	color = texture(theTexture, texCoords) * vec4(1.0, 1.0f, 1.0f, transparency) * vec4(finalColor.xyz, 1.0) ;
+	vec4 tex = texture(theTexture, texCoords);
+	if (tex.a < 0.6) discard;
+
+	color = tex * vec4(1.0, 1.0f, 1.0f, transparency) * finalColor;
 };
