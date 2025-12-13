@@ -195,7 +195,7 @@ void getUVs(Item blockType, float* attrs) {
 	}
 
 	else if (blockType == CLOUD) {
-		attrs[0] = 2, attrs[1] = 1, attrs[6] = 0.75f;
+		attrs[0] = 4, attrs[1] = 2; attrs[6] = 0.75f;
 	}
 
 	else if (blockType == OAK_PLANK) {
@@ -227,7 +227,7 @@ void getUVs(Item blockType, float* attrs) {
 	}
 
 	else if (blockType == TORCH) {
-		attrs[0] = 1, attrs[1] = 1; attrs[2] = 3; attrs[3] = 1; attrs[4] = 3; attrs[5] = 1;
+		attrs[0] = 1, attrs[1] = 1;
 	}
 }
 

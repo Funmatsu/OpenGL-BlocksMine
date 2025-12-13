@@ -18,6 +18,7 @@ public:
 	float getXChange() { float change = xChange; xChange = 0.0; return change; }
 	float getYChange() { float change = yChange; yChange = 0.0; return change; }
 	int getKeyPressed();
+	void evictbackKeypress() { recentlyPressedKey = 0; }
 	void swapBuffers() { glfwSwapBuffers(mainWindow); }
 	GLFWwindow* getWindow() { return mainWindow;  }
 	bool leftClickButtonPressed() { return glfwGetMouseButton(mainWindow, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS; }
@@ -33,6 +34,8 @@ public:
 	void setMove(float move) {
 		translation += move;
 	}
+
+	void setMouseMoved() { mouseFirstMoved = true; }
 
 private:
 	GLFWwindow* mainWindow;

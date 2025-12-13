@@ -83,6 +83,7 @@ void Shadergl::addShader(const char* vertexCode, const char* fragmentCode) {
     uniformTexture = glGetUniformLocation(shaderId, "theTexture");
     uniformDirectionalLightTransform = glGetUniformLocation(shaderId, "directionalLightTransform");
     uniformDirectionalShadowMap = glGetUniformLocation(shaderId, "directionalShadowMap");
+    uniformColorMask = glGetUniformLocation(shaderId, "colorMask");
 }
 
 string Shadergl::readShaderFiles(const char* fileLocation) {
@@ -135,6 +136,9 @@ unsigned int Shadergl::getDiffuseIntensityLocation() {
 }
 unsigned int Shadergl::getDirectionLocation() {
     return uniformDirectionalLight.uniformDirection;
+}
+unsigned int Shadergl::getColorMaskLocation() {
+    return uniformColorMask;
 }
 
 void Shadergl::setDirectionalLight(DirectionalLight* dLight) {

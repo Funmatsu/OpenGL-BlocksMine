@@ -2,7 +2,13 @@
 
 #include "Block.h"
 
-int CHUNK_SIZE = 10;
+const int CHUNK_SIZE = 16;
+const int CHUNK_HEIGHT = CHUNK_SIZE * CHUNK_SIZE + 4 * CHUNK_SIZE + 4;
+const int CHUNK_VOLUME = (CHUNK_SIZE + 2) * CHUNK_HEIGHT * (CHUNK_SIZE + 2);
+
+//int at(vec3 position) {
+//    return position.x * CHUNK_SIZE + (position.y + 1) * CHUNK_HEIGHT + position.z;
+//}
 
 struct ivec2_hash {
     size_t operator()(const glm::ivec2& v) const noexcept {
@@ -24,41 +30,41 @@ struct ivec2_eq {
     }
 };
 
-struct ivec3_hash {
-    size_t operator()(glm::ivec3 const& v) const noexcept {
-        uint64_t ux = static_cast<uint32_t>(v.x);
-        uint64_t uy = static_cast<uint32_t>(v.y);
-        uint64_t uz = static_cast<uint32_t>(v.z);
-        uint64_t h = ux;
-        h ^= (uy + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
-        h ^= (uz + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
-        return static_cast<size_t>(h);
-    }
-};
+//struct ivec3_hash {
+//    size_t operator()(glm::ivec3 const& v) const noexcept {
+//        uint64_t ux = static_cast<uint32_t>(v.x);
+//        uint64_t uy = static_cast<uint32_t>(v.y);
+//        uint64_t uz = static_cast<uint32_t>(v.z);
+//        uint64_t h = ux;
+//        h ^= (uy + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
+//        h ^= (uz + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
+//        return static_cast<size_t>(h);
+//    }
+//};
+//
+//struct ivec3_eq {
+//    bool operator()(glm::ivec3 const& a, glm::ivec3 const& b) const noexcept {
+//        return a.x == b.x && a.y == b.y && a.z == b.z;
+//    }
+//};
 
-struct ivec3_eq {
-    bool operator()(glm::ivec3 const& a, glm::ivec3 const& b) const noexcept {
-        return a.x == b.x && a.y == b.y && a.z == b.z;
-    }
-};
-
-struct blockData {
+struct BlockData {
     Item blockType = AIR;
     ivec3 position;
-    blockData(){}
-    blockData(ivec3 pos, Item type) {
+    ivec3 orientation = ivec3(0, 1, 0);
+    BlockData(){}
+    BlockData(ivec3 pos, Item type) {
         blockType = type;
         position = pos;
     }
-    blockData(const blockData& data) {
+    BlockData(const BlockData& data) {
         blockType = data.blockType;
         position = data.position;
     }
 };
-// use it
-std::mutex worldBlocksMutex;
-std::unordered_map<glm::ivec3, Block, ivec3_hash, ivec3_eq> worldBlocks;
-
+// use it ? nope :) vectors allocate inside the heap (not the stack like some other :) which makes it better the using array or well a c array or a C++11 array<T, N> hope I got that
+// Maps are horrible and a despicable wastage of memory
+//std::unordered_map<glm::ivec3, Block, ivec3_hash, ivec3_eq> worldBlocks;
 //std::unordered_map<glm::ivec3, blockData, ivec3_hash, ivec3_eq> worldBlocks;
 
 class Chunk {
@@ -69,14 +75,23 @@ public:
     unsigned int indexOffset = 0;
     bool needUpdate = false;
     vec2 coords;
-    unordered_map<glm::ivec3, blockData, ivec3_hash, ivec3_eq> blockData;
-
+    //unordered_map<glm::ivec3, BlockData, ivec3_hash, ivec3_eq> blockData;
+    vector<BlockData> block_data;
+    //BlockData* block_data = new BlockData[CHUNK_VOLUME]; x 6 y 96 z -1 cx 0 cy -1 34 127
+    int at(vec3 position) {
+        return ((position.y + 1) * (CHUNK_HEIGHT) + 
+                (position.x - coords.x * (CHUNK_SIZE)) * (CHUNK_SIZE + 2) + 
+                (position.z - coords.y * (CHUNK_SIZE)));
+    }
     void setBlock(ivec3 blockPos, Item type) {
-        blockData[blockPos].blockType = type;
+        block_data[at(blockPos)].blockType = type;
+        //blockData[blockPos].blockType = type;
         needUpdate = true;
     }
 
-    Chunk(){}
+    Chunk(){
+        block_data.resize(CHUNK_VOLUME);
+    }
     Chunk(const Chunk& chunk) {
         mesh = chunk.mesh;
         vertices = chunk.vertices;
@@ -84,6 +99,7 @@ public:
         indexOffset = chunk.indexOffset;
         needUpdate = true;
         coords = chunk.coords;
-        blockData = chunk.blockData;
+        block_data = chunk.block_data;     
+        //blockData = chunk.blockData;
     }
 };

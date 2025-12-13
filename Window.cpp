@@ -40,7 +40,7 @@ int Window::initialize() {
 
     GLFWmonitor* monitor = glfwGetPrimaryMonitor();
     const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-    mainWindow = glfwCreateWindow(mode->width, mode->height, "GLBlocksMine", NULL, NULL);
+    mainWindow = glfwCreateWindow(mode->width, mode->height, "GLBlocksMine", NULL, NULL); // passing monitor instead of NULL makes it full screen
 
     if (!mainWindow) {
         cout << "Default Window failed to open!" << endl;
@@ -66,6 +66,10 @@ int Window::initialize() {
     glViewport(0, 0, bufferWidth, bufferHeight);
 
     glfwSetWindowUserPointer(mainWindow, this);
+
+    if (glfwRawMouseMotionSupported())
+        glfwSetInputMode(mainWindow, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+
 }
 void Window::createCalbacks() {
     glfwSetKeyCallback(mainWindow, handleKeys);
@@ -84,7 +88,8 @@ void Window::handleKeys(GLFWwindow* window, int key, int code, int action, int m
         else if (action == GLFW_RELEASE) {
             theWindow->keys[key] = false;
         }
-        theWindow->recentlyPressedKey = key;
+
+        theWindow->recentlyPressedKey = action == GLFW_PRESS ? key : 0;
     }
 }
 
@@ -97,8 +102,9 @@ void Window::handleMouse(GLFWwindow* window, double xPos, double yPos) {
         theWindow->mouseFirstMoved = false;
     }
     
-    theWindow->xChange = xPos - theWindow->lastX;
-    theWindow->yChange = yPos - theWindow->lastY;
+    theWindow->xChange = (xPos)-(theWindow->lastX);
+    theWindow->yChange = (yPos)-(theWindow->lastY);
+    
 
     theWindow->lastX = xPos;
     theWindow->lastY = yPos;
@@ -153,4 +159,4 @@ void Window::updateDepthTexture() {
 Window::~Window() {
     //cout << "Default Window failed to open!" << endl;
     glfwTerminate();
-}
+}////////////

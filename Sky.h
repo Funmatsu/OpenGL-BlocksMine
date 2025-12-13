@@ -4,50 +4,50 @@
 static const char* vshaderSky = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/vshaderSky.txt";
 static const char* fshaderSky = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/fshaderSky.txt";
 
-static const char* vshaderother = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/vshader.txt";
-static const char* fshaderother = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/fshader.txt";
+static const char* vshaderother = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/vshaderSky.txt";
+static const char* fshaderother = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/fshaderSky.txt";
 
 class Sky
 {
 public:
 	vector<float> skyVerts = {
-		-1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		-1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		-1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		-1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-
-		1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-
-		-1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		-1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-
-		-1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		-1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-
-		-1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		-1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-
-		-1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		-1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		1.0f, 1.0f, -1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f
+		-1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,1.0f,1.0f,1.0f,
+		-1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		-1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		-1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+																
+		1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+																
+		-1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,1.0f,1.0f,1.0f,
+		-1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+																
+		-1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		-1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+																
+		-1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,1.0f,1.0f,1.0f,
+		1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		-1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+																
+		-1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		-1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
+		1.0f, 1.0f, -1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,	1.0f,1.0f,1.0f,
 	};
 
 public:
 	vector<float> sunVerts = {
-		-0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.0f, 0.0f, 0.0f,
-		0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.5f, 0.0f, 0.0f, 0.0f,
-		0.5f, -0.5f, 0.5f, 1.0f, 1.0f, 0.5f, 0.0f, 0.0f, 0.0f,
-		-0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.5f, 0.0f, 0.0f, 0.0f,
+		-0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f,1.0f,1.0f,
+		0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.5f, 0.0f, 0.0f, 0.0f,	 1.0f,1.0f,1.0f,
+		0.5f, -0.5f, 0.5f, 1.0f, 1.0f, 0.5f, 0.0f, 0.0f, 0.0f,	 1.0f,1.0f,1.0f,
+		-0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.5f, 0.0f, 0.0f, 0.0f,	 1.0f,1.0f,1.0f,
 	};
 
 	vector<unsigned int> skyInds = {
@@ -90,13 +90,20 @@ public:
 		skyMesh.createMesh(skyVerts, skyInds, skyVerts.size(), skyInds.size());
 		sunMesh.createMesh(sunVerts, sunInds, sunVerts.size(), sunInds.size());
 	}
-	void displaySky() { skyMesh.renderMesh(); sunMesh.renderMesh(); }
+	void displaySky() { 
+		skyMesh.renderMesh(); 
+	}
 	void applySky(mat4 view, mat4 projection) {
 		glDepthMask(GL_FALSE);        // disable depth writes
 		shader.useShader();
 		glUniformMatrix4fv(shader.getViewLocation(), 1, GL_FALSE, value_ptr(view));
 		glUniformMatrix4fv(shader.getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
 		displaySky();
+		sunshader.useShader();
+		glUniformMatrix4fv(sunshader.getViewLocation(), 1, GL_FALSE, value_ptr(view));
+		glUniformMatrix4fv(sunshader.getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
+		sunMesh.renderMesh();
 		glDepthMask(GL_TRUE);
+
 	}
 };

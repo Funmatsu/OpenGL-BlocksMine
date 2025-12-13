@@ -10,6 +10,7 @@
 #include <cmath>
 #include <algorithm>
 #include <vector>
+#include <array>
 
 #include <random>
 #include <ctime>

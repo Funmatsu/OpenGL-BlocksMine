@@ -8,18 +8,18 @@
 #include <cmath>
 #include <vector>
 
-class Texturegl
+class GL_Texture
 {
 public:
-	Texturegl();
-	Texturegl(const char* fileLocation);
+	GL_Texture();
+	GL_Texture(const char* fileLocation);
 	void loadTexture();
 	void useTexture();
+	void useNextTexture();
 	void clearTexture();
-	~Texturegl();
+	~GL_Texture();
 private:
 	unsigned int textureId;
 	int width, height, bitDepth;
 	const char* fileLocation;
 };
-

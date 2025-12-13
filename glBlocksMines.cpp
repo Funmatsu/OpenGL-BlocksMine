@@ -1,71 +1,10 @@
 #define GLEW_STATIC
+//(DONE!!!) TO DO : Implement spectator mode kind of face culling;;;; Block right next to block of Air can be rendered. 
 
 #include "libraries.h"
 
-PointLight pointLights[MAX_POINT_LIGHTS];
-unsigned int pointLightCount = 0;
-
-#include "items.h"
-#include "Block.h"
-#include "shaderlist.h"
-//#include "Chunk.h"
-#include "recipes.h"
-//#include "Frustum.h"
-#include "normals.h"
-#include "inventory.h"
-#include "Frustum.h"
-#include "World.h"
-#include "threading.h"
-#include "Sky.h"
-
 using namespace std;
 using namespace glm;
-
-#define WIDTH         1800
-#define HEIGHT        1800
-
-//(DONE!!!) TO DO : Implement spectator mode kind of face culling;;;; Block right next to block of Air can be rendered. 
-
-int renderDistance = 10;
-
-Sky sky;
-Window mainWindow;
-
-vector<Texturegl*> Textures;
-DirectionalLight mainLight;
-
-GLfloat deltaTime = 2.0f;
-GLfloat lastTime = 0.0f;
-
-int currentBlockType = 1;
-
-void renderWorld() {
-    for (auto& chunks : world.chunkData) {
-        if ((chunks.second.coords.x >= camera.getCameraPos().x / CHUNK_SIZE - renderDistance * 1.5 && chunks.second.coords.x <= camera.getCameraPos().x / CHUNK_SIZE + renderDistance * 1.5) &&
-            (chunks.second.coords.y >= camera.getCameraPos().z / CHUNK_SIZE - renderDistance * 1.5 && chunks.second.coords.y <= camera.getCameraPos().z / CHUNK_SIZE + renderDistance * 1.5)) {
-        
-            if (chunks.second.needUpdate) {
-                //regenerateChunk(chunk.coords, chunk);
-                chunks.second.mesh.createMesh(chunks.second.vertices, chunks.second.indices, chunks.second.vertices.size(), chunks.second.indices.size());
-                chunks.second.needUpdate = false;
-            }
-            chunks.second.mesh.renderMesh();
-        }
-    }
-}
-
-void directionalShadowPass(DirectionalLight* light, mat4 model) {
-    directionalShadowShader.useShader();
-    directionalShadowShader.setDirectionalLightTransform(light->calcLightTransform());
-    glUniformMatrix4fv(directionalShadowShader.getModelLocation(), 1, GL_FALSE, value_ptr(model));
-    light->shadow_map->write();
-    glClear(GL_DEPTH_BUFFER_BIT);
-    renderWorld();
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    shaders[0]->useShader();
-    shaders[0]->setDirectionalLightTransform(light->directionalLightTransform);
-}
 
 #define BLOCK_TEX           0
 #define MAIN_INV_TEX        1
@@ -73,6 +12,27 @@ void directionalShadowPass(DirectionalLight* light, mat4 model) {
 #define LARGE_INV_TEX       3
 #define TOOLS_TEX           4
 #define CRAFT_GUI_TEX       5
+#define TOP_TEX             6
+
+Window mainWindow;
+GLfloat deltaTime = 2.0f;
+GLfloat lastTime = 0.0f;
+
+vector<GL_Texture*> Textures;
+
+int renderDistance = 10;
+
+DirectionalLight mainLight, auxLight;
+PointLight pointLights[MAX_POINT_LIGHTS];
+unsigned int pointLightCount = 0;
+
+#include "varDef.h"
+
+Sky sky;
+
+void addTextures();
+void renderWorld();
+void directionalShadowPass(DirectionalLight* light, mat4 model);
 
 int main()
 {
@@ -82,112 +42,31 @@ int main()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
     glfwSwapInterval(0);
-    /*Textures.push_back(new Texturegl("textures\\block_atlas_4.png"));*/
-    Textures.push_back(new Texturegl("textures\\block_atlas_28.png"));
-    Textures.push_back(new Texturegl("textures\\clear_toolbar_2.png"));
-    Textures.push_back(new Texturegl("textures\\clear_toolbar_3.png"));
-    Textures.push_back(new Texturegl("textures\\main_inventory.jpg"));
-    Textures.push_back(new Texturegl("textures\\tools_atlas_3.png"));
-    Textures.push_back(new Texturegl("textures\\crafting_table_gui.png"));
-    //Textures.push_back(new Texturegl("textures\\inventory_base.png"));
 
-    Textures[BLOCK_TEX]->loadTexture();
-    Textures[MAIN_INV_TEX]->loadTexture();
-    Textures[SLOT_TEX]->loadTexture();
-    Textures[LARGE_INV_TEX]->loadTexture();
-    Textures[TOOLS_TEX]->loadTexture();
-    Textures[CRAFT_GUI_TEX]->loadTexture();
-
-    createShaders();    
+    createShaders();
+    addTextures();
 
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
     glFrontFace(GL_CCW);
 
-    camera.setCameraPos(vec3(CHUNK_SIZE / 2, CHUNK_SIZE * CHUNK_SIZE / 2, CHUNK_SIZE / 2));
+    int spawn = 1;
+    camera.setCameraPos(vec3(0.0f, CHUNK_SIZE * CHUNK_SIZE / 2, 0.0f));
 
-    float centerX = WIDTH / 2.0f;
-    float centerY = HEIGHT / 2.0;
-    float size = 10.0f;
+    Crosshair crosshair;
+    crosshair.defineCrosshairGeometry();
+    inventory.defineMainInventoryGeometry();
+    inventory.defineHotbarGeometry();    
 
-    std::vector<glm::vec2> crosshairVertices = {
-        { centerX - size, centerY }, { centerX + size, centerY }, // horizontal line
-        { centerX, centerY - 2 * size }, { centerX, centerY + 2 * size }  // vertical line
-    };
+    initChunksNoise();
 
-    vector<GLfloat> vers = {
-        crosshairVertices[0].x, crosshairVertices[0].y, 0.0, 0.0f, 0.0f,
-        crosshairVertices[1].x, crosshairVertices[1].y, 0.0, 1.0f, 0.0f,
-        crosshairVertices[2].x, crosshairVertices[2].y, 0.0, 0.0f, 1.0f,
-        crosshairVertices[3].x, crosshairVertices[3].y, 0.0, 1.0f, 1.0f
-    };
-
-    vector<unsigned int> inds = {
-        0, 1, 2,
-        1, 2, 3
-    };
-
-    Mesh crosshair;
-    crosshair.createMesh(vers, inds, 20, 6);
-
-    int invSizeX = 310;
-    int invSizeY = 65;
-    int invHeight = 700;
-    int slotLength = 69;
-    std::vector<glm::vec2> inventoryVertices = {
-        { centerX - invSizeX, centerY - invSizeY - invHeight}, { centerX + invSizeX, centerY - invSizeY - invHeight},
-        { centerX - invSizeX, centerY + invSizeY - invHeight}, { centerX + invSizeX, centerY + invSizeY - invHeight},
-
-        { centerX - invSizeX + slotLength, centerY - invSizeY - invHeight}, { centerX - invSizeX + slotLength, centerY + invSizeY - invHeight}
-    };
-    vector<GLfloat> versInv = {
-        inventoryVertices[0].x, inventoryVertices[0].y, 0.0, 0.0f, 0.0f, 1.0f,             0.0f, 0.0f, 0.0f,
-        inventoryVertices[1].x, inventoryVertices[1].y, 0.0, 1.0f, 0.0f, 1.0f,             0.0f, 0.0f, 0.0f,
-        inventoryVertices[2].x, inventoryVertices[2].y, 0.0, 0.0f, 1.0f, 1.0f,             0.0f, 0.0f, 0.0f,
-        inventoryVertices[3].x, inventoryVertices[3].y, 0.0, 1.0f, 1.0f, 1.0f,             0.0f, 0.0f, 0.0f
-    };
-
-    vector<unsigned int> indsInv = {
-        0, 2, 1,
-        1, 2, 3
-    };
-
-    int offsetX = 600, offsetY = -800;
-
-    vector<GLfloat> versInvBlock = {
-        centerX + offsetX + 0.0f,   centerY + offsetY + 0.0f, 0.0, 0.0f, 0.0f, 1.0f,       0.0f, 0.0f, 0.0f,
-        centerX + offsetX + 100.0f, centerY + offsetY + 0.0f, 0.0, 1.0f, 0.0f, 1.0f,       0.0f, 0.0f, 0.0f,
-        centerX + offsetX + 0.0f,   centerY + offsetY + 100.0f, 0.0, 0.0f, 1.0f, 1.0f,     0.0f, 0.0f, 0.0f,
-        centerX + offsetX + 100.0f, centerY + offsetY + 100.0f, 0.0, 1.0f, 1.0f, 1.0f,     0.0f, 0.0f, 0.0f
-    };
-
-    vector<unsigned int> indsInvBlock = {
-        0, 1, 2,
-        1, 3, 2
-    };
-
-    Mesh inventoryMesh, currInvSlotSelector, craftInvSlotSelector;
     Block currentBlock;
 
     mat4 model(1.0f), projection(1.0f), view(1.0f);
-    projection = perspective(radians(45.0f), (float(mainWindow.getBufferWidth()) / float(mainWindow.getBufferHeight())), 0.5f, 500.0f);    
+    projection = perspective(radians(45.0f), (float(mainWindow.getBufferWidth()) / float(mainWindow.getBufferHeight())), 0.01f, 500.0f);
 
     glm::mat4 ortho = glm::ortho(0.0f, float(WIDTH), 0.0f, float(HEIGHT));
 
-    GLuint vbo = 0;
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, crosshairVertices.size() * sizeof(glm::vec2), &crosshairVertices[0], GL_STATIC_DRAW);
-
-    GLuint vao = 0;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (void*)0);
-    int offs = 1, ctrl = 0;
-    inventoryMesh.createMesh(versInv, indsInv, 24, 6);
     mat4 modelCurSlots[4][9];
     mat4 modelCraftInvSlots[2][2], modelbigCraftInvSlots[3][3];;
     mat4 modelCraftedInvSlot(1.0f), modelbigCraftedInvSlot(1.0f);
@@ -222,31 +101,9 @@ int main()
     modelCurSlot = rotate(modelCurSlot, radians(-30.0f), vec3(1.0f, 0.0f, 0.0f));
     int firstChunk = 0;
     int renderX = 1, renderY = 1;
-    //world.chunks.push_back(Chunk());
-    invSizeX = centerX / 3;
-    invSizeY = centerY / 2;
-    invHeight = 0;
-    slotLength = 69;
-    std::vector<glm::vec2> inventoryVertices2 = {
-        { centerX - invSizeX, centerY - invSizeY - invHeight}, { centerX + invSizeX, centerY - invSizeY - invHeight},
-        { centerX - invSizeX, centerY + invSizeY - invHeight}, { centerX + invSizeX, centerY + invSizeY - invHeight},
-
-        { centerX - invSizeX + slotLength, centerY - invSizeY - invHeight}, { centerX - invSizeX + slotLength, centerY + invSizeY - invHeight}
-    };
-    vector<GLfloat> versInv2 = {
-        inventoryVertices2[0].x, inventoryVertices2[0].y, 0.0, 0.0f, 0.0f, 1.0f,   0.0f, 0.0f, 0.0f,
-        inventoryVertices2[1].x, inventoryVertices2[1].y, 0.0, 1.0f, 0.0f, 1.0f,   0.0f, 0.0f, 0.0f,
-        inventoryVertices2[2].x, inventoryVertices2[2].y, 0.0, 0.0f, 1.0f, 1.0f,   0.0f, 0.0f, 0.0f,
-        inventoryVertices2[3].x, inventoryVertices2[3].y, 0.0, 1.0f, 1.0f, 1.0f,   0.0f, 0.0f, 0.0f
-    };
-
-    vector<unsigned int> indsInv2 = {
-        0, 2, 1,
-        1, 2, 3
-    };
-    Mesh mainInventory, craftingInventory;
+    
     Block craftedItem(vec3(0.0f), AIR, {}, {});
-    mainInventory.createMesh(versInv2, indsInv2, versInv2.size(), indsInv2.size());
+    int offs = 1, ctrl = 0;
     bool jumping = false, ctrlJump = false, flying = false;
     float jumpCount = 0;
     float lastXChange = 0.0f, lastYChange = 0.0f;
@@ -262,16 +119,15 @@ int main()
 
     mainLight = DirectionalLight(1920, 1059,
         1.0f, 1.0f, 1.0f,
-        0.2 + 1.2 * time / maxTime, 0.85 * time / maxTime,
+        0.5f, time / maxTime,
         0.0f, -CHUNK_SIZE * CHUNK_SIZE, 1.0f);
 
-    float rot = 0.0f;
+    auxLight = DirectionalLight(1920, 1059,
+        1.0f, 1.0f, 1.0f,
+        0.5f, time / maxTime,
+        0.0f, CHUNK_SIZE * CHUNK_SIZE, CHUNK_SIZE);
 
-    //GLfloat range[2];
-    //glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, range);
-    //std::cout << "Line width range: " << range[0] << " to " << range[1] << std::endl;
     while (!mainWindow.getShouldClose()) {
-
         mainLight.setShadowPos(vec2(camera.getCameraPos().x, camera.getCameraPos().z));
         int count = 0, count2 = 0;
         for (int i = -renderX; i < renderX; i++) {
@@ -286,17 +142,18 @@ int main()
                         chunkRequestQueue.push(chunkPos);
                         queueCV.notify_one();
                     }
-                } //count++;
+                } 
             }
- /*         count2++;
-            if (count2 >= CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) break;*/
-        }
-
-        {
-            std::lock_guard<std::mutex> lock(resultMutex);
+ /*         count2++; if (count2 >= CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) break;*/
+        } {
+            //std::lock_guard<std::mutex> lock(resultMutex);
             while (!chunkResultQueue.empty()) {
-                Chunk& chunk = chunkResultQueue.front();   // Using a refference here instead of a copy is actually cracked! massive speed up
-                world.addChunk(chunk, ivec2(chunk.coords));
+                //count++;
+                //if (count > 2) break;
+                std::lock_guard<std::mutex> lock(resultMutex);
+                Chunk* chunk = new Chunk();
+                *chunk = chunkResultQueue.front();   // Using a refference here instead of a copy is actually cracked! massive speed up
+                world.addChunk(chunk, ivec2(chunk->coords));
                 chunkResultQueue.pop();
             }
         }
@@ -308,32 +165,13 @@ int main()
         
         Textures[BLOCK_TEX]->useTexture();
         shaders[0]->useShader();
-        GLfloat now = glfwGetTime();
-        deltaTime = now - lastTime;
-        lastTime = now;
-
-        if (time >= 3 * maxTime / 5) {
-            night = true;
-        }
-        else if(time <= lowTime){
-            night = false;
-        }
-
-        if (mainWindow.getKeys()[GLFW_KEY_LEFT]) {
-            time-=1.5;
-        }
-        else if(mainWindow.getKeys()[GLFW_KEY_RIGHT]){
-            time+=1.5;
-        }
-
-        //glClearColor(0.2f + 0.1 * time / maxTime,time / maxTime + 0.1, 0.4 + time / maxTime, 1.0f);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glfwPollEvents();
 
         sky.applySky(view, projection);
         glEnable(GL_DEPTH_TEST);
-        //glDepthFunc(GL_LESS);
+        glDepthFunc(GL_LESS);
 
         directionalShadowPass(&mainLight, model);
         Textures[BLOCK_TEX]->useTexture();
@@ -341,56 +179,43 @@ int main()
         mainLight.getShadowMap()->read(GL_TEXTURE1);
         glUniform1i(glGetUniformLocation(shaders[0]->getShaderId(), "directionalShadowMap"), 1);
         
+        Textures[TOP_TEX]->useNextTexture();
+        glUniform1i(glGetUniformLocation(shaders[0]->getShaderId(), "topTexture"), 2);
+
         renderWorld();
+        BlockData lookBlock;
 
         view = camera.calcViewMatrix();
-        //mat4 model = mat4(1.0f);
-        //rot += 0.1f;
-        //model = glm::translate(model, vec3(rot, 0.0f, 0.0f));
+
         glUniformMatrix4fv(shaders[0]->getModelLocation(), 1, GL_FALSE, value_ptr(model));
         glUniformMatrix4fv(shaders[0]->getViewLocation(), 1, GL_FALSE, value_ptr(view));
         glUniformMatrix4fv(shaders[0]->getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
+        glUniform3f(shaders[0]->getColorMaskLocation(), 1.0f, 1.0f, 1.0f);
 
         int sensitivity = 1.01f;
         camera.keyControl(mainWindow.getKeys(), deltaTime);
         if (inventory.inventoryOn || inventory.craftingInventoryOn) {
             glfwSetInputMode(mainWindow.getWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-            camera.mouseControl(lastXChange, lastYChange);
+            mainWindow.setMouseMoved();
+            //camera.mouseControl(lastXChange, lastYChange);
         }
         else {
             glfwSetInputMode(mainWindow.getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
             camera.mouseControl(mainWindow.getXChange(), mainWindow.getYChange());
-            lastXChange = mainWindow.getXChange(); lastYChange = mainWindow.getYChange();
+            //lastXChange = mainWindow.getXChange(); lastYChange = mainWindow.getYChange();
         }
 
         shaders[0]->setDirectionalLight(&mainLight); //replaced : mainLight.useLight(shaders[0]->getAmbientIntensityLocation(), shaders[0]->getAmbientColorLocation(), shaders[0]->getDiffuseIntensityLocation(), shaders[0]->getDirectionLocation());
         shaders[0]->setPointLights(pointLights, pointLightCount);
 
-        if (mainWindow.getKeys()[GLFW_KEY_SPACE]) {
-            //cout << jumping << " " << ctrlJump << endl;
-
-            //if (flying) {
-            //    jumpCount += 0.1f;
-            //}
-            //if(jumping)
-            camera.setCameraPos(vec3(camera.getCameraPos().x, camera.getCameraPos().y + 0.1f, camera.getCameraPos().z));
-            //if (!ctrlJump) {
-            //    jumping = true;
-            //}
-            //if (mainWindow.getKeys()[GLFW_KEY_SPACE]) {
-            //    flying = !flying;
-            //}
-        }
-        else {
-            ctrl = 20;
-        }
-
         if (mainWindow.getKeyPressed() >= GLFW_KEY_1 && mainWindow.getKeyPressed() <= GLFW_KEY_9) {
             slot = mainWindow.getKeyPressed() - GLFW_KEY_1; inv_change = true;
         }
-
+        
+        float lastPress = 0.0, maxDelay = 0.2 + glfwGetTime();
         if (mainWindow.getKeys()[GLFW_KEY_P]) {
-
+            //double now_ = glfwGetTime();
+            //while (!(now_ - lastPress > maxDelay)) { now_ = glfwGetTime(); }
             if (mainWindow.getKeys()[GLFW_KEY_I]) {
                 inventory.inf_blocks = true;
             }
@@ -398,12 +223,14 @@ int main()
                 inventory.inf_blocks = false;
             }
 
-            if(mainWindow.getKeyPressed() > GLFW_KEY_1 && mainWindow.getKeyPressed() <= GLFW_KEY_9) world.addBlocklook_at(items[mainWindow.getKeyPressed() - GLFW_KEY_1]);
-            else                                                                                   world.addBlocklook_at(inventory.inv_slots[3][slot]);
-            if      (mainWindow.getKeys()[GLFW_KEY_1]) world.addBlocklook_at(items[TORCH.id]);
+            if (mainWindow.getKeyPressed() > GLFW_KEY_1 && mainWindow.getKeyPressed() <= GLFW_KEY_9) world.addBlocklook_at(items[mainWindow.getKeyPressed() - GLFW_KEY_1]);
+            else world.addBlocklook_at(inventory.inv_slots[3][slot]);
+            if (mainWindow.getKeys()[GLFW_KEY_9]) world.addBlocklook_at(items[CRAFTING_TABLE.id]);
+            if (mainWindow.getKeys()[GLFW_KEY_1]) world.addBlocklook_at(items[TORCH.id]);
         }
-
         if (mainWindow.getKeys()[GLFW_KEY_T] || mainWindow.leftClickButtonPressed()) {
+            //double now_ = glfwGetTime();
+            //while (!(now_ - lastPress > maxDelay)) { now_ = glfwGetTime(); }
             {
                 std::lock_guard<std::mutex> lock(breakReqMutex);
                 breakReqQueue.push(vec3(1.0f));
@@ -418,10 +245,9 @@ int main()
                 }
             }
         }
-
         if (mainWindow.rightClickButtonPressed()) {
-            Block lookBlock = world.getBlockAt(lookingAtBlock());
-            if (!recipe.itemUsable(lookBlock.type)) {
+            lookBlock = world.getBlockAt(lookingAtBlock());
+            if (!recipe.itemUsable(lookBlock.blockType)) {
                 if (inventory.inv_slots[3][slot] != AIR && recipe.itemPlaceable(inventory.inv_slots[3][slot])) {
                     {
                         std::lock_guard<std::mutex> lock(placeReqMutex);
@@ -429,11 +255,13 @@ int main()
                         blockPlacingOut = true;
                     }
                     {
-                        //std::lock_guard<std::mutex> lock(placeResMutex);
+                        //  std::lock_guard<std::mutex> lock(placeResMutex);
                         if (!placeResQueue.empty()) {
                             placeResQueue.pop();
                         }
                     }
+                    double now_ = glfwGetTime();
+                    while (!(now_ - lastPress > maxDelay)) { now_ = glfwGetTime(); }
                 }
                 if (!inventory.inf_blocks) {
                     inventory.deassignInvSlot(slot, 3);
@@ -444,21 +272,6 @@ int main()
             }
         }
 
-        if (mainWindow.getShouldClose()) {
-            chunkGenRunning = false;
-            queueCV.notify_all(); // wake up sleeping threads
-
-            for (auto& t : workers)
-                t.join();
-
-            chunkGenRunning = false;
-            chunkGenRunning2 = false;
-            chunkGenRunning3 = false;
-            blockPlacing = false;
-            blockBreaking = false;//chunkGenThread.join(); //chunkGenThread2.join(); //chunkGenThread3.join();
-            blockBreakThread.join();
-            blockPlaceThread.join();
-        }
         if (mainWindow.getKeys()[GLFW_KEY_Q]) {
             inventory.inv_slots[3][slot] = AIR;
             inventory.currInvSlot[3][slot].clearMesh();
@@ -472,33 +285,25 @@ int main()
         glUniformMatrix4fv(shaders[13]->getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
 
         //For block highlighting
-
-        ivec3 lookingPos;
-        {
-            std::lock_guard<std::mutex> lock(chunkRequestMutex);
-            lookingPos = ivec3(lookingAtBlock());
+        //cout << camera.getCameraPos().x << " " << camera.getCameraPos().z << endl;
+        vec3 position = lookingAtBlock();
+        if (position.y >= 0) {
+            Mesh cloudMesh = world.createVertsOnlyMesh(position, 0.005f, CLOUD);
+            cloudMesh.renderMesh();
         }
-        Block cloud = world.getBlockAt(lookingPos);
-        cloud.blockMesh = world.createVertsOnlyMesh(cloud.position, 0.2f, CLOUD);
-        //cloud.blockMesh.createMesh(cloud.vertices, cloud.indices, cloud.vertices.size(), cloud.indices.size());
-        cloud.blockMesh.renderMeshAsLines();
 
         glDisable(GL_DEPTH_TEST); // so crosshair draws on top
         shaders[1]->useShader();
-        //glEnable(GL_BLEND);
         glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
 
         glUniformMatrix4fv(glGetUniformLocation(shaders[1]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
-        glBindVertexArray(vao);
-        glLineWidth(3.0f);
-        glDrawArrays(GL_LINES, 0, 4);
+        crosshair.drawCrosshair();
 
-        //glDisable(GL_BLEND);
+        shaders[2]->useShader();
 
-        //Textures[BLOCK_TEX]->useTexture();
-        //shaders[0]->useShader();
-        ////arm.drawHand(ortho);
-        //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        Textures[SLOT_TEX]->useTexture();
+        inventory.defineHotbarSlotSelectorGeometry();
+        inventory.drawHotbarSlotSelector();
 
         Textures[MAIN_INV_TEX]->useTexture();
         if (inv_change)
@@ -539,7 +344,6 @@ int main()
                     for (int j = 0; j < (sizeof(inventory.bigCraftInv[0]) / sizeof(Item)); j++) {
                         if (inventory.bigCraftInvSlot[i][j].verts.size() == 0 && inventory.bigCraftInv[i][j] != AIR) {
                             inventory.bigCraftInvSlot[i][j] = world.createMeshCube(centerX / 5 + 270, centerY / 4 + 110, 0.0f, 35.0f, inventory.bigCraftInv[i][j]);
-                            //cout << bigCraftInv[0][0] << endl;
                         }
                     }
                 }
@@ -550,19 +354,6 @@ int main()
 
             }
 
-            vector<GLfloat> versInvSlotSelector = {
-                inventoryVertices[0].x + (slot) * 69 - 5, inventoryVertices[0].y - 5, 0.0, 0.0f, 0.0f, 1.0f,    0.0f, 0.0f, 0.0f,
-                inventoryVertices[4].x + (slot) * 69 + 5, inventoryVertices[4].y - 5, 0.0, 0.0f, 1.0f, 1.0f,    0.0f, 0.0f, 0.0f,
-                inventoryVertices[2].x + (slot) * 69 - 5, inventoryVertices[2].y + 5, 0.0, 1.0f, 0.0f, 1.0f,    0.0f, 0.0f, 0.0f,
-                inventoryVertices[5].x + (slot) * 69 + 5, inventoryVertices[5].y + 5, 0.0, 1.0f, 1.0f, 1.0f,    0.0f, 0.0f, 0.0f
-            };
-
-            vector<unsigned int> indsInvSlotSelector = {
-                0, 2, 1,
-                1, 2, 3
-            };
-            currInvSlotSelector.createMesh(versInvSlotSelector, indsInvSlotSelector, 24, 6);
-
             inv_change = false;
         }
 
@@ -570,7 +361,7 @@ int main()
         glUniformMatrix4fv(glGetUniformLocation(shaders[2]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
         Textures[MAIN_INV_TEX]->useTexture();
         glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
-        inventoryMesh.renderMesh();
+        inventory.drawHotbar();
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         Textures[LARGE_INV_TEX]->useTexture();
         if (mainWindow.getKeys()[GLFW_KEY_C]) {
@@ -630,81 +421,60 @@ int main()
             inventory.inventoryOn = true;
         }
 
-        if (mainWindow.getKeys()[GLFW_KEY_RIGHT_SHIFT]) {
-            if (mainWindow.getKeys()[GLFW_KEY_E]) {
-                for (int i = 0; i < (sizeof(inventory.inv_slots) / sizeof(inventory.inv_slots[3])); i++) {
-                    for (int j = 0; j < (sizeof(inventory.inv_slots[3]) / sizeof(Item)); j++) {
-                        if (inventory.inv_slots[i][j] == AIR) {
-                            for (int k = 0; k < sizeof(inventory.craftInv) / sizeof(inventory.craftInv[0]); k++) {
-                                for (int l = 0; l < sizeof(inventory.craftInv[0]) / sizeof(Item); l++) {
-                                    if (inventory.craftInv[k][l] != AIR) {
-                                        inventory.inv_slots[i][j] = inventory.craftInv[k][l];
-                                        inventory.craftInv[k][l] = AIR;
-                                        inventory.craftInvSlot[k][l] = Mesh();
-                                        inv_change = true;
-                                    }
+        if (mainWindow.getKeys()[GLFW_KEY_RIGHT_SHIFT] && mainWindow.getKeys()[GLFW_KEY_E]) {
+            for (int i = 0; i < (sizeof(inventory.inv_slots) / sizeof(inventory.inv_slots[3])); i++) {
+                for (int j = 0; j < (sizeof(inventory.inv_slots[3]) / sizeof(Item)); j++) {
+                    if (inventory.inv_slots[i][j] == AIR) {
+                        for (int k = 0; k < sizeof(inventory.craftInv) / sizeof(inventory.craftInv[0]); k++) {
+                            for (int l = 0; l < sizeof(inventory.craftInv[0]) / sizeof(Item); l++) {
+                                if (inventory.craftInv[k][l] != AIR) {
+                                    inventory.inv_slots[i][j] = inventory.craftInv[k][l];
+                                    inventory.craftInv[k][l] = AIR;
+                                    inventory.craftInvSlot[k][l] = Mesh();
+                                    inv_change = true;
                                 }
                             }
                         }
                     }
                 }
-                inventory.inventoryOn = false;
-                inventory.craftingInventoryOn = false;
-                camera.mouseControl(lastXChange, lastYChange);
             }
+            inventory.inventoryOn = false;
+            inventory.craftingInventoryOn = false;
+            camera.mouseControl(lastXChange, lastYChange);
         }
 
-        //float deltaTIme = 1.0f;
-
-        if (mainWindow.getKeys()[GLFW_KEY_UP]) {
-            if (slotY > -1 && slotY < 3) {
-                slotY+=1.0f;
+        lastPress = 0.0, maxDelay = 0.2 + glfwGetTime();
+        int keyPress = mainWindow.getKeyPressed();
+        if (keyPress >= GLFW_KEY_RIGHT && keyPress <= GLFW_KEY_UP) {
+            double now_ = glfwGetTime();
+            while (!(now_ - lastPress > maxDelay)) { now_ = glfwGetTime(); }
+            if (keyPress >= GLFW_KEY_DOWN && keyPress <= GLFW_KEY_UP) {
+                if (slotY > -(keyPress - GLFW_KEY_DOWN) && slotY < 4 - (keyPress - GLFW_KEY_DOWN)) {
+                    slotY += 2 * (keyPress - GLFW_KEY_DOWN) - 1; // down : slotY - 1, up : slotY + 1
+                }
             }
-        }
-
-        if (mainWindow.getKeys()[GLFW_KEY_DOWN]) {
-            if (slotY > 0 && slotY < 4) {
-                slotY-=1.0f;
-            }
-        }
-
-        if (mainWindow.getKeys()[GLFW_KEY_LEFT]) {
-            if (slotX > 0 && slotX < 9) {
-                slotX-=1.0f;
-            }
-        }
-
-        if (mainWindow.getKeys()[GLFW_KEY_RIGHT]) {
-            if (slotX > -1 && slotX < 8) {
-                slotX+=1.0f;
+            if (keyPress >= GLFW_KEY_RIGHT && keyPress <= GLFW_KEY_LEFT) {
+                if (slotX >       keyPress - GLFW_KEY_RIGHT  - 1 && slotX < 8 + keyPress - GLFW_KEY_RIGHT) {
+                    slotX -= 2 * (keyPress - GLFW_KEY_RIGHT) - 1;
+                }
             }
         }
 
         if (inventory.inventoryOn) {
-
             Textures[LARGE_INV_TEX]->useTexture();
             shaders[2]->useShader();
             glUniformMatrix4fv(glGetUniformLocation(shaders[2]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
             glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
-            mainInventory.renderMesh();
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            vector<GLfloat> versCraftInvSlotSelector = {
-                inventoryVertices[0].x + int(slotX) * 62 + 28, inventoryVertices[0].y + 323.0f + 10.0f + 5.0f + int(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f, 0.0f,
-                inventoryVertices[4].x + int(slotX) * 62 + 28, inventoryVertices[4].y + 323.0f + 10.0f + 5.0f + int(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 1.0f, 1.0f,     0.0f, 0.0f, 0.0f,
-                inventoryVertices[2].x + int(slotX) * 62 + 28, inventoryVertices[2].y + 323.0f + +5.0f + int(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 0.0f, 1.0f,            0.0f, 0.0f, 0.0f,
-                inventoryVertices[5].x + int(slotX) * 62 + 28, inventoryVertices[5].y + 323.0f + +5.0f + int(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 1.0f, 1.0f,            0.0f, 0.0f, 0.0f
-            };
 
-            vector<unsigned int> indsCraftInvSlotSelector = {
-                0, 2, 1,
-                1, 2, 3
-            };
+            inventory.drawMainInventory();
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
             Textures[SLOT_TEX]->useTexture();
-            shaders[2]->useShader();
-            craftInvSlotSelector.createMesh(versCraftInvSlotSelector, indsCraftInvSlotSelector, 24, 6);
             glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
-            craftInvSlotSelector.renderMesh();
+
+            inventory.defineInvSlotSelectGeometry();
+            inventory.drawInvSlotSelector();
+
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             Textures[BLOCK_TEX]->useTexture();
 
@@ -730,47 +500,21 @@ int main()
                     InventoryShaders[9 * i + j]->useShader();
                     glUniformMatrix4fv(glGetUniformLocation(InventoryShaders[9 * i + j]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
                     glUniformMatrix4fv(InventoryShaders[9 * i + j]->getModelLocation(), 1, GL_FALSE, value_ptr(modelCurSlots[i][j]));
-                    
+
                     inventory.currInvSlot[i][j].renderMesh();
                     inv_change = true;
                 }
             }
 
-            bool blockAdded = false, blockCrafting = false;
-
-            if (mainWindow.getKeys()[GLFW_KEY_RIGHT_SHIFT]) {
-                if (mainWindow.getKeys()[GLFW_KEY_ENTER]) {
-                    if (mainWindow.getKeys()[GLFW_KEY_0]) {
-                        if (inventory.craftInv[0][0] == AIR) {
-                            inventory.craftInv[0][0] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
-                            inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
-                            inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
-                        }
+            if (mainWindow.getKeys()[GLFW_KEY_RIGHT_SHIFT] && mainWindow.getKeys()[GLFW_KEY_ENTER]) {
+                if (mainWindow.getKeyPressed() >= GLFW_KEY_0 && mainWindow.getKeyPressed() <= GLFW_KEY_3) {
+                    if (inventory.craftInv[(mainWindow.getKeyPressed() - GLFW_KEY_0) / 2][(mainWindow.getKeyPressed() - GLFW_KEY_0) % 2] == AIR) {
+                        inventory.craftInv[(mainWindow.getKeyPressed() - GLFW_KEY_0) / 2][(mainWindow.getKeyPressed() - GLFW_KEY_0) % 2] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
+                        inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
+                        inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
                     }
-                    else if (mainWindow.getKeys()[GLFW_KEY_1]) {
-                        if (inventory.craftInv[0][1] == AIR) {
-                            inventory.craftInv[0][1] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
-                            inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
-                            inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
-                        }
-                    }
-                    else if (mainWindow.getKeys()[GLFW_KEY_2]) {
-                        if (inventory.craftInv[1][0] == AIR) {
-                            inventory.craftInv[1][0] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
-                            inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
-                            inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
-                        }
-                    }
-                    else if (mainWindow.getKeys()[GLFW_KEY_3]) {
-                        if (inventory.craftInv[1][1] == AIR) {
-                            inventory.craftInv[1][1] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
-                            inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
-                            inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
-                        }
-                    }
-                    //cout << slotX << " " << 3 - (int)slotY << endl;
-                    inv_change = true;
                 }
+                inv_change = true;
             }
 
             //Crafting inventory slots are being drawn here.
@@ -801,101 +545,29 @@ int main()
 
         // crafting inventory GUI appears here
         if (inventory.craftingInventoryOn) {
-            if (mainWindow.getKeys()[GLFW_KEY_RIGHT_SHIFT]) {
-                if (mainWindow.getKeys()[GLFW_KEY_ENTER]) {
-                    if (mainWindow.getKeys()[GLFW_KEY_0]) {
-                        if (inventory.bigCraftInv[0][0] == AIR) {
-                            inventory.bigCraftInv[0][0] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
-                            inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
-                            inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
-                        }
+            if (mainWindow.getKeys()[GLFW_KEY_RIGHT_SHIFT] && mainWindow.getKeys()[GLFW_KEY_ENTER]) {
+                if (mainWindow.getKeyPressed() >= GLFW_KEY_0 && mainWindow.getKeyPressed() <= GLFW_KEY_8) {
+                    if (inventory.bigCraftInv[(mainWindow.getKeyPressed() - GLFW_KEY_0) / 3][(mainWindow.getKeyPressed() - GLFW_KEY_0) % 3] == AIR) {
+                        inventory.bigCraftInv[(mainWindow.getKeyPressed() - GLFW_KEY_0) / 3][(mainWindow.getKeyPressed() - GLFW_KEY_0) % 3] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
+                        inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
+                        inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
                     }
-                    else if (mainWindow.getKeys()[GLFW_KEY_1]) {
-                        if (inventory.bigCraftInv[0][1] == AIR) {
-                            inventory.bigCraftInv[0][1] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
-                            inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
-                            inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
-                        }
-                    }
-                    else if (mainWindow.getKeys()[GLFW_KEY_2]) {
-                        if (inventory.bigCraftInv[0][2] == AIR) {
-                            inventory.bigCraftInv[0][2] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
-                            inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
-                            inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
-                        }
-                    }
-                    else if (mainWindow.getKeys()[GLFW_KEY_3]) {
-                        if (inventory.bigCraftInv[1][0] == AIR) {
-                            inventory.bigCraftInv[1][0] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
-                            inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
-                            inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
-                        }
-                    }
-                    else if (mainWindow.getKeys()[GLFW_KEY_4]) {
-                        if (inventory.bigCraftInv[1][1] == AIR) {
-                            inventory.bigCraftInv[1][1] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
-                            inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
-                            inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
-                        }
-                    }
-                    else if (mainWindow.getKeys()[GLFW_KEY_5]) {
-                        if (inventory.bigCraftInv[1][2] == AIR) {
-                            inventory.bigCraftInv[1][2] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
-                            inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
-                            inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
-                        }
-                    }
-                    else if (mainWindow.getKeys()[GLFW_KEY_6]) {
-                        if (inventory.bigCraftInv[2][0] == AIR) {
-                            inventory.bigCraftInv[2][0] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
-                            inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
-                            inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
-                        }
-                    }
-                    else if (mainWindow.getKeys()[GLFW_KEY_7]) {
-                        if (inventory.bigCraftInv[2][1] == AIR) {
-                            inventory.bigCraftInv[2][1] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
-                            inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
-                            inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
-                        }
-                    }
-                    else if (mainWindow.getKeys()[GLFW_KEY_8]) {
-                        if (inventory.bigCraftInv[2][2] == AIR) {
-                            inventory.bigCraftInv[2][2] = inventory.inv_slots[3 - (int)slotY][(int)slotX];
-                            inventory.currInvSlot[3 - (int)slotY][(int)slotX].clearMesh();
-                            inventory.inv_slots[3 - (int)slotY][(int)slotX] = AIR;
-                        }
-                    }
-                    //cout << slotX << " " << 3 - (int)slotY << endl;
-                    //cout << "Craft inv : " << bigCraftInv[0][0] << endl;
-                    inv_change = true;
                 }
+                inv_change = true;
             }
 
             Textures[CRAFT_GUI_TEX]->useTexture();
             shaders[2]->useShader();
             glUniformMatrix4fv(glGetUniformLocation(shaders[2]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho));
             glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
-            mainInventory.renderMesh();
+            inventory.drawMainInventory();
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-            vector<GLfloat> versCraftInvSlotSelector = {
-                inventoryVertices[0].x + (int)(slotX) * 62 + 28, inventoryVertices[0].y + 323.0f + 10.0f + 5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 0.0f, 1.0f,      0.0f, 0.0f, 0.0f,
-                inventoryVertices[4].x + (int)(slotX) * 62 + 28, inventoryVertices[4].y + 323.0f + 10.0f + 5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 0.0f, 1.0f, 1.0f,      0.0f, 0.0f, 0.0f,
-                inventoryVertices[2].x + (int)(slotX) * 62 + 28, inventoryVertices[2].y + 323.0f + +5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 0.0f, 1.0f,             0.0f, 0.0f, 0.0f,
-                inventoryVertices[5].x + (int)(slotX) * 62 + 28, inventoryVertices[5].y + 323.0f + +5.0f + round(slotY) * 100 + (((int)slotY == 0) ? 0 : 20), 0.0, 1.0f, 1.0f, 1.0f,             0.0f, 0.0f, 0.0f
-            };
-
-            vector<unsigned int> indsCraftInvSlotSelector = {
-                0, 2, 1,
-                1, 2, 3
-            };
 
             Textures[SLOT_TEX]->useTexture();
             shaders[2]->useShader();
-            craftInvSlotSelector.createMesh(versCraftInvSlotSelector, indsCraftInvSlotSelector, 24, 6);
             glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
-            craftInvSlotSelector.renderMesh();
+            inventory.defineCrafingInvSlotSelectorGeometry();
+            inventory.drawInvSlotSelector();
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             Textures[BLOCK_TEX]->useTexture();
 
@@ -951,12 +623,6 @@ int main()
             craftedItem.blockMesh.renderMesh();
         }
 
-        Textures[SLOT_TEX]->useTexture();
-        shaders[2]->useShader();
-        
-        glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
-        currInvSlotSelector.renderMesh();
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         Textures[BLOCK_TEX]->useTexture();
         
         for (int i = 0; i < 9; i++) {
@@ -974,17 +640,7 @@ int main()
         }
    
         shaders[3]->useShader();
-        //modelCur = mat4(1.0f);
-        //modelCur = rotate(modelCur, radians(20.0f), vec3(0.5f, 0.5f, 0.0f));
-        //if (recipe.isTool(currentBlock.type)) {
-            
-            
-            //modelCur = translate(modelCur, vec3((-(offsetX)) / WIDTH, (200) / HEIGHT, 0.0f));
-        //modelCur = translate(modelCur, vec3(((offsetX)) / WIDTH, (-200) / HEIGHT, 0.0f));
-            //modelCur = rotate(modelCur, radians(-90.0f), vec3(0.0f, 0.0f, 1.0f));
-            
-            //modelCur = translate(modelCur, vec3((centerX + offsetX) / WIDTH, 0.0f, 0.0f));
-        //}
+
         glUniformMatrix4fv(glGetUniformLocation(shaders[3]->getShaderId(), "ortho"), 1, GL_FALSE, glm::value_ptr(ortho)); 
 
         glUniformMatrix4fv(shaders[3]->getModelLocation(), 1, GL_FALSE, value_ptr(modelCur));
@@ -998,27 +654,71 @@ int main()
         currentBlock.blockMesh.renderMesh();
         glDisable(GL_DEPTH_TEST);
         
-        mainWindow.swapBuffers();
+        if (mainWindow.getShouldClose()) {
+            chunkGenRunning = false;
+            queueCV.notify_all(); // wake up sleeping threads
 
-        if (jumping && !ctrlJump) {
-            jumpCount += 0.1f / 6;
-            camera.setCameraPos(vec3(camera.getCameraPos().x, camera.getCameraPos().y + jumpCount, camera.getCameraPos().z));
-            if (jumpCount >= 0.5f) {
-                jumping = false;
-                ctrlJump = true;
-                jumpCount = 0;
-            }
+            for (auto& t : workers)
+                t.join();
+
+            chunkGenRunning = false;
+            chunkGenRunning2 = false;
+            chunkGenRunning3 = false;
+            blockPlacing = false;
+            blockBreaking = false;//chunkGenThread.join(); //chunkGenThread2.join(); //chunkGenThread3.join();
+            blockBreakThread.join();
+            blockPlaceThread.join();
         }
 
-        //if (!flying) {
-        //ivec3 blockPos = ivec3((floor(vec3(camera.getCameraPos().x, camera.getCameraPos().y - 2, camera.getCameraPos().z))));
-        //    if (!blockExistsAt(blockPos)) {
-        //        camera.setCameraPos(vec3(camera.getCameraPos().x, camera.getCameraPos().y + 1, camera.getCameraPos().z));
-        //        ctrl = true;
+        //if (spawn > 0) {
+        //    if (!blockExistsAt(ivec3(camera.getCameraPos().x, camera.getCameraPos().y - 2, camera.getCameraPos().z))) {
+        //        camera.setCameraPos(vec3(camera.getCameraPos().x, camera.getCameraPos().y + 20, camera.getCameraPos().z));
+        //        cout << "drain" << endl;
         //    }
-        //    else {
-        //        ctrlJump = false;
-        //    }
+        //    else spawn++;
         //}
+
+        mainWindow.swapBuffers();
+    }
+}////
+
+void addTextures() {
+    /*Textures.push_back(new Texturegl("textures\\block_atlas_4.png"));*/
+    Textures.push_back(new GL_Texture("textures\\block_atlas_32.png"));         //#define BLOCK_TEX           0
+    Textures.push_back(new GL_Texture("textures\\clear_toolbar_2.png"));        //#define MAIN_INV_TEX        1
+    Textures.push_back(new GL_Texture("textures\\clear_toolbar_3.png"));        //#define SLOT_TEX            2
+    Textures.push_back(new GL_Texture("textures\\main_inventory.jpg"));         //#define LARGE_INV_TEX       3
+    Textures.push_back(new GL_Texture("textures\\tools_atlas_3.png"));          //#define TOOLS_TEX           4
+    Textures.push_back(new GL_Texture("textures\\crafting_table_gui.png"));     //#define CRAFT_GUI_TEX       5
+    Textures.push_back(new GL_Texture("textures\\block_overlay_2.png"));        //#define TOP_TEX             6
+    //Textures.push_back(new Texturegl("textures\\inventory_base.png"));
+
+    for (int i = BLOCK_TEX; i < Textures.size(); i++) { Textures[i]->loadTexture(); }
+}
+
+void renderWorld() {
+    for (auto& chunks : world.chunkData) {
+        if ((chunks.second.coords.x >= camera.getCameraPos().x / CHUNK_SIZE - renderDistance * 1.5 && chunks.second.coords.x <= camera.getCameraPos().x / CHUNK_SIZE + renderDistance * 1.5) &&
+            (chunks.second.coords.y >= camera.getCameraPos().z / CHUNK_SIZE - renderDistance * 1.5 && chunks.second.coords.y <= camera.getCameraPos().z / CHUNK_SIZE + renderDistance * 1.5)) {
+
+            if (chunks.second.needUpdate) {
+                chunks.second.mesh.createMesh(chunks.second.vertices, chunks.second.indices, chunks.second.vertices.size(), chunks.second.indices.size());
+                chunks.second.needUpdate = false;
+            }
+            chunks.second.mesh.renderMesh();
+        }
     }
 }
+
+void directionalShadowPass(DirectionalLight* light, mat4 model) {
+    directionalShadowShader.useShader();
+    directionalShadowShader.setDirectionalLightTransform(light->calcLightTransform());
+    glUniformMatrix4fv(directionalShadowShader.getModelLocation(), 1, GL_FALSE, value_ptr(model));
+    light->shadow_map->write();
+    glClear(GL_DEPTH_BUFFER_BIT);
+    renderWorld();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    shaders[0]->useShader();
+    shaders[0]->setDirectionalLightTransform(light->directionalLightTransform);
+}////

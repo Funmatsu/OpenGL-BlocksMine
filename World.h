@@ -15,7 +15,7 @@ bool contains(vector<vec2> vec, vec2 value) {
     return std::find(vec.begin(), vec.end(), value) != vec.end();
 }
 
-Camera camera = Camera(vec3(CHUNK_SIZE / 2, CHUNK_SIZE / 2, CHUNK_SIZE / 2), vec3(0.0f, 1.0f, 0.0f), 0.0f, 0.0f, 2.5f, 0.5f);
+Camera camera = Camera(vec3(0.0f, CHUNK_SIZE / 2, 0.0f), vec3(0.0f, 1.0f, 0.0f), 0.0f, 0.0f, 0.05f, 1.0f);
 int xdimens = 5, ydimens = 5;
 int xdimensItem = 2, ydimensItem = 2;
 
@@ -24,11 +24,11 @@ class World {
     //vector<Chunk> chunks;
     unordered_map<glm::ivec2, Chunk, ivec2_hash, ivec2_eq> chunkData;
 
-    Block getBlockAt(ivec3 blockPos);
+    BlockData getBlockAt(ivec3 blockPos);
 
-    void addChunk(Chunk& newChunk, ivec2 xyChunk);
+    void addChunk(Chunk* newChunk, ivec2 xyChunk);
 
-    void updateChunk(const ivec2& chunkCoord);
+    void updateChunk(const ivec2& chunkCoord, vec3 direction, vec3 blockPosition);
 
     Mesh createMeshCube(float x, float y, float z, float scale, Item blockType);
 
@@ -36,7 +36,7 @@ class World {
 
     Block createMeshCube(ivec3 blockPos, float scale, Item blockType);
 
-    void createItem(vec3 blockPos, Item blockType);
+    void createItem(vec3 blockPos, Item blockType, vec3 direction);
 
     void deleteBlockFromWorld(vec3 blockPos);
 
@@ -50,12 +50,15 @@ World world;
 
 //.cpp part-----------------------------------------------------------------------------------------------------------------------
 int floorDiv(float a, float b) {
-    return (a >= 0) ? int(a / b) : int((a - b + 1) / b);
+    return (a >= 0) ? int(a / b) : int((a - b + 1) / b); // the + 1 is for negative multiples : -10/10 = -1, but (-10-10)/10 = -2 x wrong, (-10-10 + 1)/10 = -1.9 = -1 J correct
 }
 
-Block World::getBlockAt(ivec3 blockPos) {
+BlockData World::getBlockAt(ivec3 blockPos) {
+    if (blockPos.y == -404) return BlockData(vec3(0, -1, 0), AIR);
     ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
-    return Block(blockPos, world.chunkData[chunkPos].blockData[blockPos].blockType, {}, {});
+    return
+        //Block(blockPos, world.chunkData[chunkPos].blockData[blockPos].blockType, {}, {}); 
+     BlockData(blockPos, world.chunkData[chunkPos].block_data[world.chunkData[chunkPos].at(blockPos)].blockType);
 }
 
 bool blockExistsAt(ivec3 blockPos) {
@@ -65,9 +68,16 @@ bool blockExistsAt(ivec3 blockPos) {
     auto chunkIt = world.chunkData.find(chunkCoord);
     if (chunkIt == world.chunkData.end()) return false;
     
-
-    const auto& blockMap = chunkIt->second.blockData;
-    return (blockMap.find(blockPos) != blockMap.end());
+    //const auto& blockMap = chunkIt->second.blockData;
+    //cout << world.chunkData[chunkCoord].coords.x << " " << world.chunkData[chunkCoord].coords.y << " " << "coords" << endl;
+    int vec_blockPos = world.chunkData[chunkCoord].at(blockPos);
+    //cout << vec_blockPos << " " << endl;
+    if (vec_blockPos >= CHUNK_VOLUME || vec_blockPos < 0) {
+        return false;
+    }
+    return 
+        (world.chunkData[chunkCoord].block_data[vec_blockPos].blockType != AIR);
+    //return (blockMap.find(blockPos) != blockMap.end());
 }
 
 vec3 lookingAtBlock() {
@@ -82,27 +92,33 @@ vec3 lookingAtBlock() {
         glm::vec3 point = rayOrigin + rayDir * t;
         blockPos = glm::floor(point);
         ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
-        if (blockExistsAt(blockPos) &&
-            world.chunkData[chunkPos].blockData[blockPos].blockType != AIR) {
-            //cout << blockPos.x << blockPos.z << endl;
+        //int vec_pos = world.chunkData[chunkPos].at(blockPos);
+        //cout << vec_pos << endl;
+        if (world.chunkData[chunkPos].block_data[world.chunkData[chunkPos].at(blockPos)].blockType != AIR
+            //||world.chunkData[chunkPos].blockData[blockPos].blockType != AIR            
+            ) 
+        {
             return blockPos;
         }
     }
-    return vec3(-404.0f);
+    return ivec3(-404);
 }
 
-void World::addChunk(Chunk& newChunk, ivec2 xyChunk) {
-    chunkData.insert(make_pair(ivec2(xyChunk), newChunk));
+void World::addChunk(Chunk* newChunk, ivec2 xyChunk) {
+    chunkData.insert({ ivec2(xyChunk), move(*newChunk) });
 }
 
 void World::deleteBlockFromWorld(vec3 blockPos) {
     ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
-    if (chunkData[chunkPos].blockData[blockPos].blockType.isBreakable) {
-        inventory.assignAvailableSlot(chunkData[chunkPos].blockData[blockPos].blockType);
-        chunkData[chunkPos].blockData[blockPos].blockType.deassignLight(pointLights, blockPos);
-        chunkData[chunkPos].blockData[blockPos].blockType = AIR;
+    if (/*chunkData[chunkPos].blockData[blockPos].blockType.isBreakable*/ chunkData[chunkPos].block_data[chunkData[chunkPos].at(blockPos)].blockType.isBreakable) {
+        //inventory.assignAvailableSlot(chunkData[chunkPos].blockData[blockPos].blockType);
+        inventory.assignAvailableSlot(chunkData[chunkPos].block_data[chunkData[chunkPos].at(blockPos)].blockType);
+        //chunkData[chunkPos].blockData[blockPos].blockType.deassignLight(pointLights, blockPos); 
+        //chunkData[chunkPos].blockData[blockPos].blockType = AIR;     
+        chunkData[chunkPos].block_data[chunkData[chunkPos].at(blockPos)].blockType.deassignLight(pointLights, blockPos);
+        chunkData[chunkPos].block_data[chunkData[chunkPos].at(blockPos)].blockType = AIR;
         
-        updateChunk(chunkPos);
+        updateChunk(chunkPos, vec3(0.0f, 1.0f, 0.0f), vec3(-404));
     }
 }
 
@@ -366,6 +382,13 @@ Mesh World::createMeshCube(float x, float y, float z, float scale, Item blockTyp
         };
     }
 
+    vector<GLfloat> colorMask;
+    float tintr = 1.0f, tintg = 1.0f, tintb = 1.0f;
+    if (blockType == GRASS) { tintr = 0.2f, tintg = 1.45f, tintb = 0.15f; }
+    else if (blockType == OAK_LEAVES) { tintr = 0.2f, tintg = 1.0f, tintb = 0.2f; }
+
+    for (int i = 0; i < triangle.size() / 3; i++) { colorMask.push_back(tintr); colorMask.push_back(tintg); colorMask.push_back(tintb); }
+
     vector<GLfloat> finalVerts;
     for (int i = 0; i < triangle.size(); i += 3) {
         finalVerts.push_back(triangle[i + 0]);
@@ -379,6 +402,10 @@ Mesh World::createMeshCube(float x, float y, float z, float scale, Item blockTyp
         finalVerts.push_back(normals[i + 0]);
         finalVerts.push_back(normals[i + 1]);
         finalVerts.push_back(normals[i + 2]);
+
+        finalVerts.push_back(colorMask[i + 0]);
+        finalVerts.push_back(colorMask[i + 1]);
+        finalVerts.push_back(colorMask[i + 2]);
     }
 
     Mesh cubeMesh;
@@ -391,68 +418,70 @@ Mesh World::createVertsOnlyMesh(ivec3 xyz, float scale, Item blockType) {
         return Mesh();
     }
 
-    vector<unsigned int> indices = {
-        0, 1, 2,
-        2, 3, 0,
-
-        4, 5, 6,
-        6, 7, 4,
-
-        8, 9, 10,
-        10, 11, 8,
-
-        12, 13, 14,
-        14, 15, 12,
-
-        16, 17, 18,
-        18, 19, 16,
-
-        20, 21, 22,
-        22, 23, 20
-    };
-
-    vector<GLfloat> triangle = {
-            0.0f + xyz.x + 0.1f * -scale,   0.0f + xyz.y + 0.1f * -scale,    0.0f + xyz.z + 0.1f * -scale,
-            0.0f + xyz.x + 0.1f * -scale,   1.0f + xyz.y + 0.1f * scale,     0.0f + xyz.z + 0.1f * -scale,
-            0.0f + xyz.x + 0.1f * -scale,   1.0f + xyz.y + 0.1f * scale,     1.0f + xyz.z + 0.1f * scale,
-            0.0f + xyz.x + 0.1f * -scale,   0.0f + xyz.y + 0.1f * -scale,    1.0f + xyz.z + 0.1f * scale,
-
-            1.0f + xyz.x + 0.1f * scale,    0.0f + xyz.y + 0.1f * -scale,    0.0f + xyz.z + 0.1f * -scale,
-            1.0f + xyz.x + 0.1f * scale,    1.0f + xyz.y + 0.1f * scale,     0.0f + xyz.z + 0.1f * -scale,
-            1.0f + xyz.x + 0.1f * scale,    1.0f + xyz.y + 0.1f * scale,     1.0f + xyz.z + 0.1f * scale,
-            1.0f + xyz.x + 0.1f * scale,    0.0f + xyz.y + 0.1f * -scale,    1.0f + xyz.z + 0.1f * scale,
-
-            0.0f + xyz.x + 0.1f * -scale,   0.0f + xyz.y + 0.1f * -scale,    0.0f + xyz.z + 0.1f * -scale,
-            1.0f + xyz.x + 0.1f * scale,    0.0f + xyz.y + 0.1f * -scale,    0.0f + xyz.z + 0.1f * -scale,
-            1.0f + xyz.x + 0.1f * scale,    1.0f + xyz.y + 0.1f * scale,     0.0f + xyz.z + 0.1f * -scale,
-            0.0f + xyz.x + 0.1f * -scale,   1.0f + xyz.y + 0.1f * scale,     0.0f + xyz.z + 0.1f * -scale,
-
-            0.0f + xyz.x + 0.1f * -scale,   0.0f + xyz.y + 0.1f * -scale,    1.0f + xyz.z + 0.1f * scale,
-            1.0f + xyz.x + 0.1f * scale,    0.0f + xyz.y + 0.1f * -scale,    1.0f + xyz.z + 0.1f * scale,
-            1.0f + xyz.x + 0.1f * scale,    1.0f + xyz.y + 0.1f * scale,     1.0f + xyz.z + 0.1f * scale,
-            0.0f + xyz.x + 0.1f * -scale,   1.0f + xyz.y + 0.1f * scale,     1.0f + xyz.z + 0.1f * scale,
-
-            0.0f + xyz.x + 0.1f * -scale,   0.0f + xyz.y + 0.1f * -scale,    0.0f + xyz.z + 0.1f * -scale,
-            1.0f + xyz.x + 0.1f * scale,    0.0f + xyz.y + 0.1f * -scale,    0.0f + xyz.z + 0.1f * -scale,
-            1.0f + xyz.x + 0.1f * scale,    0.0f + xyz.y + 0.1f * -scale,    1.0f + xyz.z + 0.1f * scale,
-            0.0f + xyz.x + 0.1f * -scale,   0.0f + xyz.y + 0.1f * -scale,    1.0f + xyz.z + 0.1f * scale,
-
-            0.0f + xyz.x + 0.1f * -scale,   1.0f + xyz.y + 0.1f * scale,     0.0f + xyz.z + 0.1f * -scale,
-            1.0f + xyz.x + 0.1f * scale,    1.0f + xyz.y + 0.1f * scale,     0.0f + xyz.z + 0.1f * -scale,
-            1.0f + xyz.x + 0.1f * scale,    1.0f + xyz.y + 0.1f * scale,     1.0f + xyz.z + 0.1f * scale,
-            0.0f + xyz.x + 0.1f * -scale,   1.0f + xyz.y + 0.1f * scale,     1.0f + xyz.z + 0.1f * scale
-    };
-    vector<GLfloat> globalUVs;
-    for (int i = 0; i < 72; i++) {
-        globalUVs.push_back(0.0f);
+    std::vector<unsigned int> indices;
+    for (int e = 0; e < 6 * 4; e++) {
+        int base = e * 4;
+        indices.push_back(base + 0);
+        indices.push_back(base + 1);
+        indices.push_back(base + 2);
+        indices.push_back(base + 2);
+        indices.push_back(base + 3);
+        indices.push_back(base + 0);
+        indices.push_back(base + 0);
+        indices.push_back(base + 3);
+        indices.push_back(base + 2);
+        indices.push_back(base + 2);
+        indices.push_back(base + 1);
+        indices.push_back(base + 0);
     }
 
-    vector<GLfloat> normals = long_normals;
+    float t = 0.0075f;
+
+    vector<GLfloat> verts = {
+        xyz.x + -scale + 0.0f    , -t + xyz.y + -scale + 0.0f   , xyz.z + -scale + 0.0f    ,   xyz.x + -scale + 0.0f       ,   xyz.y + t + -scale + 0.0f    , xyz.z + -scale + 0.0f            ,     xyz.x + scale + 1.0f+ t      ,    xyz.y + t + -scale + 0.0f     ,      xyz.z + -scale + 0.0f        ,     xyz.x + scale + 1.0f+ t       ,    xyz.y - t + -scale + 0.0f    ,    xyz.z + -scale + 0.0f        ,
+        xyz.x + -scale + 0.0f    , -t + xyz.y + scale + 1.0f    , xyz.z + -scale + 0.0f    ,   xyz.x + -scale + 0.0f       ,   xyz.y + t + scale + 1.0f     , xyz.z + -scale + 0.0f            ,     xyz.x + scale + 1.0f+ t      ,    xyz.y + t + scale + 1.0f      ,     xyz.z + -scale + 0.0f        ,     xyz.x + scale + 1.0f+ t       ,    xyz.y - t + scale + 1.0f     ,   xyz.z + -scale + 0.0f        ,
+        xyz.x + scale + 1.0f     ,  xyz.y + -scale + 0.0f       , xyz.z + -scale + 0.0f    ,   xyz.x + scale + 1.0f + t    ,   xyz.y + -scale + 0.0f        , xyz.z + -scale + 0.0f            ,     xyz.x + t + scale + 1.0f     ,    xyz.y + scale + 1.0f          ,     xyz.z + -scale + 0.0f        ,     xyz.x + scale + 1.0f          ,    xyz.y + scale + 1.0f         ,   xyz.z + -scale + 0.0f        ,
+        xyz.x + -scale + 0.0f    ,  xyz.y + -scale + 0.0f       , xyz.z + -scale + 0.0f    ,   xyz.x + -scale + 0.0f + t   ,   xyz.y + -scale + 0.0f        , xyz.z + -scale + 0.0f            ,     xyz.x + t + -scale + 0.0f    ,     xyz.y + scale + 1.0f          ,     xyz.z + -scale + 0.0f        ,     xyz.x + -scale + 0.0f         ,     xyz.y + scale + 1.0f         ,   xyz.z + -scale + 0.0f        ,
+
+        xyz.x + -scale + 0.0f    , -t + xyz.y + -scale + 0.0f   , xyz.z + scale + 1.0f     ,   xyz.x + -scale + 0.0f       ,   xyz.y + t + -scale + 0.0f    , xyz.z + scale + 1.0f             ,    xyz.x + scale + 1.0f + t      ,   xyz.y + t + -scale + 0.0f      ,     xyz.z + scale + 1.0f          ,   xyz.x + scale + 1.0f + t       ,   xyz.y - t + -scale + 0.0f     ,   xyz.z + scale + 1.0f          ,
+        xyz.x + -scale + 0.0f    , -t + xyz.y + scale + 1.0f    , xyz.z + scale + 1.0f     ,   xyz.x + -scale + 0.0f       ,   xyz.y + t + scale + 1.0f     , xyz.z + scale + 1.0f             ,    xyz.x + scale + 1.0f + t      ,   xyz.y + t + scale + 1.0f       ,    xyz.z + scale + 1.0f          ,   xyz.x + scale + 1.0f + t       ,   xyz.y - t + scale + 1.0f      ,  xyz.z + scale + 1.0f          ,
+        xyz.x + -scale + 0.0f    ,  xyz.y + -scale + 0.0f       , xyz.z + scale + 1.0f     ,   xyz.x + -scale + 0.0f + t   ,   xyz.y + -scale + 0.0f        , xyz.z + scale + 1.0f             ,    xyz.x + t + -scale + 0.0f     ,    xyz.y + scale + 1.0f           ,    xyz.z + scale + 1.0f          ,   xyz.x  + -scale + 0.0f         ,    xyz.y + scale + 1.0f          ,  xyz.z + scale + 1.0f          ,
+        xyz.x + scale + 1.0f     ,  xyz.y + -scale + 0.0f       , xyz.z + scale + 1.0f     ,   xyz.x + scale + 1.0f + t    ,   xyz.y + -scale + 0.0f        , xyz.z + scale + 1.0f             ,    xyz.x + t + scale + 1.0f      ,   xyz.y + scale + 1.0f           ,    xyz.z + scale + 1.0f          ,   xyz.x  + scale + 1.0f          ,   xyz.y + scale + 1.0f          ,  xyz.z + scale + 1.0f          ,
+
+        xyz.x + -scale + 0.0f    ,  -t + xyz.y + -scale + 0.0f  , xyz.z + -scale + 0.0f    ,   xyz.x + -scale + 0.0f       ,   xyz.y + t + -scale + 0.0f    , xyz.z + -scale + 0.0f            ,     xyz.x + -scale + 0.0f        ,     xyz.y + t + -scale + 0.0f     ,      xyz.z + scale + 1.0f + t     ,    xyz.x + -scale + 0.0f         ,     xyz.y - t + -scale + 0.0f    ,    xyz.z + scale + 1.0f + t     ,
+        xyz.x + -scale + 0.0f    ,  -t + xyz.y + scale + 1.0f   , xyz.z + -scale + 0.0f    ,   xyz.x + -scale + 0.0f       ,   xyz.y + t + scale + 1.0f     , xyz.z + -scale + 0.0f            ,     xyz.x + -scale + 0.0f        ,     xyz.y + t + scale + 1.0f      ,     xyz.z + scale + 1.0f + t     ,    xyz.x + -scale + 0.0f         ,     xyz.y - t + scale + 1.0f     ,   xyz.z + scale + 1.0f + t     ,
+        xyz.x + -scale + 0.0f    ,  xyz.y + -scale + 0.0f       , xyz.z + scale + 1.0f     ,   xyz.x + -scale + 0.0f       ,   xyz.y + -scale + 0.0f        , xyz.z + scale + 1.0f + t         ,    xyz.x + -scale + 0.0f         ,    xyz.y + scale + 1.0f           ,    xyz.z + t + scale + 1.0f      ,   xyz.x + -scale + 0.0f          ,    xyz.y + scale + 1.0f          ,  xyz.z  + scale + 1.0f         ,
+        xyz.x + -scale + 0.0f    ,  xyz.y + -scale + 0.0f       , xyz.z + -scale + 0.0f    ,   xyz.x + -scale + 0.0f       ,   xyz.y + -scale + 0.0f        , xyz.z + -scale + 0.0f + t        ,     xyz.x + -scale + 0.0f        ,     xyz.y + scale + 1.0f          ,     xyz.z + t + -scale + 0.0f    ,     xyz.x + -scale + 0.0f         ,     xyz.y + scale + 1.0f         ,   xyz.z + -scale + 0.0f        ,
+       
+        xyz.x + scale + 1.0f     ,  -t + xyz.y + -scale + 0.0f  , xyz.z + -scale + 0.0f    ,   xyz.x + scale + 1.0f        ,   xyz.y + t + -scale + 0.0f    , xyz.z + -scale + 0.0f            ,     xyz.x + scale + 1.0f         ,    xyz.y + t + -scale + 0.0f     ,      xyz.z + scale + 1.0f + t     ,    xyz.x + scale + 1.0f          ,    xyz.y - t + -scale + 0.0f    ,    xyz.z + scale + 1.0f + t     ,
+        xyz.x + scale + 1.0f     ,  -t + xyz.y + scale + 1.0f   , xyz.z + -scale + 0.0f    ,   xyz.x + scale + 1.0f        ,   xyz.y + t + scale + 1.0f     , xyz.z + -scale + 0.0f            ,     xyz.x + scale + 1.0f         ,    xyz.y + t + scale + 1.0f      ,     xyz.z + scale + 1.0f + t     ,    xyz.x + scale + 1.0f          ,    xyz.y - t + scale + 1.0f     ,   xyz.z + scale + 1.0f + t     ,
+        xyz.x + scale + 1.0f     ,  xyz.y + -scale + 0.0f       , xyz.z + -scale + 0.0f    ,   xyz.x + scale + 1.0f        ,   xyz.y + -scale + 0.0f        , xyz.z + -scale + 0.0f + t        ,     xyz.x + scale + 1.0f         ,    xyz.y + scale + 1.0f          ,     xyz.z + t + -scale + 0.0f    ,     xyz.x + scale + 1.0f          ,    xyz.y + scale + 1.0f         ,   xyz.z + -scale + 0.0f        ,
+        xyz.x + scale + 1.0f     ,  xyz.y + -scale + 0.0f       , xyz.z + scale + 1.0f     ,   xyz.x + scale + 1.0f        ,   xyz.y + -scale + 0.0f        , xyz.z + scale + 1.0f + t         ,    xyz.x + scale + 1.0f          ,   xyz.y + scale + 1.0f           ,    xyz.z + t + scale + 1.0f      ,   xyz.x + scale + 1.0f           ,   xyz.y + scale + 1.0f          ,  xyz.z + scale + 1.0f          ,
+      
+        xyz.x + -scale + 0.0f    ,  xyz.y + -scale + 0.0f       , xyz.z + -scale + 0.0f    ,   xyz.x + -scale + 0.0f + t   ,   xyz.y + -scale + 0.0f        , xyz.z + -scale + 0.0f            ,     xyz.x + -scale + 0.0f + t    ,     xyz.y + -scale + 0.0f         ,      xyz.z + scale + 1.0f         ,    xyz.x + -scale + 0.0f         ,     xyz.y + -scale + 0.0f        ,    xyz.z + scale + 1.0f         ,
+        xyz.x + scale + 1.0f     ,  xyz.y + -scale + 0.0f       , xyz.z + -scale + 0.0f    ,   xyz.x + scale + 1.0f + t    ,   xyz.y + -scale + 0.0f        , xyz.z + -scale + 0.0f            ,     xyz.x + scale + 1.0f + t     ,    xyz.y + -scale + 0.0f         ,      xyz.z + scale + 1.0f         ,    xyz.x + scale + 1.0f          ,    xyz.y + -scale + 0.0f        ,    xyz.z + scale + 1.0f         ,
+        xyz.x + -scale + 0.0f    ,  xyz.y + -scale + 0.0f       , xyz.z + -scale + 0.0f    ,   xyz.x + -scale + 0.0f       ,   xyz.y + -scale + 0.0f        , xyz.z + -scale + 0.0f + t        ,     xyz.x + scale + 1.0f         ,    xyz.y + -scale + 0.0f         ,      xyz.z + -scale + 0.0f + t    ,     xyz.x + scale + 1.0f          ,    xyz.y + -scale + 0.0f        ,    xyz.z + -scale + 0.0f        ,
+        xyz.x + -scale + 0.0f    ,  xyz.y + -scale + 0.0f       , xyz.z + scale + 1.0f     ,   xyz.x + -scale + 0.0f       ,   xyz.y + -scale + 0.0f        , xyz.z + scale + 1.0f + t         ,    xyz.x + scale + 1.0f          ,   xyz.y + -scale + 0.0f          ,     xyz.z + scale + 1.0f + t      ,   xyz.x + scale + 1.0f           ,   xyz.y + -scale + 0.0f         ,   xyz.z + scale + 1.0f          ,
+       
+        xyz.x + -scale + 0.0f    ,  xyz.y + scale + 1.0f        , xyz.z + -scale + 0.0f    ,   xyz.x + -scale + 0.0f + t   ,   xyz.y + scale + 1.0f         , xyz.z + -scale + 0.0f            ,     xyz.x + -scale + 0.0f + t    ,     xyz.y + scale + 1.0f          ,     xyz.z + scale + 1.0f         ,    xyz.x + -scale + 0.0f         ,     xyz.y + scale + 1.0f         ,   xyz.z + scale + 1.0f         ,
+        xyz.x + scale + 1.0f     ,  xyz.y + scale + 1.0f        , xyz.z + -scale + 0.0f    ,   xyz.x + scale + 1.0f + t    ,   xyz.y + scale + 1.0f         , xyz.z + -scale + 0.0f            ,     xyz.x + scale + 1.0f + t     ,    xyz.y + scale + 1.0f          ,     xyz.z + scale + 1.0f         ,    xyz.x + scale + 1.0f          ,    xyz.y + scale + 1.0f         ,   xyz.z + scale + 1.0f         ,
+        xyz.x + -scale + 0.0f    ,  xyz.y + scale + 1.0f        , xyz.z + -scale + 0.0f    ,   xyz.x + -scale + 0.0f       ,   xyz.y + scale + 1.0f         , xyz.z + -scale + 0.0f + t        ,     xyz.x + scale + 1.0f         ,    xyz.y + scale + 1.0f          ,     xyz.z + -scale + 0.0f + t    ,     xyz.x + scale + 1.0f          ,    xyz.y + scale + 1.0f         ,   xyz.z + -scale + 0.0f        ,
+        xyz.x + -scale + 0.0f    ,  xyz.y + scale + 1.0f        , xyz.z + scale + 1.0f     ,   xyz.x + -scale + 0.0f       ,   xyz.y + scale + 1.0f         , xyz.z + scale + 1.0f + t         ,    xyz.x + scale + 1.0f          ,   xyz.y + scale + 1.0f           ,    xyz.z + scale + 1.0f + t      ,   xyz.x + scale + 1.0f           ,   xyz.y + scale + 1.0f          ,  xyz.z + scale + 1.0f          ,
+    };
+    vector<GLfloat> globalUVs;
+    for (int i = 0; i < verts.size(); i++) { globalUVs.push_back(0.0f); }
+
+    vector<GLfloat> colorMask;
+    for (int i = 0; i < verts.size(); i++) { colorMask.push_back(1.0f); }
+
+    vector<GLfloat> normals;
+    for (int i = 0; i < verts.size(); i++) { normals.push_back(0.0f); }
+
     vector<GLfloat> finalVerts;
-    for (int i = 0; i < triangle.size() / 3; i += 1) {
-        finalVerts.push_back(triangle[3 * i + 0]);
-        finalVerts.push_back(triangle[3 * i + 1]);
-        finalVerts.push_back(triangle[3 * i + 2]);
+    for (int i = 0; i < verts.size() / 3; i += 1) {
+        finalVerts.push_back(verts[3 * i + 0]);
+        finalVerts.push_back(verts[3 * i + 1]);
+        finalVerts.push_back(verts[3 * i + 2]);
 
         finalVerts.push_back(globalUVs[3 * i + 0]);
         finalVerts.push_back(globalUVs[3 * i + 1]);
@@ -461,6 +490,10 @@ Mesh World::createVertsOnlyMesh(ivec3 xyz, float scale, Item blockType) {
         finalVerts.push_back(normals[3 * i + 0]);
         finalVerts.push_back(normals[3 * i + 1]);
         finalVerts.push_back(normals[3 * i + 2]);
+
+        finalVerts.push_back(colorMask[3 * i + 0]);
+        finalVerts.push_back(colorMask[3 * i + 1]);
+        finalVerts.push_back(colorMask[3 * i + 2]);
     }
 
     Mesh cubeMesh;
@@ -546,6 +579,8 @@ Block World::createMeshCube(ivec3 blockPos, float scale, Item blockType) {
     };
 
     vector<GLfloat> normals = long_normals;
+    vector<GLfloat> colorMask;
+    for (int i = 0; i < triangle.size(); i++) { colorMask.push_back(1.0f); }
 
     vector<GLfloat> finalVerts;
     for (int i = 0; i < triangle.size() / 3; i += 1) {
@@ -560,6 +595,10 @@ Block World::createMeshCube(ivec3 blockPos, float scale, Item blockType) {
         finalVerts.push_back(normals[3 * i + 0]);
         finalVerts.push_back(normals[3 * i + 1]);
         finalVerts.push_back(normals[3 * i + 2]);
+
+        finalVerts.push_back(colorMask[3 * i + 0]);
+        finalVerts.push_back(colorMask[3 * i + 1]);
+        finalVerts.push_back(colorMask[3 * i + 2]);
     }
 
     Block returnBlock = Block(blockPos, blockType, finalVerts, indices);
@@ -567,28 +606,32 @@ Block World::createMeshCube(ivec3 blockPos, float scale, Item blockType) {
     return returnBlock;
 }
 
-void World::createItem(vec3 blockPos, Item blockType) {
+void World::createItem(vec3 blockPos, Item blockType, vec3 direction) {
     ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
-    chunkData[chunkPos].blockData[blockPos] = blockData(blockPos, blockType);
-    updateChunk(chunkPos);
+    //chunkData[chunkPos].blockData[blockPos] = BlockData(blockPos, blockType); 
+    chunkData[chunkPos].block_data[chunkData[chunkPos].at(blockPos)] = BlockData(blockPos, blockType);
+    ivec3 trueDir = floor(blockPos - direction) + vec3(1.0);
+    updateChunk(chunkPos, trueDir, blockPos);
+    //std::cout << trueDir.x << " " << trueDir.y << " " << trueDir.z << endl;
 
-    chunkData[chunkPos].blockData[blockPos].blockType.assignLight(pointLights, blockPos);
+    //chunkData[chunkPos].blockData[blockPos].blockType.assignLight(pointLights, blockPos);
+    chunkData[chunkPos].block_data[chunkData[chunkPos].at(blockPos)].blockType.assignLight(pointLights, blockPos);
 }
 
 bool isAir(Item item);
 
-bool shouldEmitFace(vec2 xyChunk, Chunk& cd, int x, int y, int z, int dx, int dy, int dz);
+bool shouldEmitFace(vec2 xyChunk, Chunk* cd, int x, int y, int z, int dx, int dy, int dz);
 
 void emitFace(Mesh& m, int baseX, int baseY, int baseZ,
     int face, Item blockType, float x, float y, float z);
 
-void meshChunk(vec2 xyChunk, Chunk& cd, Mesh& out);
+void meshChunk(vec2 xyChunk, Chunk* cd, Mesh& out, vec3 direction, vec3 position);
 
-void generateChunkAt(vec2 xyChunk, Chunk& repChunk);
+void generateChunkAt(vec2 xyChunk, Chunk* repChunk);
 
 void regenerateChunk(vec2 xyChunk, Chunk& repChunk);
 
-void World::updateChunk(const ivec2& chunkCoord) {
+void World::updateChunk(const ivec2& chunkCoord, vec3 direction, vec3 blockPosition) {
     auto it = chunkData.find(chunkCoord);
     if (it == chunkData.end()) return; // Chunk doesn't exist
 
@@ -599,7 +642,7 @@ void World::updateChunk(const ivec2& chunkCoord) {
     chunk.mesh.inds.clear();
 
     // Rebuild mesh from current blockData
-    meshChunk(chunkCoord, chunk, chunk.mesh);
+    meshChunk(chunkCoord, &chunk, chunk.mesh, direction, blockPosition);
 
     //// Update vertex/index buffers
     chunk.vertices.clear();
@@ -612,14 +655,14 @@ void World::updateChunk(const ivec2& chunkCoord) {
         chunk.indices.push_back(base + idx);
     }
 
-    chunk.indexOffset = static_cast<uint32_t>(chunk.mesh.verts.size() / 9);
+    chunk.indexOffset = static_cast<uint32_t>(chunk.mesh.verts.size() / 12);
     chunk.needUpdate = true;
 }
 
 void World::delBlocklook_at() {
     ivec3 blockPos = lookingAtBlock();
     ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
-    if (!recipe.isBreakable(world.chunkData[chunkPos].blockData[blockPos].blockType) || blockPos.x == 404.0f) {
+    if (blockPos.y <= -404.0f || !recipe.isBreakable(/*world.chunkData[chunkPos].blockData[blockPos].blockType */ world.chunkData[chunkPos].block_data[world.chunkData[chunkPos].at(blockPos)].blockType)) {
         return;
     }
     deleteBlockFromWorld(blockPos);
@@ -629,6 +672,7 @@ vec3 World::addBlocklook_at(Item blockType) {
     if (recipe.isTool(blockType)) {
         return vec3(-404.0f);
     }
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
     ivec3 blockPos = vec3(0.0f);
     glm::vec3 rayDir;
     glm::vec3 rayOrigin = camera.getCameraPos();
@@ -641,9 +685,10 @@ vec3 World::addBlocklook_at(Item blockType) {
         blockPos = glm::floor(point);
         ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
         if (blockExistsAt(blockPos) &&
-            world.chunkData[chunkPos].blockData[blockPos].blockType != AIR &&
+            world.chunkData[chunkPos].block_data[world.chunkData[chunkPos].at(blockPos)].blockType != AIR &&
+            //world.chunkData[chunkPos].blockData[blockPos].blockType != AIR &&
             blockType.isPlaceable) {
-            createItem(floor(point - rayDir * stepSize), blockType);
+            createItem(floor(point - rayDir * stepSize), blockType, point);
             return floor(point - rayDir * stepSize);
         }
     }

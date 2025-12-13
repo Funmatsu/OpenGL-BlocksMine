@@ -5,7 +5,7 @@
 
 using namespace std;
 
-Texturegl::Texturegl() {
+GL_Texture::GL_Texture() {
 	textureId = 0;
 	width = 0;
 	height = 0;
@@ -13,14 +13,14 @@ Texturegl::Texturegl() {
 	fileLocation = ""; 
 }
 
-Texturegl::Texturegl(const char* fileLocationString) {
+GL_Texture::GL_Texture(const char* fileLocationString) {
 	textureId = 0;
 	width = 0;
 	height = 0;
 	bitDepth = 0;
 	fileLocation = fileLocationString;
 }
-void Texturegl::loadTexture(){
+void GL_Texture::loadTexture(){
 	stbi_set_flip_vertically_on_load(1);
 
 	unsigned char* texData = stbi_load(fileLocation, &width, &height, &bitDepth, 4);
@@ -36,8 +36,8 @@ void Texturegl::loadTexture(){
 	glGenTextures(1, &textureId);
 	glBindTexture(GL_TEXTURE_2D, textureId);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	
@@ -47,11 +47,15 @@ void Texturegl::loadTexture(){
 	glBindTexture(GL_TEXTURE_2D, 0);
 	stbi_image_free(texData);
 }
-void Texturegl::useTexture(){
+void GL_Texture::useTexture(){
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, textureId);
 }
-void Texturegl::clearTexture(){
+void GL_Texture::useNextTexture() {
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, textureId);
+}
+void GL_Texture::clearTexture(){
 	glDeleteTextures(1, &textureId);
 	textureId = 0;
 	width = 0;
@@ -60,6 +64,6 @@ void Texturegl::clearTexture(){
 	fileLocation = "";
 }
 
-Texturegl::~Texturegl() {
+GL_Texture::~GL_Texture() {
 	clearTexture();
 }

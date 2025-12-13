@@ -1,13 +1,14 @@
 #include "DirectionalLight.h"
+float off = 100.0f;
 
-DirectionalLight::DirectionalLight() : Light() { lightProj = ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 100.0f);		}
+DirectionalLight::DirectionalLight() : Light() { lightProj = ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 100.0f); }
 DirectionalLight::DirectionalLight(GLuint shadowWidth, GLuint shadowHeight,
 	GLfloat red, GLfloat green, GLfloat blue,
 	GLfloat aIntensity, GLfloat dIntensity,
-	GLfloat xDir, GLfloat yDir, GLfloat zDir) : Light(shadowWidth, shadowHeight, red, green, blue, aIntensity, dIntensity){
+	GLfloat xDir, GLfloat yDir, GLfloat zDir) : Light(shadowWidth, shadowHeight, red, green, blue, aIntensity, dIntensity) {
 	direction = vec3(xDir, yDir, zDir);
-	float off = 100.0f;
-	lightProj = ortho(-25.0f - off - shadowPos.x, 25.0f + off + shadowPos.x, -25.0f - off - shadowPos.y, 25.0f + off + shadowPos.y, 0.5f, 500.0f);
+	
+	lightProj = ortho(-off - shadowPos.x, off - shadowPos.x, -off + shadowPos.y, off + shadowPos.y, 0.01f, 500.0f);
 	//lightProj = ortho(-shadowWidth, shadowWidth, -shadowHeight, shadowHeight);
 }
 void DirectionalLight::useLight(GLfloat aIntensityLocation, GLfloat aColorLocation, GLfloat dIntensityLocation, GLfloat directionLocation) {
@@ -19,8 +20,13 @@ void DirectionalLight::useLight(GLfloat aIntensityLocation, GLfloat aColorLocati
 
 mat4 DirectionalLight::calcLightTransform() {
 	directionalLightTransform = lightProj * /*kinda like the view abit like proj * view * model*/
-		lookAt(-direction, /*front*/vec3(0.0f), /*up*/vec3(0.0f, 1.0f, 0.0f));
+		lookAt(-direction, /*front*/vec3(0.0f, 0.0f, 0.0f), /*up*/vec3(0.0f, 1.0f, 0.0f));
 	return directionalLightTransform;
+}
+
+void DirectionalLight::setShadowPos(vec2 shadowpos) {
+	shadowPos = shadowpos;
+	lightProj = ortho(-off - shadowPos.x, off - shadowPos.x, -off + shadowPos.y, off + shadowPos.y, 0.01f, 500.0f);
 }
 
 DirectionalLight::~DirectionalLight() {}

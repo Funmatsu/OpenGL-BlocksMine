@@ -68,7 +68,7 @@ void Camera::keyControl(bool* keys, float deltaT) {
 		keys[GLFW_KEY_LEFT_CONTROL] = false;
 	}
 	if (keys[GLFW_KEY_RIGHT_CONTROL]) {
-		movementSpeed /= 1.4;
+		movementSpeed /= 1.2;
 		keys[GLFW_KEY_LEFT_CONTROL] = false;
 	}
 	
