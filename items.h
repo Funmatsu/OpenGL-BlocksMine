@@ -1,5 +1,4 @@
 #pragma once
-#pragma once
 
 //#define AIR				  0
 //#define DIAMOND_ORE       1
@@ -111,6 +110,16 @@ public:
 	}
 
 	Item(const Item& item) {
+		id = item.id;
+		isPlaceable = item.isPlaceable;
+		isUsable = item.isUsable;
+		isTool = item.isTool;
+		isBreakable = item.isBreakable;
+		isFlat = item.isFlat;
+		isLuminous = item.isLuminous;
+	}
+
+	void operator=(Item item) {
 		id = item.id;
 		isPlaceable = item.isPlaceable;
 		isUsable = item.isUsable;
@@ -231,70 +240,17 @@ void getUVs(Item blockType, float* attrs) {
 	}
 }
 
-//void getUVs(Item blockType, float* attrs) {	
-//	attrs[0] = 1, attrs[1] = 0, attrs[2] = 0, attrs[3] = 0, attrs[4] = 0, attrs[5] = 0, attrs[6] = 1.0f;
-//
-//	if (blockType == AIR) {
-//		attrs[0] = 3; attrs[1] = 3;
-//	}
-//
-//	else if (blockType == DIAMOND_ORE) {
-//		attrs[0] = 0, attrs[1] = 1;
-//	}
-//
-//	else if (blockType == GRASS_BLOCK) {
-//		attrs[0] = 0, attrs[1] = 2; attrs[2] = 2; attrs[3] = 0; attrs[4] = 2; attrs[5] = -2;
-//	}
-//
-//	else if (blockType == IRON_ORE) {
-//		attrs[0] = 1; attrs[1] = 1;
-//	}
-//
-//	else if (blockType == STONE_BLOCK) {
-//		attrs[0] = 1; attrs[1] = 2;
-//	}
-//
-//	else if (blockType == DIRT_BLOCK) {
-//		attrs[0] = 2; attrs[1] = 0;
-//	}
-//
-//	else if (blockType == OAK_WOOD) {
-//		attrs[0] = 2, attrs[1] = 1; attrs[2] = -2; attrs[3] = 2; attrs[4] = -2; attrs[5] = 2;
-//	}
-//
-//	else if (blockType == CLOUD) {
-//		attrs[0] = 1, attrs[1] = 0, attrs[6] = 0.75f;
-//	}
-//
-//	else if (blockType == OAK_PLANK) {
-//		attrs[0] = 3, attrs[1] = 0;
-//	}
-//
-//	else if (blockType == OAK_LEAVES) {
-//		attrs[0] = 0, attrs[1] = 0;
-//	}
-//
-//	else if (blockType == GRASS) {
-//		attrs[0] = 3, attrs[1] = 1;
-//	}
-//
-//	else if (blockType == POPPY) {
-//		attrs[0] = 3, attrs[1] = 2;
-//	}
-//
-//	else if (blockType == BLUE_ORCHID) {
-//		attrs[0] = 0, attrs[1] = 4;
-//	}
-//
-//	else if (blockType == BEDROCK) {
-//		attrs[0] = 4, attrs[1] = 0;
-//	}
-//
-//	else if (blockType == CRAFTING_TABLE) {
-//		attrs[0] = 2, attrs[1] = 3; attrs[2] = -1; attrs[3] = 0; attrs[4] = 1; attrs[5] = -3;
-//	}
-//
-//	else if (blockType == TORCH) {
-//		attrs[0] = 4, attrs[1] = 1; attrs[2] = 0; attrs[3] = 1; attrs[4] = 0; attrs[5] = 1;
-//	}
-//}
+
+
+//-------------------------------------------------------------------------------------------------------
+struct InventorySlot
+{
+	mat4 model;
+	Mesh mesh;
+	Item item = AIR;
+	void operator=(InventorySlot slot) {
+		model = slot.model;
+		mesh = slot.mesh;
+		item = slot.item;
+	}
+};

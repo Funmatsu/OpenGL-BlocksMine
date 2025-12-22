@@ -3,7 +3,7 @@
 #include "libraries.h"
 
 struct Face {
-    ivec3 center = ivec3(0.0f);
+    ivec3 center = ivec3(0);
     vector<float> vertices;
     vector<unsigned int> indices;
     int faceId = 0;
@@ -19,9 +19,6 @@ public:
     vec3 position = vec3(0.0f);
     Item type;
     Mesh blockMesh;
-    Face faces[6];
-    int faceNum = 6;
-    int chunkId = 0;
 
     Block();
 
@@ -57,8 +54,6 @@ Block::Block(const Block& block) {
     indices = block.indices;
     type = block.type;
     blockMesh = block.blockMesh;
-    faceNum = block.faceNum;
-    chunkId = block.chunkId;
 }
 
 void Block::giveBlock(Block donor, Block receptor) {

@@ -75,8 +75,8 @@ public:
 			2, 3, 0,
 	};
 
-	Shadergl shader = Shadergl();
-	Shadergl sunshader = Shadergl();
+	glShader shader = glShader();
+	glShader sunshader = glShader();
 
 	Sky() {}
 	Mesh skyMesh;

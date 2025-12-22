@@ -21,61 +21,68 @@ static const char* fshaderLooking = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\sh
 static const char* shadowMapvshader = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/shadowMapvshader.txt";
 static const char* shadowMapfshader = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/shadowMapfshader.txt";
 
-vector<Shadergl*> shaders;
-vector<Shadergl*> InventoryShaders;
-vector<Shadergl*> craftInvShaders;
-vector<Shadergl*> bigCraftInvShaders;
-Shadergl directionalShadowShader;
+static const char* vshaderProjectile = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/vshaderProjectile.txt";
+static const char* fshaderProjectile = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/fshaderProjectile.txt";
+
+vector<glShader*> shaders;
+vector<glShader*> InventoryShaders;
+vector<glShader*> craftInvShaders;
+vector<glShader*> bigCraftInvShaders;
+glShader* directionalShadowShader;
+glShader* projectileShader;
 
 void createShaders() {
-    Shadergl* shader1 = new Shadergl();
+    glShader* shader1 = new glShader();
     shader1->createShaderFromFiles(vshader, fshader);
     shaders.push_back(shader1);
 
-    Shadergl* shader2 = new Shadergl();
+    glShader* shader2 = new glShader();
     shader2->createShaderFromFiles(vshader2, fshader2);
     shaders.push_back(shader2);
 
-    Shadergl* shaderInv = new Shadergl();
+    glShader* shaderInv = new glShader();
     shaderInv->createShaderFromFiles(vshaderInv, fshaderInv);
     shaders.push_back(shaderInv);
 
-    Shadergl* shaderInvBlock = new Shadergl();
+    glShader* shaderInvBlock = new glShader();
     shaderInvBlock->createShaderFromFiles(vshaderInvBlock, fshaderInvBlock);
     shaders.push_back(shaderInvBlock);
 
     for (int i = 0; i < 9; i++) {
-        Shadergl* shaderInvSlot = new Shadergl();
+        glShader* shaderInvSlot = new glShader();
         shaderInvSlot->createShaderFromFiles(vshaderInvSlot, fshaderInvSlot);
         shaders.push_back(shaderInvSlot);
     }
 
-    Shadergl* shaderLooking = new Shadergl();
+    glShader* shaderLooking = new glShader();
     shaderLooking->createShaderFromFiles(vshaderLooking, fshaderLooking);
     shaders.push_back(shaderLooking);
 
     for (int i = 0; i < 9 * 4; i++) {
-        Shadergl* shaderInvSlot = new Shadergl();
+        glShader* shaderInvSlot = new glShader();
         shaderInvSlot->createShaderFromFiles(vshaderInvSlot, fshaderInvSlot);
         InventoryShaders.push_back(shaderInvSlot);
     }
 
     for (int i = 0; i < 4; i++) {
-        Shadergl* shaderInvSlot = new Shadergl();
+        glShader* shaderInvSlot = new glShader();
         shaderInvSlot->createShaderFromFiles(vshaderInvSlot, fshaderInvSlot);
         craftInvShaders.push_back(shaderInvSlot);
     }
 
-    Shadergl* craftedBlockShader = new Shadergl();
+    glShader* craftedBlockShader = new glShader();
     craftedBlockShader->createShaderFromFiles(vshaderInvSlot, fshaderInvSlot);
     craftInvShaders.push_back(craftedBlockShader);
 
     for (int i = 0; i <= 10; i++) {
-        Shadergl* shaderCraftInvSlot = new Shadergl();
+        glShader* shaderCraftInvSlot = new glShader();
         shaderCraftInvSlot->createShaderFromFiles(vshaderInvSlot, fshaderInvSlot);
         bigCraftInvShaders.push_back(shaderCraftInvSlot);
     }
 
-    directionalShadowShader = Shadergl();
-    directionalShadowShader.createShaderFromFiles(shadowMapvshader, shadowMapfshader);
+    directionalShadowShader = new glShader();
+    directionalShadowShader->createShaderFromFiles(shadowMapvshader, shadowMapfshader);
+
+    projectileShader = new glShader();
+    projectileShader->createShaderFromFiles(vshaderProjectile, fshaderProjectile);
 }

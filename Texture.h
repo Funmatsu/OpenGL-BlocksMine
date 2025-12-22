@@ -16,6 +16,7 @@ public:
 	void loadTexture();
 	void useTexture();
 	void useNextTexture();
+	void unbindNextTexture();
 	void clearTexture();
 	~GL_Texture();
 private:

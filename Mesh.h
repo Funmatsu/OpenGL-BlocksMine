@@ -17,17 +17,29 @@ class Mesh
 {
 public:
 	Mesh();
-	Mesh(const Mesh& mesh) {
-		vao = mesh.vao, vbo = mesh.vbo, ibo = mesh.ibo;
-		indexCount = mesh.indexCount;
-	}
+	//Mesh(const Mesh& mesh) {
+	//	vao = mesh.vao, vbo = mesh.vbo, ibo = mesh.ibo;
+	//	indexCount = mesh.indexCount;
+	//}
 	void createMesh(vector<float> vertices, vector<unsigned int> indices, unsigned int verticesCount, unsigned int indicesCount);
 	void renderMesh();
 	void renderMeshAsLines();
 	void clearMesh();
-	vector<float> verts;
-	vector<unsigned int> inds;
+	vector<float> vertices;
+	vector<unsigned int> indices;
 	~Mesh();
+	Mesh(const Mesh& mesh) {
+		vao = mesh.vao, vbo = mesh.vbo, ibo = mesh.ibo;
+		indexCount = mesh.indexCount;
+		vertices = mesh.vertices;
+		indices = mesh.indices;
+	}
+	void operator=(Mesh mesh) {
+		vao = mesh.vao, vbo = mesh.vbo, ibo = mesh.ibo;
+		indexCount = mesh.indexCount;
+		vertices = mesh.vertices;
+		indices = mesh.indices;
+	}
 private:
 	unsigned int vao, vbo, ibo;
 	GLsizei indexCount;

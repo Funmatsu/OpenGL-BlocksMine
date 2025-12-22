@@ -23,13 +23,17 @@
 
 #include <unordered_map>
 #include <unordered_set>
+
+#include "flat_hash_map.hpp"
+
 #include <functional>
 #include <cstdint>
 #include <cstddef>
 
 //#include <SFML/Window.hpp>
-//#include <SFML/Graphics.hpp>a
+//#include <SFML/Graphics.hpp>
 
+//#include "InventorySlot.h"
 #include "Mesh.h"
 #include "shader.h"
 #include "Window.h"

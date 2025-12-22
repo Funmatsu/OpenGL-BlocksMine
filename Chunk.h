@@ -30,6 +30,11 @@ struct ivec2_eq {
     }
 };
 
+uint64_t pack(ivec2 xz) {
+    uint64_t x = uint32_t(xz.x), z = uint32_t(xz.y);
+    return (x << 32) | z;
+}
+
 //struct ivec3_hash {
 //    size_t operator()(glm::ivec3 const& v) const noexcept {
 //        uint64_t ux = static_cast<uint32_t>(v.x);
@@ -52,6 +57,7 @@ struct BlockData {
     Item blockType = AIR;
     ivec3 position;
     ivec3 orientation = ivec3(0, 1, 0);
+    int state = 0;
     BlockData(){}
     BlockData(ivec3 pos, Item type) {
         blockType = type;
@@ -70,23 +76,15 @@ struct BlockData {
 class Chunk {
 public:
     Mesh mesh;
-    vector<float> vertices;
-    vector<unsigned int> indices;
-    unsigned int indexOffset = 0;
-    bool needUpdate = false;
+    bool needUpdate = true;
+    bool unloaded = false;
     vec2 coords;
-    //unordered_map<glm::ivec3, BlockData, ivec3_hash, ivec3_eq> blockData;
     vector<BlockData> block_data;
-    //BlockData* block_data = new BlockData[CHUNK_VOLUME]; x 6 y 96 z -1 cx 0 cy -1 34 127
+    //BlockData* block_data = new BlockData[CHUNK_VOLUME];
     int at(vec3 position) {
         return ((position.y + 1) * (CHUNK_HEIGHT) + 
                 (position.x - coords.x * (CHUNK_SIZE)) * (CHUNK_SIZE + 2) + 
                 (position.z - coords.y * (CHUNK_SIZE)));
-    }
-    void setBlock(ivec3 blockPos, Item type) {
-        block_data[at(blockPos)].blockType = type;
-        //blockData[blockPos].blockType = type;
-        needUpdate = true;
     }
 
     Chunk(){
@@ -94,12 +92,14 @@ public:
     }
     Chunk(const Chunk& chunk) {
         mesh = chunk.mesh;
-        vertices = chunk.vertices;
-        indices = chunk.indices;
-        indexOffset = chunk.indexOffset;
-        needUpdate = true;
         coords = chunk.coords;
-        block_data = chunk.block_data;     
-        //blockData = chunk.blockData;
+        unloaded = chunk.unloaded;
+        block_data = chunk.block_data;
+    }
+    void operator=(Chunk chunk) {
+        mesh = chunk.mesh;
+        coords = chunk.coords;
+        unloaded = chunk.unloaded;
+        block_data = chunk.block_data;
     }
 };

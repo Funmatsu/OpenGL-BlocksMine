@@ -1,0 +1,24 @@
+#version 330 core
+                                       
+out vec4 color;
+in vec2 texCoords;
+in float transparency;
+in vec3 colorMask;
+int bufferWidth = 1920;
+int bufferHeight = 1059;
+
+uniform sampler2D theTexture;
+uniform sampler2D topTexture;
+
+
+void main(){
+	vec4 finalColor = vec4(1.0f);
+	
+	vec4 tex = texture(theTexture, texCoords);
+	vec4 topTex = texture(topTexture, texCoords);
+	vec4 overlayColorMask = (texCoords.y + 0.2 >= 0.6 && texCoords.x + 0.2 >= 0.8) &&
+							(texCoords.y + 0.2 <= 0.8 && texCoords.x + 0.2 <= 1.0) ? vec4(1.0f) : vec4(colorMask, 1.0f);
+	if (tex.a < 0.6) discard;
+
+	color = (topTex * (vec4(colorMask, 1.0f) - vec4(0.3f, 0.0f, 0.1f, 0.0f)) + max(tex * overlayColorMask - topTex * vec4(0.2f, 1.0f, 0.2f, 1.0f), vec4(0.2f))) * vec4(1.0, 1.0f, 1.0f, transparency) * finalColor;
+};

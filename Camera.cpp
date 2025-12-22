@@ -1,4 +1,6 @@
 #include "Camera.h"
+#include <chrono>
+#include <thread>
 
 using namespace std;
 
@@ -21,6 +23,8 @@ Camera::Camera(vec3 startPosition, vec3 startUp, float startYaw, float startPitc
 	front = vec3(0.0f, 0.0f, 0.0f);
 	movementSpeed = startMoveSpeed;
 	turnSpeed = startTurnSpeed;
+	initial_velocity = vec3(0);
+	velocity = vec3(0);
 
 	update();
 }
@@ -37,31 +41,38 @@ void Camera::update() {
 	up = normalize(cross(right, front));
 }
 
-void Camera::keyControl(bool* keys, float deltaT) {
+void Camera::keyControl(bool* keys, float deltaT, float dt) {
 	float deltaTime = deltaT;
 	if (keys[GLFW_KEY_CAPS_LOCK]) {
 		deltaTime = deltaT * 2;
 	}
 	if (keys[GLFW_KEY_W] && !GLFW_RELEASE) {
-		position.x += front.x * movementSpeed * deltaTime;
-		position.z += front.z * movementSpeed * deltaTime;
-		//keys[GLFW_KEY_W] = false;
+		//position += vec3(front.x * movementSpeed * deltaTime, 0, front.z * movementSpeed * deltaTime);
+		initial_velocity.x =  100 * front.x * movementSpeed * deltaTime * velocity_factor.x;
+		initial_velocity.z =  100 * front.z * movementSpeed * deltaTime * velocity_factor.z;
 	}
 	if (keys[GLFW_KEY_S]) {
-		position.x -= front.x * movementSpeed * deltaTime;
-		position.z -= front.z * movementSpeed * deltaTime;
+		//position -= vec3(front.x * movementSpeed * deltaTime, 0, front.z * movementSpeed * deltaTime);
+		initial_velocity.x = -100 * front.x * movementSpeed * deltaTime * velocity_factor.x;
+		initial_velocity.z = -100 * front.z * movementSpeed * deltaTime * velocity_factor.z;
 	}
 	if (keys[GLFW_KEY_A]) {
-		position -= right * movementSpeed * deltaTime;
+		//position -= right * movementSpeed * deltaTime;
+		initial_velocity.x = -100 * right.x * movementSpeed * deltaTime * velocity_factor.x;
+		initial_velocity.z = -100 * right.z * movementSpeed * deltaTime * velocity_factor.z;
 	}
 	if (keys[GLFW_KEY_D]) {
-		position += right * movementSpeed * deltaTime;
+		//position += right * movementSpeed * deltaTime;
+		initial_velocity.x =  100 * right.x * movementSpeed * deltaTime * velocity_factor.x;
+		initial_velocity.z =  100 * right.z * movementSpeed * deltaTime * velocity_factor.z;
 	}
 	if (keys[GLFW_KEY_SPACE]) {
-		position.y += movementSpeed * deltaTime;
+		//position.y += movementSpeed * deltaTime;
+		initial_velocity.y = 15;
 	}
 	if (keys[GLFW_KEY_LEFT_SHIFT]) {
-		position.y -= movementSpeed * deltaTime;
+		velocity = vec3(0);
+		initial_velocity.y = -100 * movementSpeed * deltaTime * velocity_factor.y;
 	}
 	if (keys[GLFW_KEY_LEFT_CONTROL]) {
 		movementSpeed *= 1.4;
@@ -71,9 +82,9 @@ void Camera::keyControl(bool* keys, float deltaT) {
 		movementSpeed /= 1.2;
 		keys[GLFW_KEY_LEFT_CONTROL] = false;
 	}
-	
+	calculateCamPos(dt);
+
 	if(keys[GLFW_KEY_L]) {
-		//cout << "Camera Position: \nx: " << position.x << ", y: " << position.y << ", z: " << position.z << endl;
 		position = vec3(0.0f, 1.0f, 0.0f);
 	}
 }
@@ -94,12 +105,18 @@ void Camera::mouseControl(GLfloat xChange, GLfloat yChange) {
 }
 
 mat4 Camera::calcViewMatrix() {
-	//cout << front.x << " " << front.z << endl;
 	return lookAt(
-		position,  // Camera position
+		position,		   // Camera position
 		position + front,  // Look at origin
-		up   // Up vector
+		up 				   // Up vector
 	);
+}
+
+void Camera::calculateCamPos(float dt) {
+	if (initial_velocity != vec3(0)) {
+		velocity += acceleration * dt * vec3(2.5);
+		position += (initial_velocity + velocity) * dt;
+	}
 }
 
 Camera::~Camera() {}

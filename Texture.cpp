@@ -55,6 +55,10 @@ void GL_Texture::useNextTexture() {
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, textureId);
 }
+void GL_Texture::unbindNextTexture() {
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
 void GL_Texture::clearTexture(){
 	glDeleteTextures(1, &textureId);
 	textureId = 0;

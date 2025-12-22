@@ -141,8 +141,10 @@
   <ItemGroup>
     <ClCompile Include="Block.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Crosshair.cpp" />
     <ClCompile Include="DirectionalLIght.cpp" />
     <ClCompile Include="general_variables.h" />
+    <ClCompile Include="InventorySlot.cpp" />
     <ClCompile Include="Light.cpp" />
     <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="glBlocksMines.cpp" />
@@ -158,10 +160,12 @@
     <ClInclude Include="Block.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Chunk.h" />
+    <ClInclude Include="Crosshair.h" />
     <ClInclude Include="DirectionalLight.h" />
     <ClInclude Include="Frustum.h" />
     <ClInclude Include="Hand.h" />
     <ClInclude Include="inventory.h" />
+    <ClInclude Include="InventorySlot.h" />
     <ClInclude Include="items.h" />
     <ClInclude Include="libraries.h" />
     <ClInclude Include="Light.h" />
@@ -175,6 +179,7 @@
     <ClInclude Include="Sky.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="threading.h" />
+    <ClInclude Include="varDef.h" />
     <ClInclude Include="Window.h" />
     <ClInclude Include="World.h" />
   </ItemGroup>

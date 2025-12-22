@@ -2,6 +2,7 @@
 #include "Light.h"
 
 const int MAX_POINT_LIGHTS = 100;
+extern unsigned int pointLightCount;
 
 class PointLight :
     public Light

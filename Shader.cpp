@@ -2,18 +2,18 @@
 
 using namespace std;
 
-Shadergl::Shadergl() {
+glShader::glShader() {
     shaderId = 0;
     uniformModel = 0;
     uniformProjection = 0;
     pointLightCount = 0;
 }
 
-void Shadergl::createShaderFromString(const char* vertexCode, const char* fragmentCode) {
+void glShader::createShaderFromString(const char* vertexCode, const char* fragmentCode) {
     addShader(vertexCode, fragmentCode);
 }
 
-unsigned int Shadergl::compileShader(unsigned int type, const char* source) {
+unsigned int glShader::compileShader(unsigned int type, const char* source) {
     unsigned int id = glCreateShader(type);
     const char* src = source;  // does same as &source[0] or points to beginning of the string
     glShaderSource(id, 1, &src, nullptr);
@@ -33,7 +33,7 @@ unsigned int Shadergl::compileShader(unsigned int type, const char* source) {
     return id;
 }
 
-void Shadergl::addShader(const char* vertexCode, const char* fragmentCode) {
+void glShader::addShader(const char* vertexCode, const char* fragmentCode) {
     unsigned int program = glCreateProgram();
     unsigned int vertShad = compileShader(GL_VERTEX_SHADER, vertexCode);
     unsigned int fragShad = compileShader(GL_FRAGMENT_SHADER, fragmentCode);
@@ -84,9 +84,10 @@ void Shadergl::addShader(const char* vertexCode, const char* fragmentCode) {
     uniformDirectionalLightTransform = glGetUniformLocation(shaderId, "directionalLightTransform");
     uniformDirectionalShadowMap = glGetUniformLocation(shaderId, "directionalShadowMap");
     uniformColorMask = glGetUniformLocation(shaderId, "colorMask");
+    uniformOrtho = glGetUniformLocation(shaderId, "ortho");
 }
 
-string Shadergl::readShaderFiles(const char* fileLocation) {
+string glShader::readShaderFiles(const char* fileLocation) {
     string shaderContent, line;
     ifstream ifs(fileLocation);
     if (!ifs.is_open()) {
@@ -101,51 +102,54 @@ string Shadergl::readShaderFiles(const char* fileLocation) {
     return shaderContent;
 }
 
-void Shadergl::createShaderFromFiles(const char* vertexFilePath, const char* fragmentFilePath) {
+void glShader::createShaderFromFiles(const char* vertexFilePath, const char* fragmentFilePath) {
     string vertexCodeString, fragmentCodeString;
     vertexCodeString = readShaderFiles(vertexFilePath);
     fragmentCodeString = readShaderFiles(fragmentFilePath);
     addShader(vertexCodeString.c_str(), fragmentCodeString.c_str());
 }
-void Shadergl::useShader(){
+void glShader::useShader(){
     glUseProgram(shaderId);
 }
 
-void Shadergl::clearShader() {
+void glShader::clearShader() {
     glDeleteProgram(shaderId);
     shaderId = 0;
 }
 
-unsigned int Shadergl::getModelLocation() {
+unsigned int glShader::getModelLocation() {
     return uniformModel;
 }
-unsigned int Shadergl::getProjectionLocation() {
+unsigned int glShader::getProjectionLocation() {
     return uniformProjection;
 }
-unsigned int Shadergl::getViewLocation() {
+unsigned int glShader::getViewLocation() {
     return uniformView;
 }
-unsigned int Shadergl::getAmbientIntensityLocation() {
+unsigned int glShader::getAmbientIntensityLocation() {
     return uniformDirectionalLight.uniformAmbientIntensity;
 }
-unsigned int Shadergl::getAmbientColorLocation() {
+unsigned int glShader::getAmbientColorLocation() {
     return uniformDirectionalLight.uniformColor;
 }
-unsigned int Shadergl::getDiffuseIntensityLocation() {
+unsigned int glShader::getDiffuseIntensityLocation() {
     return uniformDirectionalLight.uniformDiffuseIntensity;
 }
-unsigned int Shadergl::getDirectionLocation() {
+unsigned int glShader::getDirectionLocation() {
     return uniformDirectionalLight.uniformDirection;
 }
-unsigned int Shadergl::getColorMaskLocation() {
+unsigned int glShader::getColorMaskLocation() {
     return uniformColorMask;
 }
+unsigned int glShader::getOrthoLocation() {
+    return uniformOrtho;
+}
 
-void Shadergl::setDirectionalLight(DirectionalLight* dLight) {
+void glShader::setDirectionalLight(DirectionalLight* dLight) {
     dLight->useLight(uniformDirectionalLight.uniformAmbientIntensity, uniformDirectionalLight.uniformColor, uniformDirectionalLight.uniformDiffuseIntensity, uniformDirectionalLight.uniformDirection);
 }
 
-void Shadergl::setPointLights(PointLight* pLight, unsigned int lightCount) {
+void glShader::setPointLights(PointLight* pLight, unsigned int lightCount) {
     if (lightCount > MAX_POINT_LIGHTS) {
         lightCount = MAX_POINT_LIGHTS;
     }
@@ -157,15 +161,15 @@ void Shadergl::setPointLights(PointLight* pLight, unsigned int lightCount) {
     }
 }
 
-void Shadergl::setTexture(GLenum texture_unit) {
+void glShader::setTexture(GLenum texture_unit) {
     glUniform1i(uniformTexture, texture_unit);
 }
 
-void Shadergl::setDirectionalShadowMap(GLenum texture_unit) {
+void glShader::setDirectionalShadowMap(GLenum texture_unit) {
     glUniform1i(uniformDirectionalShadowMap, texture_unit);
 }
 
-void Shadergl::setDirectionalLightTransform(mat4 lTransform) {
+void glShader::setDirectionalLightTransform(mat4 lTransform) {
     glUniformMatrix4fv(uniformDirectionalLightTransform, 1, GL_FALSE, glm::value_ptr(lTransform));
     //cout << lTransform[0].x << " " << lTransform[0].y << " " << lTransform[0].z << endl;
     //cout << lTransform[1].x << " " << lTransform[1].y << " " << lTransform[1].z << endl;
@@ -173,6 +177,6 @@ void Shadergl::setDirectionalLightTransform(mat4 lTransform) {
     //cout << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<" << endl;
 }
 
-Shadergl::~Shadergl() {
+glShader::~glShader() {
     clearShader();
 }

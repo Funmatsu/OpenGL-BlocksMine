@@ -9,12 +9,12 @@
 #include "PointLIght.h"
 
 using namespace std;
-class Shadergl
+class glShader
 {
 public:
 	int pointLightCount;
-	Shadergl();
-	~Shadergl();
+	glShader();
+	~glShader();
 	void createShaderFromString(const char* vertexCode, const char* fragmentCode);
 	void createShaderFromFiles(const char* vertexFilePath, const char* fragmentFilePath);
 	unsigned int getProjectionLocation();
@@ -25,6 +25,7 @@ public:
 	unsigned int getDiffuseIntensityLocation();
 	unsigned int getDirectionLocation();
 	unsigned int getColorMaskLocation();
+	unsigned int getOrthoLocation();
 
 	struct {
 		int uniformColor;
@@ -58,7 +59,7 @@ public:
 private:
 	unsigned int shaderId, uniformModel, uniformProjection, uniformView, 
 		         uniformDirectionalLightTransform, uniformDirectionalShadowMap,
-				 uniformTexture, uniformColorMask;
+				 uniformTexture, uniformColorMask, uniformOrtho;
 	unsigned int compileShader(unsigned int type, const char* source);
 	void addShader(const char* vertexCode, const char* fragmentCode);
 };

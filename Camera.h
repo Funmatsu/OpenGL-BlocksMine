@@ -19,12 +19,26 @@ public:
 	Camera();
 	Camera(vec3 startPosition, vec3 startUp, float startYaw, float startPitch, float startMoveSpeed, float startTurnSpeed);
 	~Camera();
-	void keyControl(bool* keys, float deltaTime);
+	void operator=(Camera other) {
+		position = other.position;
+		worldUp = other.up;
+		yaw = other.yaw;
+		pitch = other.pitch;
+		front = other.front;
+		movementSpeed = other.movementSpeed;
+		turnSpeed = other.turnSpeed;
+		initial_velocity = vec3(0);
+		update();
+	}
+	void keyControl(bool* keys, float deltaTime, float dt);
 	void mouseControl(GLfloat xChange, GLfloat yChange);
-	vec3 getCameraFront() { return front; }
-	vec3 getCameraPos() { return position; }
-	void setCameraPos(vec3 pos) { position = pos; }
+	vec3 getFront() { return front; }
+	vec3 getPosition() { return position; }
+	void setPosition(vec3 pos) { position = pos; }
+	void setFront(vec3 other_front) { front = other_front; }
 	mat4 calcViewMatrix();
+	vec3 velocity = vec3(0), initial_velocity, acceleration = vec3(0, -20, 0), velocity_factor = vec3(1);
+	void calculateCamPos(float dt);
 private:
 	vec3 position, front, up, right, worldUp;
 	float yaw, pitch, movementSpeed, turnSpeed;

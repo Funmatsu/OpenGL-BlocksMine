@@ -55,6 +55,7 @@ float calcDirectionalShadowFactor(DirectionalLight Light){
 		}
 	}
 	shadow /= pow(2*var + 1, 2); // average
+	shadow = smoothstep(0.0, 1.0, shadow);
 
 	return shadow;
 }

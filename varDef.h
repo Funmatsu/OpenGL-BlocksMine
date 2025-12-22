@@ -1,15 +1,14 @@
 #pragma once
-#include "items.h"
-#include "Block.h"
 #include "shaderlist.h"
-//#include "Chunk.h"
-#include "recipes.h"
-//#include "Frustum.h"
-#include "normals.h"
+#include "items.h"
+
 #include "inventory.h"
-#include "Frustum.h"
+#include "Block.h"
+#include "recipes.h"
 #include "World.h"
 #include "threading.h"
-#include "Sky.h"
 
+#include "Sky.h"
 #include "Crosshair.h"
+#include "Frustum.h"
+#include "normals.h"
