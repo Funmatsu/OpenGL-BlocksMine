@@ -1,0 +1,124 @@
+#version 330 core
+                                       
+out vec4 color;
+in vec4 pdc;
+in vec2 texCoords;
+flat in float transparency;
+in vec3 normal;
+in vec3 FragPos;
+in vec3 colorMask;
+in vec4 directionalLightSpacePos;  
+int bufferWidth = 1920;
+int bufferHeight = 1059;
+
+const int MAX_POINT_LIGHTS = 100;
+struct Light{
+		vec3 color;
+	float ambientIntensity;
+	float diffuseIntensity;
+};
+
+struct DirectionalLight{
+	Light base;
+    vec3 direction;
+};
+
+struct PointLight{
+	Light base;
+    vec3 position;
+	float constant, linear, exponent;
+};
+
+uniform sampler2D theTexture;
+uniform sampler2D directionalShadowMap;
+uniform sampler2D topTexture;
+uniform sampler2D breakStageTexture;
+
+uniform DirectionalLight directionalLight;
+uniform PointLight pointLights[MAX_POINT_LIGHTS];
+
+uniform int pointLightCount;
+
+uniform vec3 camPos;
+uniform float fogStart;
+uniform float fogEnd;
+
+float calcDirectionalShadowFactor(DirectionalLight Light){
+	vec3 projCoords = directionalLightSpacePos.xyz / directionalLightSpacePos.w;
+	projCoords = (projCoords * 0.5) + 0.5;
+	float current = projCoords.z,
+//		  closest = texture(directionalShadowMap, projCoords.xy).r,
+	      shadow = 0.0, bias = 0.00001;
+//	shadow = current - bias > closest ? 1.0f : 0.0;
+	vec2 texelSize = 1.0 / textureSize(directionalShadowMap, 0);
+	int var = 2;
+	for(int x = -var; x <= var; ++x) {
+		for(int y = -var; y <= var; ++y) {
+			float pcfDepth = texture(directionalShadowMap,
+									 projCoords.xy + vec2(x,y) * texelSize).r;
+			shadow += current - bias > pcfDepth ? 1.0f : 0.25f;
+		}
+	}
+	shadow /= pow(2*var + 1, 2); // average
+	shadow = smoothstep(0.0, 1.0, shadow);
+
+	return shadow;
+}
+
+vec4 calcLightByDirection(Light light, vec3 direction, float shadowFactor){
+	vec4 ambientColor = vec4(light.color * light.ambientIntensity, 1.0f);
+        float diffuseFactor = max(dot(normalize(normal), normalize(direction)), 0.0f);
+	vec4 diffuseColor = vec4(light.color * light.diffuseIntensity * diffuseFactor, 1.0f);
+	return vec4((ambientColor * (1 - shadowFactor*0.4) + (1 - shadowFactor) * diffuseColor).xyz, 1.0f);
+}
+vec4 calcDirLight(){ 
+	float shadowFactor = calcDirectionalShadowFactor(directionalLight);
+	//float shadowFactor = 1.0f;
+	return calcLightByDirection(directionalLight.base, directionalLight.direction, shadowFactor);
+}
+vec4 calcPointLight() {
+	vec4 totalColor = vec4(0, 0, 0, 0);
+	for(int i = 0; i < pointLightCount; i++){
+		vec3 direction = -(pointLights[i].position - FragPos);
+		float distance = length(direction);
+		direction = normalize(direction);
+		
+		vec4 color = calcLightByDirection(pointLights[i].base, direction, 0.0);
+		float attenuation = (pointLights[i].exponent * (distance * distance) +
+							 pointLights[i].linear * distance +
+							 pointLights[i].constant);
+		totalColor += (color) / attenuation;
+	}
+	
+	return totalColor;
+}
+
+float LinearizeDepth(float depth, float near, float far) {
+    return (2.0 * near) / (far + near - depth * (far - near));
+}
+
+void main(){
+	uint uvs = floatBitsToUint(transparency);
+	uint tileSize = (uvs >> 16) & 0xFFu;
+	vec2 uv = vec2((uvs & 0xFFu), (uvs >> 8) & 0xFFu);
+	vec2 uvCoords = (fract(texCoords) + uv) / float(tileSize);
+	vec4 tex = texture(theTexture, uvCoords);
+	if (tex.a < 0.6) discard;
+	
+	vec4 finalColor = calcDirLight();
+	finalColor += calcPointLight();
+	float dist = length(FragPos - camPos);
+	//float fadeStart = 0.5f * (fogEnd + fogStart);
+	//float fadeFactor = clamp((dist - fadeStart)/(fogEnd - fadeStart), 0.0, 1.0);
+	float fogFactor = clamp((fogEnd - dist)/(fogEnd - fogStart), 0.0, 1.0);
+	float fogAlpha = mix(0.0f, 1.0f, fogFactor); 
+	//float fogAlpha = 1 - fadeFactor;
+	
+	vec4 topTex = texture(topTexture, uvCoords);
+	vec4 overlayColorMask = ((uvCoords.y >= 0.4 && uvCoords.x >= 0.6) && (uvCoords.y <= 0.6 && uvCoords.x <= 0.8)) || ((uvCoords.y >= 0.6 && uvCoords.x >= 0.0) && (uvCoords.y <= 0.8 && uvCoords.x <= 0.2)) ? vec4(1.0f) : vec4(colorMask, 1.0f);
+	vec4 breakStageTex = texture(breakStageTexture, uvCoords);
+
+	vec4 fragCol = (topTex * (vec4(colorMask, 1.0f) - vec4(0.3f, 0.0f, 0.1f, 0.0f)) + max(tex * overlayColorMask - topTex * vec4(0.2f, 1.0f, 0.2f, 1.0f), vec4(0.2f))) * vec4(1.0, 1.0f, 1.0f, 1.0f) * finalColor;
+
+	color = vec4(mix(vec3(0.4f, 0.5f, 0.6f), fragCol.rgb, fogFactor), fogAlpha);
+};

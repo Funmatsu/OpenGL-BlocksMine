@@ -26,6 +26,7 @@ public:
 	unsigned int getDirectionLocation();
 	unsigned int getColorMaskLocation();
 	unsigned int getOrthoLocation();
+	unsigned int getUiposLocation();
 
 	struct {
 		int uniformColor;
@@ -59,7 +60,7 @@ public:
 private:
 	unsigned int shaderId, uniformModel, uniformProjection, uniformView, 
 		         uniformDirectionalLightTransform, uniformDirectionalShadowMap,
-				 uniformTexture, uniformColorMask, uniformOrtho;
+				 uniformTexture, uniformColorMask, uniformOrtho, uniformUipos;
 	unsigned int compileShader(unsigned int type, const char* source);
 	void addShader(const char* vertexCode, const char* fragmentCode);
 };

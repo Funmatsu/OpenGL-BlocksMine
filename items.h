@@ -24,132 +24,106 @@
 
 class Item {
 public:
-	int id;
-	bool isPlaceable;
-	bool isUsable;
-	bool isTool;
-	bool isBreakable;
-	bool isFlat;
-	int isLuminous;
+	uint8_t id;
+	uint8_t attrs = 0;
 
 	Item() {
 		id = 0;
-		isPlaceable = 0;
-		isUsable = 0;
-		isTool = 0;
-		isBreakable = 0;
-		isFlat = 0;
-		isLuminous = 0;
+		attrs = 0;
 	}
 	~Item() {
 		id = 0;
-		isPlaceable = 0;
-		isUsable = 0;
-		isTool = 0;
-		isBreakable = 0;
-		isFlat = 0;
-		isLuminous = 0;
-	}
-	Item(int item_id, bool placeable, bool useable, bool toolable, bool breakable) {
-		id = item_id;
-		isPlaceable = placeable;
-		isUsable = useable;
-		isTool = toolable;
-		isBreakable = breakable;
-		isFlat = 0;
-		isLuminous = 0;
+		attrs = 0;
 	}
 
-	Item(int item_id, bool placeable, bool useable, bool toolable, bool breakable, bool flatable) {
-		id = item_id;
-		isPlaceable = placeable;
-		isUsable = useable;
-		isTool = toolable;
-		isBreakable = breakable;
-		isFlat = flatable;
-		isLuminous = 0;
+	bool isPlaceable() {
+		return ((attrs >> 5) & 1);
 	}
 
-	Item(int item_id, bool placeable, bool useable, bool toolable, bool breakable, bool flatable, int luminable) {
-		id = item_id;
-		isPlaceable = placeable;
-		isUsable = useable;
-		isTool = toolable;
-		isBreakable = breakable;
-		isFlat = flatable;
-		isLuminous = luminable;
+	bool isUsable() {
+		return ((attrs >> 4) & 1);
 	}
 
-	void assignLuminousId(unsigned int& id) {
-		isLuminous = ++id;
+	bool isTool() {
+		return ((attrs >> 3) & 1);
+	}
+
+	bool isBreakable() {
+		return ((attrs >> 2) & 1);
+	}
+
+	bool isFlat() {
+		return ((attrs >> 1) & 1);
+	}
+
+	bool isLuninous() {
+		return (attrs & 1);
 	}
 
 	void assignLight(PointLight* pLight, vec3 position) {		
-		if (isLuminous) {
+		if (isLuninous()) {
 			pLight[pointLightCount] = PointLight(1.0f, 0.9f, 0.2f,
 				1.0f, 0.2f,
 				position.x + 0.5, position.y + 1.25, position.z + 0.5,
 				0.2, 0.1f, 0.05f);
-			assignLuminousId(pointLightCount);
+			pointLightCount++;
 		}
 	}
 
 	void deassignLight(PointLight* pLight, vec3 position) {
 		pLight[pointLightCount] = PointLight();
-		if (isLuminous) {
+		if (isLuninous()) {
 			pointLightCount--;
 		}
 	}
 
-	bool operator==(const Item& item) {
+	bool operator==(Item item) {
 		return(id == item.id);
 	}
 
-	bool operator!=(const Item& item) {
+	bool operator!=(Item item) {
 		return(id != item.id);
 	}
 
 	Item(const Item& item) {
 		id = item.id;
-		isPlaceable = item.isPlaceable;
-		isUsable = item.isUsable;
-		isTool = item.isTool;
-		isBreakable = item.isBreakable;
-		isFlat = item.isFlat;
-		isLuminous = item.isLuminous;
+		attrs = item.attrs;
 	}
 
 	void operator=(Item item) {
 		id = item.id;
-		isPlaceable = item.isPlaceable;
-		isUsable = item.isUsable;
-		isTool = item.isTool;
-		isBreakable = item.isBreakable;
-		isFlat = item.isFlat;
-		isLuminous = item.isLuminous;
+		attrs = item.attrs;
+	}
+
+	Item(int item_id, bool placeable, bool useable, bool toolable, bool breakable, bool flatable, int luminable) {
+		id = item_id;
+		attrs |= luminable;
+		attrs |= (flatable  << 1);
+		attrs |= (breakable << 2);
+		attrs |= (toolable  << 3);
+		attrs |= (useable   << 4);
+		attrs |= (placeable << 5);
 	}
 };
 
-Item AIR				(0,  0, 0, 0, 1);
-Item DIAMOND_ORE		(1,  1, 0, 0, 1);
-Item GRASS_BLOCK		(2,  1, 0, 0, 1);
-Item IRON_ORE			(3,  1, 0, 0, 1);
-Item STONE_BLOCK		(4,  1, 0, 0, 1);
-Item DIRT_BLOCK			(5,  1, 0, 0, 1);
-Item OAK_WOOD			(6,  1, 0, 0, 1);
-Item CLOUD				(7,  1, 0, 0, 1);
-Item OAK_LEAVES			(8,  1, 0, 0, 1);
-Item OAK_PLANK			(9,  1, 0, 0, 1);
-Item POPPY				(10, 1, 0, 0, 1, 1);
-Item BLUE_ORCHID		(11, 1, 0, 0, 1, 1);
-Item GRASS				(12, 1, 0, 0, 1, 1);
-
-Item CRAFTING_TABLE		(13, 1, 1, 0, 1);
-Item BEDROCK			(14, 1, 0, 0, 0);
+Item AIR				(0,  0, 0, 0, 1, 0, 0);
+Item DIAMOND_ORE		(1,  1, 0, 0, 1, 0, 0);
+Item GRASS_BLOCK		(2,  1, 0, 0, 1, 0, 0);
+Item IRON_ORE			(3,  1, 0, 0, 1, 0, 0);
+Item STONE_BLOCK		(4,  1, 0, 0, 1, 0, 0);
+Item DIRT_BLOCK			(5,  1, 0, 0, 1, 0, 0);
+Item OAK_WOOD			(6,  1, 0, 0, 1, 0, 0);
+Item CLOUD				(7,  1, 0, 0, 1, 0, 0);
+Item OAK_LEAVES			(8,  1, 0, 0, 1, 0, 0);
+Item OAK_PLANK			(9,  1, 0, 0, 1, 0, 0);
+Item POPPY				(10, 1, 0, 0, 1, 1, 0);
+Item BLUE_ORCHID		(11, 1, 0, 0, 1, 1, 0);
+Item GRASS				(12, 1, 0, 0, 1, 1, 0);
+Item CRAFTING_TABLE		(13, 1, 1, 0, 1, 0, 0);
+Item BEDROCK			(14, 1, 0, 0, 0, 0, 0);
 Item TORCH				(15, 1, 0, 0, 1, 1, 1);
-
-Item WOODEN_PICKAXE		(16, 1, 0, 1, 1);
-Item STICK				(17, 1, 0, 1, 1);
+Item WOODEN_PICKAXE		(16, 1, 0, 1, 1, 0, 0);
+Item STICK				(17, 1, 0, 1, 1, 0, 0);
 
 vector<Item> items{
 	AIR,
@@ -172,7 +146,41 @@ vector<Item> items{
 	STICK
 };
 
+Item item(uint8_t idx) {
+	return items[idx];
+}
+
+float uvTable[16][7] {
+	{1, 0, 0, 0, 0, 0, 1   },
+	{4, 4, 0, 0, 0, 0, 1   },
+	{3, 2,-3,-2,-3, 1, 1   },
+	{1, 3, 0, 0, 0, 0, 1   },
+	{0, 1, 0, 0, 0, 0, 1   },
+	{0, 3, 0, 0, 0, 0, 1   },
+	{0, 2, 2, 1, 2, 1, 1   },
+	{4, 2, 0, 0, 0, 0, 0.75},
+	{4, 3, 0, 0, 0, 0, 1   },
+	{3, 3, 0, 0, 0, 0, 1   },
+	{2, 2, 0, 0, 0, 0, 1   },
+	{1, 4, 0, 0, 0, 0, 1   },
+	{1, 2, 0, 0, 0, 0, 1   },
+	{2, 4, 1, 0, 1,-1, 1   },
+	{0, 4, 0, 0, 0, 0, 1   },
+	{1, 1, 0, 0, 0, 0, 1   },
+};
+
 void getUVs(Item blockType, float* attrs) {
+	for (int i = 0; i < 7; i++) {
+		attrs[i] = uvTable[blockType.id][i];
+	}
+}
+void getUVs(int blockType, float* attrs) {
+	for (int i = 0; i < 7; i++) {
+		attrs[i] = uvTable[blockType][i];
+	}
+	//memcpy(attrs, uvTable[blockType], 7 * sizeof(float));
+}
+void getUVs(Item blockType, float* attrs, int du) {
 	attrs[0] = 1, attrs[1] = 0, attrs[2] = 0, attrs[3] = 0, attrs[4] = 0, attrs[5] = 0, attrs[6] = 1.0f;
 
 	if (blockType == AIR) {
@@ -240,13 +248,13 @@ void getUVs(Item blockType, float* attrs) {
 	}
 }
 
-
-
 //-------------------------------------------------------------------------------------------------------
 struct InventorySlot
 {
-	mat4 model;
-	Mesh mesh;
+	float angle = 0;
+	mat4 model = mat4(1.0f);
+	LightMesh mesh; 
+	LightMesh quadMesh;
 	Item item = AIR;
 	void operator=(InventorySlot slot) {
 		model = slot.model;
@@ -254,3 +262,27 @@ struct InventorySlot
 		item = slot.item;
 	}
 };
+
+unsigned int itemFbo, itemColorTex, itemDepthTex;
+void initItemTextures() {
+	glGenTextures(1, &itemColorTex);
+	glBindTexture(GL_TEXTURE_2D, itemColorTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 350, 350, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	glGenRenderbuffers(1, &itemDepthTex);
+	glBindRenderbuffer(GL_RENDERBUFFER, itemDepthTex);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 350, 350);
+
+	glGenFramebuffers(1, &itemFbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, itemFbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, itemColorTex, 0);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, itemDepthTex);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		std::cout << "Item FBO is incomplete!" << std::endl;
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}

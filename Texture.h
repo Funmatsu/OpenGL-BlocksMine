@@ -15,6 +15,7 @@ public:
 	GL_Texture(const char* fileLocation);
 	void loadTexture();
 	void useTexture();
+	void useTexture(GLenum tex);
 	void useNextTexture();
 	void unbindNextTexture();
 	void clearTexture();

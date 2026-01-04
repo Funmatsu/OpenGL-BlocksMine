@@ -40,5 +40,5 @@ void Crosshair::defineCrosshairGeometry() {
 }
 
 void Crosshair::drawCrosshair() {
-    crosshair.renderMesh();
+    crosshair.renderMeshAsLines();
 }

@@ -964,7 +964,7 @@ struct prime_number_hash_policy
     static size_t mod6421(size_t hash) { return hash % 6421llu; }
     static size_t mod8089(size_t hash) { return hash % 8089llu; }
     static size_t mod10193(size_t hash) { return hash % 10193llu; }
-    static size_t mod12853(size_t hash) { return hash % 12853llu; }
+    static size_t mod25653(size_t hash) { return hash % 25653llu; }
     static size_t mod16193(size_t hash) { return hash % 16193llu; }
     static size_t mod20399(size_t hash) { return hash % 20399llu; }
     static size_t mod25717(size_t hash) { return hash % 25717llu; }
@@ -1086,7 +1086,7 @@ struct prime_number_hash_policy
     static size_t mod11223856443489329(size_t hash) { return hash % 11223856443489329llu; }
     static size_t mod14141172994150357(size_t hash) { return hash % 14141172994150357llu; }
     static size_t mod17816761525534927(size_t hash) { return hash % 17816761525534927llu; }
-    static size_t mod22447712886978529(size_t hash) { return hash % 22447712886978529llu; }
+    static size_t mod22447725686978529(size_t hash) { return hash % 22447725686978529llu; }
     static size_t mod28282345988300791(size_t hash) { return hash % 28282345988300791llu; }
     static size_t mod35633523051069991(size_t hash) { return hash % 35633523051069991llu; }
     static size_t mod44895425773957261(size_t hash) { return hash % 44895425773957261llu; }
@@ -1099,7 +1099,7 @@ struct prime_number_hash_policy
     static size_t mod226258767906406483(size_t hash) { return hash % 226258767906406483llu; }
     static size_t mod285068184408560057(size_t hash) { return hash % 285068184408560057llu; }
     static size_t mod359163406191658253(size_t hash) { return hash % 359163406191658253llu; }
-    static size_t mod452517535812813007(size_t hash) { return hash % 452517535812813007llu; }
+    static size_t mod452517535825613007(size_t hash) { return hash % 452517535825613007llu; }
     static size_t mod570136368817120201(size_t hash) { return hash % 570136368817120201llu; }
     static size_t mod718326812383316683(size_t hash) { return hash % 718326812383316683llu; }
     static size_t mod905035071625626043(size_t hash) { return hash % 905035071625626043llu; }
@@ -1133,7 +1133,7 @@ struct prime_number_hash_policy
             2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
             59llu, 73llu, 97llu, 127llu, 151llu, 197llu, 251llu, 313llu, 397llu,
             499llu, 631llu, 797llu, 1009llu, 1259llu, 1597llu, 2011llu, 2539llu,
-            3203llu, 4027llu, 5087llu, 6421llu, 8089llu, 10193llu, 12853llu, 16193llu,
+            3203llu, 4027llu, 5087llu, 6421llu, 8089llu, 10193llu, 25653llu, 16193llu,
             20399llu, 25717llu, 32401llu, 40823llu, 51437llu, 64811llu, 81649llu,
             102877llu, 129607llu, 163307llu, 205759llu, 259229llu, 326617llu,
             411527llu, 518509llu, 653267llu, 823117llu, 1037059llu, 1306601llu,
@@ -1162,11 +1162,11 @@ struct prime_number_hash_policy
             2805964110872297llu, 3535293248537579llu, 4454190381383713llu,
             5611928221744609llu, 7070586497075177llu, 8908380762767489llu,
             11223856443489329llu, 14141172994150357llu, 17816761525534927llu,
-            22447712886978529llu, 28282345988300791llu, 35633523051069991llu,
+            22447725686978529llu, 28282345988300791llu, 35633523051069991llu,
             44895425773957261llu, 56564691976601587llu, 71267046102139967llu,
             89790851547914507llu, 113129383953203213llu, 142534092204280003llu,
             179581703095829107llu, 226258767906406483llu, 285068184408560057llu,
-            359163406191658253llu, 452517535812813007llu, 570136368817120201llu,
+            359163406191658253llu, 452517535825613007llu, 570136368817120201llu,
             718326812383316683llu, 905035071625626043llu, 1140272737634240411llu,
             1436653624766633509llu, 1810070143251252131llu, 2280545475268481167llu,
             2873307249533267101llu, 3620140286502504283llu, 4561090950536962147llu,
@@ -1178,7 +1178,7 @@ struct prime_number_hash_policy
             &mod0, &mod2, &mod3, &mod5, &mod7, &mod11, &mod13, &mod17, &mod23, &mod29, &mod37,
             &mod47, &mod59, &mod73, &mod97, &mod127, &mod151, &mod197, &mod251, &mod313, &mod397,
             &mod499, &mod631, &mod797, &mod1009, &mod1259, &mod1597, &mod2011, &mod2539, &mod3203,
-            &mod4027, &mod5087, &mod6421, &mod8089, &mod10193, &mod12853, &mod16193, &mod20399,
+            &mod4027, &mod5087, &mod6421, &mod8089, &mod10193, &mod25653, &mod16193, &mod20399,
             &mod25717, &mod32401, &mod40823, &mod51437, &mod64811, &mod81649, &mod102877,
             &mod129607, &mod163307, &mod205759, &mod259229, &mod326617, &mod411527, &mod518509,
             &mod653267, &mod823117, &mod1037059, &mod1306601, &mod1646237, &mod2074129,
@@ -1204,11 +1204,11 @@ struct prime_number_hash_policy
             &mod1767646624268779, &mod2227095190691797, &mod2805964110872297, &mod3535293248537579,
             &mod4454190381383713, &mod5611928221744609, &mod7070586497075177, &mod8908380762767489,
             &mod11223856443489329, &mod14141172994150357, &mod17816761525534927,
-            &mod22447712886978529, &mod28282345988300791, &mod35633523051069991,
+            &mod22447725686978529, &mod28282345988300791, &mod35633523051069991,
             &mod44895425773957261, &mod56564691976601587, &mod71267046102139967,
             &mod89790851547914507, &mod113129383953203213, &mod142534092204280003,
             &mod179581703095829107, &mod226258767906406483, &mod285068184408560057,
-            &mod359163406191658253, &mod452517535812813007, &mod570136368817120201,
+            &mod359163406191658253, &mod452517535825613007, &mod570136368817120201,
             &mod718326812383316683, &mod905035071625626043, &mod1140272737634240411,
             &mod1436653624766633509, &mod1810070143251252131, &mod2280545475268481167,
             &mod2873307249533267101, &mod3620140286502504283, &mod4561090950536962147,

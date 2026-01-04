@@ -10,6 +10,7 @@ public:
 	Window();
 	Window(GLint windowWidth, GLint windowHeight);
 	int initialize();
+	int initializeFullScreen();
 	GLint getBufferWidth() { return bufferWidth; }
 	GLint getBufferHeight() { return bufferHeight; }
 	int getFramebufferId() { return fbo; }
@@ -28,12 +29,6 @@ public:
 	void useDepthBuffer(int shaderId);
 	void updateDepthTexture();
 	~Window();
-	float getMove() {
-		return translation;
-	}
-	void setMove(float move) {
-		translation += move;
-	}
 
 	void setMouseMoved() { mouseFirstMoved = true; }
 
@@ -46,7 +41,6 @@ private:
 	int recentlyPressedKey;
 	float lastX, lastY, xChange, yChange;
 	bool mouseFirstMoved;
-	float translation;
 
 	void createCalbacks();
 	static void handleKeys(GLFWwindow *window, int key, int code, int action, int mode);

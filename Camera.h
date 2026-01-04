@@ -34,6 +34,9 @@ public:
 	void mouseControl(GLfloat xChange, GLfloat yChange);
 	vec3 getFront() { return front; }
 	vec3 getPosition() { return position; }
+	float getTurnSpeed() { return turnSpeed; }
+	float getYaw() { return yaw; }
+	float getPitch() { return pitch; }
 	void setPosition(vec3 pos) { position = pos; }
 	void setFront(vec3 other_front) { front = other_front; }
 	mat4 calcViewMatrix();

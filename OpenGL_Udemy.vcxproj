@@ -146,6 +146,7 @@
     <ClCompile Include="general_variables.h" />
     <ClCompile Include="InventorySlot.cpp" />
     <ClCompile Include="Light.cpp" />
+    <ClCompile Include="LightMesh.cpp" />
     <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="glBlocksMines.cpp" />
     <ClCompile Include="PointLight.cpp" />
@@ -153,6 +154,7 @@
     <ClCompile Include="shadowMap.cpp" />
     <ClCompile Include="Sky.cpp" />
     <ClCompile Include="Texture.cpp" />
+    <ClCompile Include="threading_true.h" />
     <ClCompile Include="unusedCode.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
@@ -169,6 +171,7 @@
     <ClInclude Include="items.h" />
     <ClInclude Include="libraries.h" />
     <ClInclude Include="Light.h" />
+    <ClInclude Include="LightMesh.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="normals.h" />
     <ClInclude Include="PointLight.h" />

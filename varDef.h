@@ -3,7 +3,6 @@
 #include "items.h"
 
 #include "inventory.h"
-#include "Block.h"
 #include "recipes.h"
 #include "World.h"
 #include "threading.h"

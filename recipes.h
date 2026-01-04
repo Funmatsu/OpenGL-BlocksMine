@@ -61,40 +61,18 @@ Item Recipe::getRecipe(InventorySlot slots[2][2]) {
 	return AIR;
 }
 
-//Item Recipe::getRecipe(Item slots[3][3]) {
-//	for (int i = 0; i < bigrecipes.size(); i += 10) {
-//		if (slots[0][0] == bigrecipes[i + 0] && slots[0][1] == bigrecipes[i + 1] && slots[0][2] == bigrecipes[i + 2] &&
-//			slots[1][0] == bigrecipes[i + 3] && slots[1][1] == bigrecipes[i + 4] && slots[1][2] == bigrecipes[i + 5] &&
-//			slots[2][0] == bigrecipes[i + 6] && slots[2][1] == bigrecipes[i + 7] && slots[2][2] == bigrecipes[i + 8]) {
-//			return bigrecipes[i + 9];
-//		}
-//	}
-//	return AIR;
-//}
-//
-//Item Recipe::getRecipe(Item slots[2][2]) {
-//	for (int i = 0; i < recipes.size(); i += 5) {
-//		if (slots[0][0] == recipes[i + 0] && slots[0][1] == recipes[i + 1] &&
-//			slots[1][0] == recipes[i + 2] && slots[1][1] == recipes[i + 3]
-//			) {
-//			return recipes[i + 4];
-//		}
-//	}
-//	return AIR;
-//}
-
 bool Recipe::itemPlaceable(Item itemType) {
-	return (itemType.isPlaceable);
+	return (itemType.isPlaceable());
 }
 
 bool Recipe::itemUsable(Item itemType) {
-	return (itemType.isUsable);
+	return (itemType.isUsable());
 }
 
 bool Recipe::isTool(Item itemType) {
-	return (itemType.isTool);
+	return (itemType.isTool());
 }
 
 bool Recipe::isBreakable(Item itemType) {
-	return (itemType.isBreakable);
+	return (itemType.isBreakable());
 }

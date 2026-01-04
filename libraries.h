@@ -35,6 +35,7 @@
 
 //#include "InventorySlot.h"
 #include "Mesh.h"
+#include "LightMesh.h"
 #include "shader.h"
 #include "Window.h"
 #include "Camera.h"

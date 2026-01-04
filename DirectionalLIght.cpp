@@ -1,5 +1,5 @@
 #include "DirectionalLight.h"
-float off = 100.0f;
+float off = 200.0f;
 
 DirectionalLight::DirectionalLight() : Light() { lightProj = ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 100.0f); }
 DirectionalLight::DirectionalLight(GLuint shadowWidth, GLuint shadowHeight,
@@ -30,3 +30,4 @@ void DirectionalLight::setShadowPos(vec2 shadowpos) {
 }
 
 DirectionalLight::~DirectionalLight() {}
+

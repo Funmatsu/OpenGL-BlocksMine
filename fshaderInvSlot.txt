@@ -1,0 +1,10 @@
+#version 330 core
+                                       
+out vec4 color;
+uniform sampler2D theTexture;
+in vec2 texCoords;
+in vec3 colorMask;
+
+void main(){
+    color = texture(theTexture, texCoords);
+};

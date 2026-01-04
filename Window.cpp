@@ -71,6 +71,51 @@ int Window::initialize() {
         glfwSetInputMode(mainWindow, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
 }
+int Window::initializeFullScreen() {
+    if (!glfwInit()) {
+        cout << "GLFW initialization failed!" << endl;
+        glfwTerminate();
+        return 1;
+    }
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    mainWindow = glfwCreateWindow(mode->width, mode->height, "GLBlocksMine", monitor, NULL); // passing monitor instead of NULL makes it full screen
+
+    if (!mainWindow) {
+        cout << "Default Window failed to open!" << endl;
+        glfwTerminate();
+        return 1;
+    }
+
+    glfwMakeContextCurrent(mainWindow);
+
+    glewExperimental = GL_TRUE;
+
+    createCalbacks();
+    glfwSetInputMode(mainWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+    if (glewInit() != GLEW_OK) {
+        cout << "GLEW was not properly initialized!";
+        return 1;
+    }
+
+    glEnable(GL_DEPTH_TEST);
+
+    glfwGetFramebufferSize(mainWindow, &bufferWidth, &bufferHeight);
+    glViewport(0, 0, bufferWidth, bufferHeight);
+
+    glfwSetWindowUserPointer(mainWindow, this);
+
+    if (glfwRawMouseMotionSupported())
+        glfwSetInputMode(mainWindow, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+
+}
 void Window::createCalbacks() {
     glfwSetKeyCallback(mainWindow, handleKeys);
     glfwSetCursorPosCallback(mainWindow, handleMouse);

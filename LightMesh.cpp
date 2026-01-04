@@ -1,13 +1,13 @@
-#include "Mesh.h"
+#include "LightMesh.h"
 
-Mesh::Mesh() {
-	vao = 0;
-	vbo = 0;
-	ibo = 0;
-	indexCount = 0;
+LightMesh::LightMesh() {
+    vao = 0;
+    vbo = 0;
+    ibo = 0;
+    indexCount = 0;
 }
 
-void Mesh::createMesh(vector<float>& verts, vector<unsigned int>& inds, unsigned int verticesCount, unsigned int indicesCount) {
+void LightMesh::createMesh(vector<float>& verts, vector<unsigned int>& inds, unsigned int verticesCount, unsigned int indicesCount) {
     indexCount = indicesCount;
     if (indexCount != 0) {
         if (vao == 0)
@@ -41,7 +41,7 @@ void Mesh::createMesh(vector<float>& verts, vector<unsigned int>& inds, unsigned
     }
 }
 
-void Mesh::renderMesh() {
+void LightMesh::renderMesh() {
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     if (indexCount != 0) {
@@ -51,34 +51,32 @@ void Mesh::renderMesh() {
     }
 }
 
-void Mesh::renderMeshAsLines() {
+void LightMesh::renderMeshAsLines() {
     if (indexCount != 0) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glLineWidth(100.0f);
+        glLineWidth(10.0f);
         glBindVertexArray(vao);
         glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
     }
 }
 
-void Mesh::clearMesh() {
+void LightMesh::clearMesh() {
     if (ibo != 0) {
         glDeleteBuffers(1, &ibo);
         ibo = 0;
     }
     if (vbo != 0) {
-       glDeleteBuffers(1, &vbo);
+        glDeleteBuffers(1, &vbo);
         vbo = 0;
     }
     if (vao != 0) {
-       glDeleteVertexArrays(1, &vao);
+        glDeleteVertexArrays(1, &vao);
         vao = 0;
     }
     indexCount = 0;
-    vertices.clear();
-    indices.clear();
 }
 
-Mesh::~Mesh() {
+LightMesh::~LightMesh() {
     //clearMesh();
 }

@@ -44,8 +44,10 @@ public:
     void defineMainInventorySlotsGeometry();
     void clearMainCraftingSlots();
     void clearCraftingTableSlots();
-    void drawMainInventorySlots(mat4 ortho, mat4 model[4][9]);
+    void drawMainInventorySlots(mat4 ortho, mat4 itemView, mat4 itemProj);
+    void updateCurrentBlock();
 
+    void initInventorySlots();
     void updateInventory();
 private:
     Mesh inventoryMesh;
@@ -70,6 +72,7 @@ void Inventory::assignAvailableSlot(Item replaceItem) {
     for (int m = 0; m < 4; m++) {
         for (int l = 0; l < 9; l++) {
             if (mainInventorySlots[3 - m][l].item == AIR) {
+                if (m == 0) { hotbarSlots[l].item = replaceItem; }
                 mainInventorySlots[3 - m][l].item = replaceItem;
                 inv_change = true;
                 return;
@@ -194,9 +197,9 @@ void Inventory::drawHotbarSlotSelector() {
     currInvSlotSelector.renderMesh();
 }
 
-Mesh createMeshCube(vec3 xyz, float scale, Item blockType) {
+LightMesh createMeshCube(vec3 xyz, float scale, Item blockType) {
     if (blockType == AIR) {
-        return Mesh();
+        return LightMesh();
     }
     float xoffset = 0, yoffset = 1, xoffsetTop = 0, yoffsetTop = 0, xoffsetBottom = 0, yoffsetBottom = 0, transparency = 1.0f;
 
@@ -227,47 +230,55 @@ Mesh createMeshCube(vec3 xyz, float scale, Item blockType) {
             int offsetX = 0, offsetY = 0;
             if (i == 4) { offsetX = xoffsetBottom; offsetY = yoffsetBottom; }
             else if (i == 5) { offsetX = xoffsetTop;  offsetY = yoffsetTop; }
-            globalUVs.push_back((clipX + xoffset + offsetX) / xdimens); globalUVs.push_back((clipX + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
-            globalUVs.push_back((clipX + xoffset + offsetX) / xdimens); globalUVs.push_back((clipY + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
-            globalUVs.push_back((clipY + xoffset + offsetX) / xdimens); globalUVs.push_back((clipY + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
-            globalUVs.push_back((clipY + xoffset + offsetX) / xdimens); globalUVs.push_back((clipX + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+            if (i % 3 == 0) {
+                globalUVs.push_back((clipX + xoffset + offsetX) / xdimens); globalUVs.push_back((clipX + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+                globalUVs.push_back((clipX + xoffset + offsetX) / xdimens); globalUVs.push_back((clipY + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+                globalUVs.push_back((clipY + xoffset + offsetX) / xdimens); globalUVs.push_back((clipY + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+                globalUVs.push_back((clipY + xoffset + offsetX) / xdimens); globalUVs.push_back((clipX + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+            }
+            else {
+                globalUVs.push_back((clipX + xoffset + offsetX) / xdimens); globalUVs.push_back((clipX + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+                globalUVs.push_back((clipY + xoffset + offsetX) / xdimens); globalUVs.push_back((clipX + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+                globalUVs.push_back((clipY + xoffset + offsetX) / xdimens); globalUVs.push_back((clipY + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+                globalUVs.push_back((clipX + xoffset + offsetX) / xdimens); globalUVs.push_back((clipY + yoffset + offsetY) / ydimens); globalUVs.push_back(transparency);
+            }
         }
 
         vertices = {
-            0.0f * scale + xyz.x,  0.0f * scale * yexponent + xyz.y,  0.0f * scale / 100 + xyz.z,
-            0.0f * scale + xyz.x,  1.0f * scale * yexponent + xyz.y,  0.0f * scale / 100 + xyz.z,
-            0.0f * scale + xyz.x,  1.0f * scale * yexponent + xyz.y,  1.0f * scale / 100 + xyz.z,
-            0.0f * scale + xyz.x,  0.0f * scale * yexponent + xyz.y,  1.0f * scale / 100 + xyz.z,
-
-            1.0f * scale + xyz.x,  0.0f * scale * yexponent + xyz.y,  0.0f * scale / 100 + xyz.z,
-            1.0f * scale + xyz.x,  1.0f * scale * yexponent + xyz.y,  0.0f * scale / 100 + xyz.z,
-            1.0f * scale + xyz.x,  1.0f * scale * yexponent + xyz.y,  1.0f * scale / 100 + xyz.z,
-            1.0f * scale + xyz.x,  0.0f * scale * yexponent + xyz.y,  1.0f * scale / 100 + xyz.z,
-
-            0.0f * scale + xyz.x,  0.0f * scale * yexponent + xyz.y,  0.0f * scale / 100 + xyz.z,
-            0.0f * scale + xyz.x,  1.0f * scale * yexponent + xyz.y,  0.0f * scale / 100 + xyz.z,
-            1.0f * scale + xyz.x,  1.0f * scale * yexponent + xyz.y,  0.0f * scale / 100 + xyz.z,
-            1.0f * scale + xyz.x,  0.0f * scale * yexponent + xyz.y,  0.0f * scale / 100 + xyz.z,
-
-            0.0f * scale + xyz.x,  0.0f * scale * yexponent + xyz.y,  1.0f * scale / 100 + xyz.z,
-            0.0f * scale + xyz.x,  1.0f * scale * yexponent + xyz.y,  1.0f * scale / 100 + xyz.z,
-            1.0f * scale + xyz.x,  1.0f * scale * yexponent + xyz.y,  1.0f * scale / 100 + xyz.z,
-            1.0f * scale + xyz.x,  0.0f * scale * yexponent + xyz.y,  1.0f * scale / 100 + xyz.z,
-
-            0.0f * scale + xyz.x,  0.0f * scale * yexponent + xyz.y,  0.0f * scale / 100 + xyz.z,
-            1.0f * scale + xyz.x,  0.0f * scale * yexponent + xyz.y,  0.0f * scale / 100 + xyz.z,
-            1.0f * scale + xyz.x,  0.0f * scale * yexponent + xyz.y,  1.0f * scale / 100 + xyz.z,
-            0.0f * scale + xyz.x,  0.0f * scale * yexponent + xyz.y,  1.0f * scale / 100 + xyz.z,
-
-            0.0f * scale + xyz.x,  1.0f * scale * yexponent + xyz.y,  0.0f * scale / 100 + xyz.z,
-            1.0f * scale + xyz.x,  1.0f * scale * yexponent + xyz.y,  0.0f * scale / 100 + xyz.z,
-            1.0f * scale + xyz.x,  1.0f * scale * yexponent + xyz.y,  1.0f * scale / 100 + xyz.z,
-            0.0f * scale + xyz.x,  1.0f * scale * yexponent + xyz.y,  1.0f * scale / 100 + xyz.z,
+            -0.5f * scale + xyz.x,  -0.5f * scale * yexponent + xyz.y,  -0.5f * scale + xyz.z,
+            -0.5f * scale + xyz.x,   0.5f * scale * yexponent + xyz.y,  -0.5f * scale + xyz.z,
+            -0.5f * scale + xyz.x,   0.5f * scale * yexponent + xyz.y,   0.5f * scale + xyz.z,
+            -0.5f * scale + xyz.x,  -0.5f * scale * yexponent + xyz.y,   0.5f * scale + xyz.z,
+                                                                                     
+             0.5f * scale + xyz.x,  -0.5f * scale * yexponent + xyz.y,  -0.5f * scale + xyz.z,
+             0.5f * scale + xyz.x,  -0.5f * scale * yexponent + xyz.y,   0.5f * scale + xyz.z,
+             0.5f * scale + xyz.x,   0.5f * scale * yexponent + xyz.y,   0.5f * scale + xyz.z,
+             0.5f * scale + xyz.x,   0.5f * scale * yexponent + xyz.y,  -0.5f * scale + xyz.z,
+                                                                                     
+            -0.5f * scale + xyz.x,  -0.5f * scale * yexponent + xyz.y,  -0.5f * scale + xyz.z,
+             0.5f * scale + xyz.x,  -0.5f * scale * yexponent + xyz.y,  -0.5f * scale + xyz.z,
+             0.5f * scale + xyz.x,   0.5f * scale * yexponent + xyz.y,  -0.5f * scale + xyz.z,
+            -0.5f * scale + xyz.x,   0.5f * scale * yexponent + xyz.y,  -0.5f * scale + xyz.z,
+                                                                                     
+            -0.5f * scale + xyz.x,  -0.5f * scale * yexponent + xyz.y,   0.5f * scale + xyz.z,
+            -0.5f * scale + xyz.x,   0.5f * scale * yexponent + xyz.y,   0.5f * scale + xyz.z,
+             0.5f * scale + xyz.x,   0.5f * scale * yexponent + xyz.y,   0.5f * scale + xyz.z,
+             0.5f * scale + xyz.x,  -0.5f * scale * yexponent + xyz.y,   0.5f * scale + xyz.z,
+                                                                                     
+            -0.5f * scale + xyz.x,  -0.5f * scale * yexponent + xyz.y,  -0.5f * scale + xyz.z,
+             0.5f * scale + xyz.x,  -0.5f * scale * yexponent + xyz.y,  -0.5f * scale + xyz.z,
+             0.5f * scale + xyz.x,  -0.5f * scale * yexponent + xyz.y,   0.5f * scale + xyz.z,
+            -0.5f * scale + xyz.x,  -0.5f * scale * yexponent + xyz.y,   0.5f * scale + xyz.z,
+                                                                                     
+            -0.5f * scale + xyz.x,   0.5f * scale * yexponent + xyz.y,  -0.5f * scale + xyz.z,
+             0.5f * scale + xyz.x,   0.5f * scale * yexponent + xyz.y,  -0.5f * scale + xyz.z,
+             0.5f * scale + xyz.x,   0.5f * scale * yexponent + xyz.y,   0.5f * scale + xyz.z,
+            -0.5f * scale + xyz.x,   0.5f * scale * yexponent + xyz.y,   0.5f * scale + xyz.z,
         };
 
         normals = long_normals;
 
-        if (blockType.isFlat) {
+        if (blockType.isFlat()) {
             float UVs[7];
             getUVs(blockType, UVs);
             float xoffset = UVs[0],
@@ -280,14 +291,21 @@ Mesh createMeshCube(vec3 xyz, float scale, Item blockType) {
 
             indices = {
                 0 , 1 , 2 ,
-                2 , 3 , 0
+                2 , 3 , 0 ,
+                4 , 5 , 6 ,
+                6 , 7 , 4
             };
 
             vertices = {
-                0.0f * scale + xyz.x, 0.0f * scale * yexponent + xyz.y, 0.0f + xyz.z,
-                0.0f * scale + xyz.x,  1.0f * scale * yexponent + xyz.y, 0.0f + xyz.z,
-                1.0f * scale + xyz.x,   1.0f * scale * yexponent + xyz.y, 0.0f + xyz.z,
-                1.0f * scale + xyz.x,  0.0f * scale * yexponent + xyz.y, 0.0f + xyz.z,
+                -0.5f * scale + xyz.x, -0.5f * scale * yexponent + xyz.y, -0.5f + xyz.z,
+                -0.5f * scale + xyz.x,  0.5f * scale * yexponent + xyz.y, -0.5f + xyz.z,
+                 0.5f * scale + xyz.x,  0.5f * scale * yexponent + xyz.y, -0.5f + xyz.z,
+                 0.5f * scale + xyz.x, -0.5f * scale * yexponent + xyz.y, -0.5f + xyz.z,
+
+                -0.5f * scale + xyz.x, -0.5f * scale * yexponent + xyz.y, -0.5f + xyz.z,
+                 0.5f * scale + xyz.x, -0.5f * scale * yexponent + xyz.y, -0.5f + xyz.z,
+                 0.5f * scale + xyz.x,  0.5f * scale * yexponent + xyz.y, -0.5f + xyz.z,
+                -0.5f * scale + xyz.x,  0.5f * scale * yexponent + xyz.y, -0.5f + xyz.z,
             };
 
             globalUVs = {
@@ -295,13 +313,23 @@ Mesh createMeshCube(vec3 xyz, float scale, Item blockType) {
                 (clipX + xoffset) / xdimens,   (clipY + yoffset) / ydimens, transparency,
                 (clipY + xoffset) / xdimens,   (clipY + yoffset) / ydimens, transparency,
                 (clipY + xoffset) / xdimens,   (clipX + yoffset) / ydimens, transparency,
+
+                (clipX + xoffset) / xdimens,   (clipX + yoffset) / ydimens, transparency,
+                (clipY + xoffset) / xdimens,   (clipX + yoffset) / ydimens, transparency,
+                (clipY + xoffset) / xdimens,   (clipY + yoffset) / ydimens, transparency,
+                (clipX + xoffset) / xdimens,   (clipY + yoffset) / ydimens, transparency,
             };
 
             normals = {
-                0.0f, 0.0f, 0.0f,
-                0.0f, 0.0f, 0.0f,
-                0.0f, 0.0f, 0.0f,
-                0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f,-1.0f,
+                0.0f, 0.0f,-1.0f,
+                0.0f, 0.0f,-1.0f,
+                0.0f, 0.0f,-1.0f,
+
+                0.0f, 0.0f, 1.0f,
+                0.0f, 0.0f, 1.0f,
+                0.0f, 0.0f, 1.0f,
+                0.0f, 0.0f, 1.0f,
             };
         }
     }
@@ -321,10 +349,10 @@ Mesh createMeshCube(vec3 xyz, float scale, Item blockType) {
         float clipX = 0.0f, clipY = 1.0f;
 
         vertices = {
-                0.0f * scale + xyz.x, 0.0f * scale * yexponent + xyz.y, 0.0f + xyz.z,
-                0.0f * scale + xyz.x, 1.0f * scale * yexponent + xyz.y, 0.0f + xyz.z,
-                1.0f * scale + xyz.x, 1.0f * scale * yexponent + xyz.y, 0.0f + xyz.z,
-                1.0f * scale + xyz.x, 0.0f * scale * yexponent + xyz.y, 0.0f + xyz.z,
+                -0.5f * scale + xyz.x, -0.5f * scale * yexponent + xyz.y, -0.5f + xyz.z,
+                -0.5f * scale + xyz.x,  0.5f * scale * yexponent + xyz.y, -0.5f + xyz.z,
+                 0.5f * scale + xyz.x,  0.5f * scale * yexponent + xyz.y, -0.5f + xyz.z,
+                 0.5f * scale + xyz.x, -0.5f * scale * yexponent + xyz.y, -0.5f + xyz.z,
         };
 
         globalUVs = {
@@ -345,9 +373,10 @@ Mesh createMeshCube(vec3 xyz, float scale, Item blockType) {
     vector<GLfloat> colorMask;
     float tintr = 1.0f, tintg = 1.0f, tintb = 1.0f;
     if (blockType == GRASS) { tintr = 0.2f, tintg = 1.45f, tintb = 0.15f; }
+    else if (blockType == GRASS_BLOCK) { tintr = 0.2f, tintg = 1.0f, tintb = 0.15f; }
     else if (blockType == OAK_LEAVES) { tintr = 0.2f, tintg = 1.0f, tintb = 0.2f; }
 
-    for (int i = 0; i < vertices.size() / 3; i++) { colorMask.push_back(tintr); colorMask.push_back(tintg); colorMask.push_back(tintb); }
+    for (int i = 0; i < vertices.size() / 3; i++) { colorMask.push_back(tintr); colorMask.push_back(tintg); colorMask.push_back(tintb); } // could be done directly in shader but its ok here as well
 
     vector<GLfloat> finalvertices;
     for (int i = 0; i < vertices.size(); i += 3) {
@@ -368,15 +397,115 @@ Mesh createMeshCube(vec3 xyz, float scale, Item blockType) {
         finalvertices.push_back(colorMask[i + 2]);
     }
 
-    Mesh cubeMesh;
+    LightMesh cubeMesh;
     cubeMesh.createMesh(finalvertices, indices, finalvertices.size(), indices.size());
     return cubeMesh;
 }
 
-void Inventory::updateInventory() {
-    if (mainInventorySlots[3][slot].item != AIR) {
-        currentBlock.mesh = createMeshCube(vec3(centerX + offsetX, centerY + offsetY, 0.0f), 400.0f, mainInventorySlots[3][slot].item);
+LightMesh createMeshQuad(float scale) {
+    float yexponent = 1.5f;
+    vector<GLfloat> vertices;
+    vector<GLfloat> globalUVs;
+    vector<unsigned int> indices;
+    vector<GLfloat> normals;
+    vector<GLfloat> colorMask;
+
+    float clipX = 0.0f, clipY = 1.0f;
+
+    indices = { 0, 1, 2,
+                2, 3, 0 };
+
+    globalUVs.push_back(clipX); globalUVs.push_back(clipX); globalUVs.push_back(1);
+    globalUVs.push_back(clipY); globalUVs.push_back(clipX); globalUVs.push_back(1);
+    globalUVs.push_back(clipY); globalUVs.push_back(clipY); globalUVs.push_back(1);
+    globalUVs.push_back(clipX); globalUVs.push_back(clipY); globalUVs.push_back(1);
+
+    vertices = {
+        -0.5f * scale,  -0.5f * scale * yexponent,  1.0f,
+        -0.5f * scale,   0.5f * scale * yexponent,  1.0f,
+         0.5f * scale,   0.5f * scale * yexponent,  1.0f,
+         0.5f * scale,  -0.5f * scale * yexponent,  1.0f,
+    };
+
+    normals = long_normals;    
+
+    float tintr = 1.0f, tintg = 1.0f, tintb = 1.0f;
+    for (int i = 0; i < vertices.size(); i++) { colorMask.push_back(1.0f); }
+
+    vector<GLfloat> finalvertices;
+    for (int i = 0; i < vertices.size(); i += 3) {
+        finalvertices.push_back(vertices[i + 0]);
+        finalvertices.push_back(vertices[i + 1]);
+        finalvertices.push_back(vertices[i + 2]);
+
+        finalvertices.push_back(globalUVs[i + 0]);
+        finalvertices.push_back(globalUVs[i + 1]);
+        finalvertices.push_back(globalUVs[i + 2]);
+
+        finalvertices.push_back(normals[i + 0]);
+        finalvertices.push_back(normals[i + 1]);
+        finalvertices.push_back(normals[i + 2]);
+
+        finalvertices.push_back(colorMask[i + 0]);
+        finalvertices.push_back(colorMask[i + 1]);
+        finalvertices.push_back(colorMask[i + 2]);
+    }
+
+    LightMesh cubeMesh;
+    cubeMesh.createMesh(finalvertices, indices, finalvertices.size(), indices.size());
+    return cubeMesh;
+}
+
+void Inventory::initInventorySlots() {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 9; j++) {
+            int x = 273, x1 = 245, y = 700, y1 = (i == 3) ? 365 : 333;
+            mainInventorySlots[i][j].quadMesh = createMeshQuad(50.0f);
+            mainInventorySlots[i][j].model    = translate(mat4(1.0f), vec3(float(centerX - x1) + 61.5f * (float)j, centerY - y1 + 93 * (3 - i), 0.0f));
+            hotbarSlots[j].quadMesh = createMeshQuad(50.0f);
+            hotbarSlots[j].model = translate(mat4(1.0f), vec3(float(centerX - x) + 68.5f * (float)j, centerY - y, 0.0f));
+        }
+    }
+
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            int x = 60, y = 125;
+            mainCraftingSlots[i][j].quadMesh = createMeshQuad(50.0f);
+            mainCraftingSlots[i][j].model = translate(mat4(1.0f), vec3(float(centerX + x) + 61.5f * (float)j, centerY + y + 93 * (2 - i), 0.0f));
+        }
+    }
+
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            int x = 60, y = 125;
+            craftingTableSlots[i][j].quadMesh = createMeshQuad(50.0f);
+            craftingTableSlots[i][j].model = translate(mat4(1.0f), vec3(float(centerX + x) + 61.5f * (float)j, centerY + y + 93 * (2 - i), 0.0f));
+        }
+    }
+
+    craftedItem.quadMesh = createMeshQuad(50.0f);
+
+    currentBlock.quadMesh = createMeshQuad(700.0f);
+    currentBlock.model    = translate(mat4(1.0f), vec3(centerX + 600, centerY - 650, 0));
+
+    initItemTextures(); // creates the frame buffer, color and depth texture
+}
+
+void Inventory::updateCurrentBlock() {
+    if (currentBlock.item == mainInventorySlots[3][slot].item || mainInventorySlots[3][slot].item == AIR) return;
+    else if (mainInventorySlots[3][slot].item != AIR && inv_change) {
+        currentBlock.mesh = createMeshCube(vec3(0.0f), 400.0f, mainInventorySlots[3][slot].item);
         currentBlock = mainInventorySlots[3][slot];
+    }
+    else {
+        currentBlock.mesh.clearMesh();
+    }
+}
+
+void Inventory::updateInventory() {
+    if (mainInventorySlots[3][slot].item != AIR || currentBlock.item != mainInventorySlots[3][slot].item) {
+        currentBlock.mesh = createMeshCube(vec3(0.0f), 400.0f, hotbarSlots[slot].item);
+        currentBlock = hotbarSlots[slot];
     }
     else {
         currentBlock.mesh.clearMesh();
@@ -384,54 +513,57 @@ void Inventory::updateInventory() {
 
     for (int j = 0; j < (sizeof(mainInventorySlots[0]) / sizeof(InventorySlot)); j++) {
         float itemHeight = 0.0f;
-        if (mainInventorySlots[3][j].item == GRASS || mainInventorySlots[3][j].item == POPPY || mainInventorySlots[3][j].item == BLUE_ORCHID) {
-            itemHeight = -15.0f;
+        if (hotbarSlots[j].item == GRASS || hotbarSlots[j].item == POPPY || hotbarSlots[j].item == BLUE_ORCHID) {
+            itemHeight = -1.50f;
         }
-        if (mainInventorySlots[3][j].mesh.vertices.size() == 0 && mainInventorySlots[3][j].item != AIR) {
-            mainInventorySlots[3][j].mesh = createMeshCube(vec3(centerX / 5, itemHeight, 0.0f), 35.0f, mainInventorySlots[3][j].item);
+
+        if (hotbarSlots[j].item != mainInventorySlots[3][j].item || hotbarSlots[j].item != AIR) {
+            hotbarSlots[j].item = mainInventorySlots[3][j].item;
+            hotbarSlots[j].mesh = createMeshCube(vec3(0.0f + itemHeight), 35.0f, hotbarSlots[j].item);
         }
     }
 
     if (mainInventoryOn) {
         for (int i = 0; i < (sizeof(mainCraftingSlots) / sizeof(mainCraftingSlots[0])); i++) {
             for (int j = 0; j < (sizeof(mainCraftingSlots[0]) / sizeof(InventorySlot)); j++) {
-                if (mainCraftingSlots[i][j].mesh.vertices.size() == 0 && mainCraftingSlots[i][j].item != AIR) {
-                    mainCraftingSlots[i][j].mesh = createMeshCube(vec3(centerX / 5 + 270, centerY / 4 + 110, 0.0f), 35.0f, mainCraftingSlots[i][j].item);
+                if (mainCraftingSlots[i][j].item != AIR) {
+                    mainCraftingSlots[i][j].mesh = createMeshCube(vec3(0.0f), 35.0f, mainCraftingSlots[i][j].item);
                 }
             }
         }
         if (recipe.getRecipe(mainCraftingSlots) != AIR) {
-            craftedItem.mesh = createMeshCube(vec3(centerX / 5 + 315, centerY / 4 + 200.0f, 0.0f), 35.0f, recipe.getRecipe(mainCraftingSlots));
+            craftedItem.mesh = createMeshCube(vec3(0.0f), 35.0f, recipe.getRecipe(mainCraftingSlots));
+            craftedItem.item = recipe.getRecipe(mainCraftingSlots);
+            craftedItem.model = translate(mat4(1.0f), vec3(centerX + 250, centerY + 250, 0.0f));
         }
-        craftedItem.item = recipe.getRecipe(mainCraftingSlots);
     }
     else if (craftingTableInventoryOn) {
         for (int i = 0; i < (sizeof(craftingTableSlots) / sizeof(craftingTableSlots[0])); i++) {
             for (int j = 0; j < (sizeof(craftingTableSlots[0]) / sizeof(InventorySlot)); j++) {
-                if (craftingTableSlots[i][j].mesh.vertices.size() == 0 && craftingTableSlots[i][j].item != AIR) {
-                    craftingTableSlots[i][j].mesh = createMeshCube(vec3(centerX / 5 + 270, centerY / 4 + 110, 0.0f), 35.0f, craftingTableSlots[i][j].item);
+                if (craftingTableSlots[i][j].item != AIR) {
+                    craftingTableSlots[i][j].mesh = createMeshCube(vec3(0.0f), 35.0f, craftingTableSlots[i][j].item);
                 }
             }
         }
         if (recipe.getRecipe(craftingTableSlots) != AIR) {
-            craftedItem.mesh = createMeshCube(vec3(centerX / 5 + 315, centerY / 4 + 200.0f, 0.0f), 35.0f, recipe.getRecipe(craftingTableSlots));
+            craftedItem.mesh = createMeshCube(vec3(0.0f), 35.0f, recipe.getRecipe(craftingTableSlots));
+            craftedItem.item = recipe.getRecipe(craftingTableSlots);
+            craftedItem.model = translate(mat4(1.0f), vec3(centerX + 250, centerY + 250, 0.0f));
         }
-        craftedItem.item = recipe.getRecipe(craftingTableSlots);
-
     }
 
     inv_change = false;
 }
 
 void Inventory::defineMainInventorySlotsGeometry() {
-    for (int i = 0; i < (sizeof(mainInventorySlots) / sizeof(mainInventorySlots[3]) - 1); i++) {
+    for (int i = 0; i < (sizeof(mainInventorySlots) / sizeof(mainInventorySlots[3])); i++) {
         for (int j = 0; j < (sizeof(mainInventorySlots[3]) / sizeof(InventorySlot)); j++) {
             float itemHeight = 0.0f;
-            if (!mainInventorySlots[i][j].item.isFlat) {
+            if (!mainInventorySlots[i][j].item.isFlat()) {
                 itemHeight = 10.0f;
             }
-            if (mainInventorySlots[i][j].mesh.vertices.size() == 0 && mainInventorySlots[i][j].item != AIR) {
-                mainInventorySlots[i][j].mesh = createMeshCube(vec3(centerX / 5, (3 - i) * 90 + 20 + itemHeight, 0.0f), 35.0f, mainInventorySlots[i][j].item);
+            if (mainInventorySlots[i][j].item != AIR && inv_change) {
+                mainInventorySlots[i][j].mesh = createMeshCube(vec3(0.0f), 35.0f, mainInventorySlots[i][j].item);
             }
         }
     }
@@ -459,19 +591,55 @@ void Inventory::clearCraftingTableSlots() {
     }
 }
 
-void Inventory::drawMainInventorySlots(mat4 ortho, mat4 model[4][9]) {
-    for (int i = 0; i < (sizeof(inventory.mainInventorySlots) / sizeof(inventory.mainInventorySlots[3])); i++) {
-        for (int j = 0; j < (sizeof(inventory.mainInventorySlots[3]) / sizeof(InventorySlot)); j++) {
-            Textures[BLOCK_TEX]->useTexture();
-            if (recipe.isTool(inventory.mainInventorySlots[i][j].item)) {
-                Textures[TOOLS_TEX]->useTexture();
-            }
-            InventoryShaders[9 * i + j]->useShader();
-            glUniformMatrix4fv(InventoryShaders[9 * i + j]->getOrthoLocation(), 1, GL_FALSE, value_ptr(ortho));
-            glUniformMatrix4fv(InventoryShaders[9 * i + j]->getModelLocation(), 1, GL_FALSE, value_ptr(model[i][j]));
+void render3Din2D(mat4 itemModel, LightMesh object3D, mat4 quadModel, LightMesh quad2D, mat4 itemOrtho, mat4 itemView, mat4 itemProj, Item item) {
+    glEnable(GL_DEPTH_TEST);
+    glBindFramebuffer(GL_FRAMEBUFFER, itemFbo);
+    glViewport(0, 0, 350, 350);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            inventory.mainInventorySlots[i][j].mesh.renderMesh();
-            inventory.invDidChange(1);
+    shaders[3]->useShader();
+    glUniformMatrix4fv(shaders[3]->getModelLocation(), 1, GL_FALSE, value_ptr(itemModel));//<-
+    glUniformMatrix4fv(shaders[3]->getViewLocation(), 1, GL_FALSE, value_ptr(itemView));
+    glUniformMatrix4fv(shaders[3]->getProjectionLocation(), 1, GL_FALSE, value_ptr(itemProj));
+    shaders[3]->setDirectionalLight(&auxLight);
+
+    if (recipe.isTool(item)) {
+        Textures[TOOLS_TEX]->useTexture();
+    }
+    else {
+        Textures[BLOCK_TEX]->useTexture();
+    }
+    Textures[TOP_TEX]->useNextTexture();
+    glUniform1i(glGetUniformLocation(shaders[3]->getShaderId(), "topTexture"), 2);
+
+    object3D.renderMesh();//<-
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, mainWindow.getBufferWidth(), mainWindow.getBufferHeight());
+    glDisable(GL_DEPTH_TEST);
+
+    shaders[4]->useShader();
+    glUniformMatrix4fv(shaders[4]->getOrthoLocation(), 1, GL_FALSE, glm::value_ptr(itemOrtho));
+    glUniformMatrix4fv(shaders[4]->getModelLocation(), 1, GL_FALSE, glm::value_ptr(quadModel));
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, itemColorTex);
+    glUniform1i(glGetUniformLocation(shaders[4]->getShaderId(), "theTexture"), 0);
+
+    quad2D.renderMesh();//<-
+}
+
+void Inventory::drawMainInventorySlots(mat4 ortho, mat4 itemView, mat4 itemProj) {
+    for (int i = 0; i < (sizeof(mainInventorySlots) / sizeof(mainInventorySlots[3])); i++) {
+        for (int j = 0; j < (sizeof(mainInventorySlots[3]) / sizeof(InventorySlot)); j++) {
+            mat4 itemModel = scale(mat4(1.0f), vec3(0.1f, 0.12f, 0.1f)) *
+                rotate(mat4(1.0f), radians(-90.0f), vec3(0, 0, 1)) * (
+                    (!inventory.mainInventorySlots[i][j].item.isFlat()) ?
+                    rotate(mat4(1.0f), radians(40.0f), vec3(1, 0, 0)) *
+                    rotate(mat4(1.0f), radians(45.0f), vec3(0, 1, 0)) : mat4(1.0f));
+                //rotate(mat4(1.0f), radians(inventory.mainInventorySlots[3][i].angle), vec3(0, 1, 0));
+            inventory.mainInventorySlots[3][i].angle += 0.5f;
+            render3Din2D(itemModel, inventory.mainInventorySlots[i][j].mesh, inventory.mainInventorySlots[i][j].model, inventory.mainInventorySlots[i][j].quadMesh, ortho, itemView, itemProj, inventory.mainInventorySlots[i][j].item);
         }
     }
 }

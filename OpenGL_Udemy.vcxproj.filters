@@ -63,6 +63,12 @@
     <ClCompile Include="InventorySlot.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="threading_true.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="LightMesh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Mesh.h">
@@ -138,6 +144,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="InventorySlot.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LightMesh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -4,7 +4,7 @@
 
 struct Plane {
     glm::vec3 n;
-    float d;
+    float d; 
 }; // plane: n.x * X + n.y * Y + n.z * Z + d = 0
 
 void extractFrustumPlanes(const glm::mat4& VP, Plane planes[6]) {
