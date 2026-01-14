@@ -25,7 +25,7 @@ struct Projectile {
             shot = 1;
             vec3 front = normalize(direction);
             position = pos + front;
-            initial_velocity = front * vec3(5, 20, 5);
+            initial_velocity = front * vec3(5, 5, 5);
             velocity = vec3(0);
         }
     }
@@ -40,7 +40,7 @@ struct Projectile {
         }
     }
     void update() {
-        velocity += vec3(0, -20, 0) * vec3(0.01);
+        velocity += vec3(0, -10, 0) * vec3(0.01);
         position += (initial_velocity + velocity) * vec3(0.01);
     }
     void draw() {
@@ -94,6 +94,9 @@ class World {
     //unordered_map<glm::ivec2, Chunk, ivec2_hash, ivec2_eq> chunkData;
     unordered_map<uint32_t, unique_ptr<Chunk>> chunkData;
     //ChunkData chunkData;
+    World() {
+        chunkData.reserve(4096);
+    }
 
     BlockData getBlockAt(ivec3 blockPos);
 
@@ -111,11 +114,11 @@ class World {
 
     void createItem(vec3 blockPos, Item blockType, vec3 direction);
 
-    void deleteBlockFromWorld(vec3 blockPos);
+    Block deleteBlockFromWorld(vec3 blockPos);
 
-    void delBlocklook_at();
+    Block delBlocklook_at();
 
-    vec3 addBlocklook_at(Item blockType);
+    Block addBlocklook_at(Item blockType);
 
     //Chunk& operator[](ivec2& chunkPos) { return chunkData.at(pack(chunkPos)); }
 };
@@ -173,17 +176,18 @@ vec3 lookingAtBlock() {
                 return blockPos;
         }
     }
-    return ivec3(0);
+    return ivec3(-404);
 }
 
 void World::addChunk(unique_ptr<Chunk>& newChunk, uint32_t xyChunk) {
     //chunkData.insert(xyChunk, newChunk);
     chunkData.emplace(xyChunk, move(newChunk));
-    chunkCount++;
+    //chunkCount++;
     //chunkData[pack(xyChunk)] = *newChunk;
 }
 
 LightMesh World::createProjectileMesh(vec3 blockPos, float scale, Item blockType) {
+    if (blockType == AIR) return LightMesh();
     float UVs[7] = { 1, 0, 0, 0, 0, 0, 1 };
     getUVs(blockType, UVs);
     float xoffset = UVs[0],
@@ -194,6 +198,8 @@ LightMesh World::createProjectileMesh(vec3 blockPos, float scale, Item blockType
         yoffsetBottom = UVs[5];
 
     float clipX = 0.0f, clipY = 1.0f;
+
+    auto absl = [](int n) { return n >= 0 ? n : -n; };
 
     vector<unsigned int> indices;
     for (int e = 0; e < 6; e++) {
@@ -209,7 +215,7 @@ LightMesh World::createProjectileMesh(vec3 blockPos, float scale, Item blockType
         tintr = 0.2f, tintg = 1.0f, tintb = 0.2f;
     }
     else if (blockType == GRASS) {
-        tintr = 0.2f, tintg = 1.45f, tintb = 0.15f;
+        tintr = 0.2f, tintg = 1.25f, tintb = 0.15f;
     }
     else if (blockType == OAK_LEAVES) {
         tintr = 0.2f, tintg = 1.0f, tintb = 0.2f;
@@ -227,7 +233,7 @@ LightMesh World::createProjectileMesh(vec3 blockPos, float scale, Item blockType
             if (i == 4) { offsetX = xoffsetBottom; offsetY = yoffsetBottom; }
             else if (i == 5) { offsetX = xoffsetTop;  offsetY = yoffsetTop; }
 
-            uint32_t uintUVs = ((xdimens << 16) | (uint8_t)(yoffset + offsetY) << 8) | ((uint8_t)(xoffset + offsetX)); // Packaging floats into one integer
+            uint32_t uintUVs = (((uint8_t)155 << 24)) | ((xdimens << 16) | (uint8_t)(yoffset + offsetY) << 8) | ((uint8_t)(xoffset + offsetX)); // Packaging floats into one integer
             float startUvs;
             memcpy(&startUvs, &uintUVs, sizeof(float));
 
@@ -246,33 +252,33 @@ LightMesh World::createProjectileMesh(vec3 blockPos, float scale, Item blockType
         }
 
         triangle = {
-                -0.50f + blockPos.x + 0.1f * -scale,   -0.50f + blockPos.y + 0.1f * -scale,    -0.50f + blockPos.z + 0.1f * -scale,
-                -0.50f + blockPos.x + 0.1f * -scale,   -0.50f + blockPos.y + 0.1f * -scale,     0.50f + blockPos.z + 0.1f * scale,
-                -0.50f + blockPos.x + 0.1f * -scale,    0.50f + blockPos.y + 0.1f * scale,     0.50f + blockPos.z + 0.1f * scale,
-                -0.50f + blockPos.x + 0.1f * -scale,    0.50f + blockPos.y + 0.1f * scale,    -0.50f + blockPos.z + 0.1f * -scale,
+                -0.50f + blockPos.x + 0.1f * -scale,  -0.50f + blockPos.y + 0.1f * -scale,   -0.50f + blockPos.z + 0.1f * -scale,
+                -0.50f + blockPos.x + 0.1f * -scale,  -0.50f + blockPos.y + 0.1f * -scale,    0.50f + blockPos.z + 0.1f * scale,
+                -0.50f + blockPos.x + 0.1f * -scale,   0.50f + blockPos.y + 0.1f * scale,     0.50f + blockPos.z + 0.1f * scale,
+                -0.50f + blockPos.x + 0.1f * -scale,   0.50f + blockPos.y + 0.1f * scale,    -0.50f + blockPos.z + 0.1f * -scale,
 
-                 0.50f + blockPos.x + 0.1f * scale,   -0.50f + blockPos.y + 0.1f * -scale,    -0.50f + blockPos.z + 0.1f * -scale,
+                 0.50f + blockPos.x + 0.1f * scale,   -0.50f + blockPos.y + 0.1f * -scale,   -0.50f + blockPos.z + 0.1f * -scale,
                  0.50f + blockPos.x + 0.1f * scale,    0.50f + blockPos.y + 0.1f * scale,    -0.50f + blockPos.z + 0.1f * -scale,
                  0.50f + blockPos.x + 0.1f * scale,    0.50f + blockPos.y + 0.1f * scale,     0.50f + blockPos.z + 0.1f * scale,
-                 0.50f + blockPos.x + 0.1f * scale,   -0.50f + blockPos.y + 0.1f * -scale,     0.50f + blockPos.z + 0.1f * scale,
+                 0.50f + blockPos.x + 0.1f * scale,   -0.50f + blockPos.y + 0.1f * -scale,    0.50f + blockPos.z + 0.1f * scale,
 
-                -0.50f + blockPos.x + 0.1f * -scale,   -0.50f + blockPos.y + 0.1f * -scale,    -0.50f + blockPos.z + 0.1f * -scale,
-                -0.50f + blockPos.x + 0.1f * -scale,    0.50f + blockPos.y + 0.1f * scale,    -0.50f + blockPos.z + 0.1f * -scale,
+                -0.50f + blockPos.x + 0.1f * -scale,  -0.50f + blockPos.y + 0.1f * -scale,   -0.50f + blockPos.z + 0.1f * -scale,
+                -0.50f + blockPos.x + 0.1f * -scale,   0.50f + blockPos.y + 0.1f * scale,    -0.50f + blockPos.z + 0.1f * -scale,
                  0.50f + blockPos.x + 0.1f * scale,    0.50f + blockPos.y + 0.1f * scale,    -0.50f + blockPos.z + 0.1f * -scale,
-                 0.50f + blockPos.x + 0.1f * scale,   -0.50f + blockPos.y + 0.1f * -scale,    -0.50f + blockPos.z + 0.1f * -scale,
+                 0.50f + blockPos.x + 0.1f * scale,   -0.50f + blockPos.y + 0.1f * -scale,   -0.50f + blockPos.z + 0.1f * -scale,
 
-                -0.50f + blockPos.x + 0.1f * -scale,   -0.50f + blockPos.y + 0.1f * -scale,     0.50f + blockPos.z + 0.1f * scale,
-                 0.50f + blockPos.x + 0.1f * scale,   -0.50f + blockPos.y + 0.1f * -scale,     0.50f + blockPos.z + 0.1f * scale,
+                -0.50f + blockPos.x + 0.1f * -scale,  -0.50f + blockPos.y + 0.1f * -scale,    0.50f + blockPos.z + 0.1f * scale,
+                 0.50f + blockPos.x + 0.1f * scale,   -0.50f + blockPos.y + 0.1f * -scale,    0.50f + blockPos.z + 0.1f * scale,
                  0.50f + blockPos.x + 0.1f * scale,    0.50f + blockPos.y + 0.1f * scale,     0.50f + blockPos.z + 0.1f * scale,
-                -0.50f + blockPos.x + 0.1f * -scale,    0.50f + blockPos.y + 0.1f * scale,     0.50f + blockPos.z + 0.1f * scale,
+                -0.50f + blockPos.x + 0.1f * -scale,   0.50f + blockPos.y + 0.1f * scale,     0.50f + blockPos.z + 0.1f * scale,
 
-                -0.50f + blockPos.x + 0.1f * -scale,   -0.50f + blockPos.y + 0.1f * -scale,    -0.50f + blockPos.z + 0.1f * -scale,
-                 0.50f + blockPos.x + 0.1f * scale,   -0.50f + blockPos.y + 0.1f * -scale,    -0.50f + blockPos.z + 0.1f * -scale,
-                 0.50f + blockPos.x + 0.1f * scale,   -0.50f + blockPos.y + 0.1f * -scale,     0.50f + blockPos.z + 0.1f * scale,
-                -0.50f + blockPos.x + 0.1f * -scale,   -0.50f + blockPos.y + 0.1f * -scale,     0.50f + blockPos.z + 0.1f * scale,
+                -0.50f + blockPos.x + 0.1f * -scale,  -0.50f + blockPos.y + 0.1f * -scale,   -0.50f + blockPos.z + 0.1f * -scale,
+                 0.50f + blockPos.x + 0.1f * scale,   -0.50f + blockPos.y + 0.1f * -scale,   -0.50f + blockPos.z + 0.1f * -scale,
+                 0.50f + blockPos.x + 0.1f * scale,   -0.50f + blockPos.y + 0.1f * -scale,    0.50f + blockPos.z + 0.1f * scale,
+                -0.50f + blockPos.x + 0.1f * -scale,  -0.50f + blockPos.y + 0.1f * -scale,    0.50f + blockPos.z + 0.1f * scale,
 
-                -0.50f + blockPos.x + 0.1f * -scale,    0.50f + blockPos.y + 0.1f * scale,    -0.50f + blockPos.z + 0.1f * -scale,
-                -0.50f + blockPos.x + 0.1f * -scale,    0.50f + blockPos.y + 0.1f * scale,     0.50f + blockPos.z + 0.1f * scale,
+                -0.50f + blockPos.x + 0.1f * -scale,   0.50f + blockPos.y + 0.1f * scale,    -0.50f + blockPos.z + 0.1f * -scale,
+                -0.50f + blockPos.x + 0.1f * -scale,   0.50f + blockPos.y + 0.1f * scale,     0.50f + blockPos.z + 0.1f * scale,
                  0.50f + blockPos.x + 0.1f * scale,    0.50f + blockPos.y + 0.1f * scale,     0.50f + blockPos.z + 0.1f * scale,
                  0.50f + blockPos.x + 0.1f * scale,    0.50f + blockPos.y + 0.1f * scale,    -0.50f + blockPos.z + 0.1f * -scale
         };
@@ -286,7 +292,7 @@ LightMesh World::createProjectileMesh(vec3 blockPos, float scale, Item blockType
             indices.push_back(base + 0); indices.push_back(base + 1); indices.push_back(base + 2);
             indices.push_back(base + 2); indices.push_back(base + 3); indices.push_back(base + 0);
         }
-        uint32_t uintUVs = ((xdimens << 16) | (uint8_t)(yoffset) << 8) | ((uint8_t)(xoffset)); // Packaging floats into one integer
+        uint32_t uintUVs = (((uint8_t)155 << 24)) | (((uint8_t)xdimens << 16)) | ((uint8_t)(yoffset) << 8) | ((uint8_t)(xoffset)); // Packaging floats into one integer
         float startUvs;
         memcpy(&startUvs, &uintUVs, sizeof(float));
         for (int i = 0; i < 6; i++) {
@@ -329,7 +335,18 @@ LightMesh World::createProjectileMesh(vec3 blockPos, float scale, Item blockType
         finalvertices.push_back(globalUVs[i + 1]);
         finalvertices.push_back(globalUVs[i + 2]);
 
-        finalvertices.push_back(normals[i + 0]);
+        uint32_t norm_color = ((byte(normals[i + 0] < 0 ? 1 : 0) & 0x1) << 5) | ((byte(absl(normals[i + 0])) & 0x1) << 4)
+            | ((byte(normals[i + 1] < 0 ? 1 : 0) & 0x1) << 3) | ((byte(absl(normals[i + 1])) & 0x1) << 2)
+            | ((byte(normals[i + 2] < 0 ? 1 : 0) & 0x1) << 1) | ((byte(absl(normals[i + 2])) & 0x1) << 0)
+            | ((byte(tintr * 100) & 0x7F) << 20)
+            | ((byte(tintg * 100) & 0x7F) << 13)
+            | ((byte(tintb * 100) & 0x7F) << 6);
+        float normcolor;
+        memcpy(&normcolor, &norm_color, sizeof(float));
+
+        finalvertices.push_back(normcolor);
+
+        //finalvertices.push_back(normals[i + 0]);
         finalvertices.push_back(normals[i + 1]);
         finalvertices.push_back(normals[i + 2]);
 
@@ -343,19 +360,22 @@ LightMesh World::createProjectileMesh(vec3 blockPos, float scale, Item blockType
     return returnMesh;
 }
 
-void World::deleteBlockFromWorld(vec3 blockPos) {
+Block World::deleteBlockFromWorld(vec3 blockPos) {
     ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
     auto& chunk = chunkData.at(pack(chunkPos));
+    Block returnBlock;
     Item& blockType = chunk->block_data[chunk->at(blockPos)].blockType;
     if (blockType.isBreakable()) {
-        dropped.push_back(Projectile());
-        dropped.back().shoot(blockPos, vec3(-firstCamera.getFront().x, 0.5, -firstCamera.getFront().z), blockType);
         inventory.assignAvailableSlot(blockType);
+        returnBlock = Block(blockPos, blockType);
         blockType.deassignLight(pointLights, blockPos);
         blockType = AIR;
+
+        //cout << hex << chunk->neighboursPresent << endl;
+        //updateChunk(chunkPos, vec3(0.0f, 0.5f, 0.0f), blockPos);
         
-        updateChunk(chunkPos, vec3(0.0f, 0.5f, 0.0f), blockPos);
     }
+    return returnBlock;
 }
 
 vector<GLfloat> makeLine(vec3 begin, float lx, float wz, int face, float hy = 0) {
@@ -422,15 +442,6 @@ LightMesh World::createVertsOnlyMesh(ivec3 xyz, float scale, Item blockType) {
         return LightMesh();
     }
 
-    std::vector<unsigned int> indices;
-    for (int e = 0; e < 12 * 4; e++) {
-        int base = e * 4;
-        indices.push_back(base + 0); indices.push_back(base + 1); indices.push_back(base + 2);
-        indices.push_back(base + 2); indices.push_back(base + 3); indices.push_back(base + 0);
-        indices.push_back(base + 0); indices.push_back(base + 3); indices.push_back(base + 2);
-        indices.push_back(base + 2); indices.push_back(base + 1); indices.push_back(base + 0);
-    }
-
     float t = 0.01f, T = 0.5f * scale, W = -0.5f * scale, H = 1.0f * scale;
 
     auto push = [](vector<float> line, vector<float>& verts) {
@@ -441,64 +452,39 @@ LightMesh World::createVertsOnlyMesh(ivec3 xyz, float scale, Item blockType) {
 
     vector<GLfloat> vertices;
 
-    vector<GLfloat> lineX01 = makeLine(vec3(xyz) + vec3(W, W, W), vec3(W, t, H), 0);
-    vector<GLfloat> lineX02 = makeLine(vec3(xyz) + vec3(W, W, W), vec3(W, H, t), 0);
-    vector<GLfloat> lineX03 = makeLine(vec3(xyz) + vec3(W, T, T), vec3(W,-H,-t), 0);
-    vector<GLfloat> lineX04 = makeLine(vec3(xyz) + vec3(W, T, T), vec3(W,-t,-H), 0);
-    vector<GLfloat> lineX11 = makeLine(vec3(xyz) + vec3(T, W, W), vec3(W, t, H), 0);
-    vector<GLfloat> lineX12 = makeLine(vec3(xyz) + vec3(T, W, W), vec3(W, H, t), 0);
-    vector<GLfloat> lineX13 = makeLine(vec3(xyz) + vec3(T, T, T), vec3(W,-H,-t), 0);
-    vector<GLfloat> lineX14 = makeLine(vec3(xyz) + vec3(T, T, T), vec3(W,-t,-H), 0);
-    vector<GLfloat> lineZ01 = makeLine(vec3(xyz) + vec3(W, W, W), vec3( H, t, W), 2);
-    vector<GLfloat> lineZ02 = makeLine(vec3(xyz) + vec3(W, W, W), vec3( t, H, W), 2);
-    vector<GLfloat> lineZ03 = makeLine(vec3(xyz) + vec3(T, T, W), vec3(-t,-H, W), 2);
-    vector<GLfloat> lineZ04 = makeLine(vec3(xyz) + vec3(T, T, W), vec3(-H,-t, W), 2);
-    vector<GLfloat> lineZ11 = makeLine(vec3(xyz) + vec3(W, W, T), vec3( H, t, W), 2);
-    vector<GLfloat> lineZ12 = makeLine(vec3(xyz) + vec3(W, W, T), vec3( t, H, W), 2);
-    vector<GLfloat> lineZ13 = makeLine(vec3(xyz) + vec3(T, T, T), vec3(-t,-H, W), 2);
-    vector<GLfloat> lineZ14 = makeLine(vec3(xyz) + vec3(T, T, T), vec3(-H,-t, W), 2);
-    vector<GLfloat> lineY01 = makeLine(vec3(xyz) + vec3(W, W, W), vec3( H, W, t), 4);
-    vector<GLfloat> lineY02 = makeLine(vec3(xyz) + vec3(W, W, W), vec3( t, W, H), 4);
-    vector<GLfloat> lineY03 = makeLine(vec3(xyz) + vec3(T, W, T), vec3(-t, W,-H), 4);
-    vector<GLfloat> lineY04 = makeLine(vec3(xyz) + vec3(T, W, T), vec3(-H, W,-t), 4);
-    vector<GLfloat> lineY11 = makeLine(vec3(xyz) + vec3(W, T, W), vec3( H, W, t), 4);
-    vector<GLfloat> lineY12 = makeLine(vec3(xyz) + vec3(W, T, W), vec3( t, W, H), 4);
-    vector<GLfloat> lineY13 = makeLine(vec3(xyz) + vec3(T, T, T), vec3(-t, W,-H), 4);
-    vector<GLfloat> lineY14 = makeLine(vec3(xyz) + vec3(T, T, T), vec3(-H, W,-t), 4);
+    vector<GLfloat> lineX01 = makeLine(vec3(xyz) + vec3(W, W, W), vec3( W, t, H), 0); push(lineX01, vertices); 
+    vector<GLfloat> lineX02 = makeLine(vec3(xyz) + vec3(W, W, W), vec3( W, H, t), 0); push(lineX02, vertices);
+    vector<GLfloat> lineX03 = makeLine(vec3(xyz) + vec3(W, T, T), vec3( W,-H,-t), 0); push(lineX03, vertices);
+    vector<GLfloat> lineX04 = makeLine(vec3(xyz) + vec3(W, T, T), vec3( W,-t,-H), 0); push(lineX04, vertices);
 
-    push(lineX01, vertices); 
-    push(lineX02, vertices);
-    push(lineX03, vertices);
-    push(lineX04, vertices);
-    push(lineX11, vertices);
-    push(lineX12, vertices);
-    push(lineX13, vertices);
-    push(lineX14, vertices);
-    push(lineZ01, vertices);
-    push(lineZ02, vertices);
-    push(lineZ03, vertices);
-    push(lineZ04, vertices);
-    push(lineZ11, vertices);
-    push(lineZ12, vertices);
-    push(lineZ13, vertices);
-    push(lineZ14, vertices);
-    push(lineY01, vertices);
-    push(lineY02, vertices);
-    push(lineY03, vertices);
-    push(lineY04, vertices);
-    push(lineY11, vertices);
-    push(lineY12, vertices);
-    push(lineY13, vertices);
-    push(lineY14, vertices);
+    vector<GLfloat> lineX11 = makeLine(vec3(xyz) + vec3(T, W, W), vec3( W, t, H), 1); push(lineX11, vertices);
+    vector<GLfloat> lineX12 = makeLine(vec3(xyz) + vec3(T, W, W), vec3( W, H, t), 1); push(lineX12, vertices);
+    vector<GLfloat> lineX13 = makeLine(vec3(xyz) + vec3(T, T, T), vec3( W,-H,-t), 1); push(lineX13, vertices);
+    vector<GLfloat> lineX14 = makeLine(vec3(xyz) + vec3(T, T, T), vec3( W,-t,-H), 1); push(lineX14, vertices);
 
-    vector<GLfloat> globalUVs;
-    for (int i = 0; i < vertices.size(); i++) { globalUVs.push_back(0.0f); }
+    vector<GLfloat> lineZ01 = makeLine(vec3(xyz) + vec3(W, W, W), vec3( H, t, W), 2); push(lineZ01, vertices);
+    vector<GLfloat> lineZ02 = makeLine(vec3(xyz) + vec3(W, W, W), vec3( t, H, W), 2); push(lineZ02, vertices);
+    vector<GLfloat> lineZ03 = makeLine(vec3(xyz) + vec3(T, T, W), vec3(-t,-H, W), 2); push(lineZ03, vertices);
+    vector<GLfloat> lineZ04 = makeLine(vec3(xyz) + vec3(T, T, W), vec3(-H,-t, W), 2); push(lineZ04, vertices);
 
-    vector<GLfloat> colorMask;
-    for (int i = 0; i < vertices.size(); i++) { colorMask.push_back(0.0f); }
+    vector<GLfloat> lineZ11 = makeLine(vec3(xyz) + vec3(W, W, T), vec3( H, t, W), 3); push(lineZ11, vertices);
+    vector<GLfloat> lineZ12 = makeLine(vec3(xyz) + vec3(W, W, T), vec3( t, H, W), 3); push(lineZ12, vertices);
+    vector<GLfloat> lineZ13 = makeLine(vec3(xyz) + vec3(T, T, T), vec3(-t,-H, W), 3); push(lineZ13, vertices);
+    vector<GLfloat> lineZ14 = makeLine(vec3(xyz) + vec3(T, T, T), vec3(-H,-t, W), 3); push(lineZ14, vertices);
 
-    vector<GLfloat> normals;
-    for (int i = 0; i < vertices.size(); i++) { normals.push_back(0.0f); }
+    vector<GLfloat> lineY01 = makeLine(vec3(xyz) + vec3(W, W, W), vec3( H, W, t), 4); push(lineY01, vertices);
+    vector<GLfloat> lineY02 = makeLine(vec3(xyz) + vec3(W, W, W), vec3( t, W, H), 4); push(lineY02, vertices);
+    vector<GLfloat> lineY03 = makeLine(vec3(xyz) + vec3(T, W, T), vec3(-t, W,-H), 4); push(lineY03, vertices);
+    vector<GLfloat> lineY04 = makeLine(vec3(xyz) + vec3(T, W, T), vec3(-H, W,-t), 4); push(lineY04, vertices);
+
+    vector<GLfloat> lineY11 = makeLine(vec3(xyz) + vec3(W, T, W), vec3( H, W, t), 5); push(lineY11, vertices);
+    vector<GLfloat> lineY12 = makeLine(vec3(xyz) + vec3(W, T, W), vec3( t, W, H), 5); push(lineY12, vertices);
+    vector<GLfloat> lineY13 = makeLine(vec3(xyz) + vec3(T, T, T), vec3(-t, W,-H), 5); push(lineY13, vertices);
+    vector<GLfloat> lineY14 = makeLine(vec3(xyz) + vec3(T, T, T), vec3(-H, W,-t), 5); push(lineY14, vertices);
+
+    vector<GLfloat> globalUVs; globalUVs.assign(vertices.size(), 0.0f);
+    vector<GLfloat> colorMask; colorMask.assign(vertices.size(), 0.0f);
+    vector<GLfloat> normals;   normals  .assign(vertices.size(), 0.0f);
 
     vector<GLfloat> finalvertices;
     for (int i = 0; i < vertices.size(); i += 3) {
@@ -517,6 +503,15 @@ LightMesh World::createVertsOnlyMesh(ivec3 xyz, float scale, Item blockType) {
         finalvertices.push_back(colorMask[i + 0]);
         finalvertices.push_back(colorMask[i + 1]);
         finalvertices.push_back(colorMask[i + 2]);
+    }
+
+    std::vector<unsigned int> indices;
+    for (int e = 0; e < 12 * 4; e++) {
+        int base = e * 4;
+        indices.push_back(base + 0); indices.push_back(base + 1); indices.push_back(base + 2);
+        indices.push_back(base + 2); indices.push_back(base + 3); indices.push_back(base + 0);
+        indices.push_back(base + 0); indices.push_back(base + 3); indices.push_back(base + 2);
+        indices.push_back(base + 2); indices.push_back(base + 1); indices.push_back(base + 0);
     }
 
     LightMesh cubeMesh;
@@ -544,9 +539,9 @@ LightMesh createCompassVertsOnlyMesh(ivec3 xyz) {
 
     vector<GLfloat> vertices;
 
-    vector<GLfloat> lineX = makeLine(xyz, 0.05f, 0.05f, 2, 0.005f);
-    vector<GLfloat> lineY = makeLine(xyz, 0.005f, 0.005f, 2, 0.05f);
-    vector<GLfloat> lineZ = makeLine(xyz, 0.005f, 0.05f, 0, 0.005f);
+    vector<GLfloat> lineX = makeLine(xyz, 0.05f,  0.05f , 2, 0.005f);
+    vector<GLfloat> lineY = makeLine(xyz, 0.005f, 0.005f, 2, 0.05f );
+    vector<GLfloat> lineZ = makeLine(xyz, 0.005f, 0.05f , 0, 0.005f);
 
     push(lineX, vertices); push(lineY, vertices); push(lineZ, vertices);
 
@@ -597,6 +592,8 @@ LightMesh World::createMeshCube(vec3 blockPos, float scale, Item blockType) {
 
     float clipX = 0.0f, clipY = 1.0f;
 
+    auto absl = [](int n) { return n >= 0 ? n : -n; };
+
     vector<unsigned int> indices;
     for (int e = 0; e < 6; e++) {
         int base = e * 4;
@@ -606,7 +603,7 @@ LightMesh World::createMeshCube(vec3 blockPos, float scale, Item blockType) {
 
     int offsetX = 1, offsetY = 1;
     vector<GLfloat> globalUVs;
-    uint32_t uintUVs = ((1 << 16) | (uint8_t)(offsetY) << 8) | ((uint8_t)(offsetX)); // Packaging floats into one integer
+    uint32_t uintUVs = ((((uint8_t)155 << 24)) | ((uint8_t)1 << 16) | (uint8_t)(offsetY) << 8) | ((uint8_t)(offsetX)); // Packaging floats into one integer
     float startUvs;
     memcpy(&startUvs, &uintUVs, sizeof(float));
 
@@ -671,7 +668,16 @@ LightMesh World::createMeshCube(vec3 blockPos, float scale, Item blockType) {
         finalvertices.push_back(globalUVs[i + 1]);
         finalvertices.push_back(globalUVs[i + 2]);
 
-        finalvertices.push_back(normals[i + 0]);
+        uint32_t norm_color = ((byte(normals[i + 0] < 0 ? 1 : 0) & 0x1) << 5) | ((byte(absl(normals[i + 0])) & 0x1) << 4)
+            | ((byte(normals[i + 1] < 0 ? 1 : 0) & 0x1) << 3) | ((byte(absl(normals[i + 1])) & 0x1) << 2)
+            | ((byte(normals[i + 2] < 0 ? 1 : 0) & 0x1) << 1) | ((byte(absl(normals[i + 2])) & 0x1) << 0)
+            | ((byte(100) & 0x7F) << 20)
+            | ((byte(100) & 0x7F) << 13)
+            | ((byte(100) & 0x7F) << 6);
+        float normcolor;
+        memcpy(&normcolor, &norm_color, sizeof(float));
+
+        finalvertices.push_back(normcolor);
         finalvertices.push_back(normals[i + 1]);
         finalvertices.push_back(normals[i + 2]);
 
@@ -693,7 +699,7 @@ void World::createItem(vec3 blockPos, Item blockType, vec3 direction) {
     blockData = BlockData(blockType);
     ivec3 trueDir = floor(blockPos - direction) + vec3(1.0);
     updateChunk(chunkPos, trueDir, blockPos);
-
+    inventory.deassignInvSlot(slot, 3);
     blockData.blockType.assignLight(pointLights, blockPos);
 }
 
@@ -716,13 +722,11 @@ void World::updateChunk(const ivec2& chunkCoord, vec3 direction, ivec3 position)
     if (it == chunkData.end()) return; // Chunk doesn't exist
 
     auto& chunk = it->second;
-    Mesh& m = chunk->mesh;
+    Mesh& m = *(chunk->mesh);
     //// Clear old mesh data
-    if (m.vertices.size() > 0) {
+    if (chunk->mesh && m.vertices.size() > 0) {
         m.vertices.clear();
-        m.vertices.shrink_to_fit();
         m.indices.clear();
-        m.indices.shrink_to_fit();
     }
         
     // Rebuild mesh from current blockData
@@ -732,14 +736,14 @@ void World::updateChunk(const ivec2& chunkCoord, vec3 direction, ivec3 position)
     chunk->needUpdate = true;
 
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << chunk->mesh.vertices.size() << " updates : Elapsed: " << std::chrono::duration<double>(end - start).count() << " s\n";
+    std::cout << chunk->mesh->vertices.size() << " verts. chunk n_" << chunkCount++ << " updating, Elapsed: " << std::chrono::duration<double>(end - start).count() << " s\n";
 }
 
 void World::updateChunk(Chunk& chunk) {
     //auto start = std::chrono::high_resolution_clock::now();
 
     //// Clear old mesh data
-    Mesh& m = chunk.mesh;
+    Mesh& m = *(chunk.mesh);
     if (m.vertices.size() > 0) {
         m.vertices.clear();
         m.vertices.shrink_to_fit();
@@ -755,20 +759,19 @@ void World::updateChunk(Chunk& chunk) {
     //    std::cout << chunk.mesh.vertices.size() << " updates : Elapsed: " << std::chrono::duration<double>(end - start).count() << " s\n";
 }
 
-void World::delBlocklook_at() {
+Block World::delBlocklook_at() {
     ivec3 blockPos = lookingAtBlock();
     ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
     if (blockPos.y <= -404.0f || !recipe.isBreakable(/*world.chunkData[chunkPos].blockData[blockPos].blockType */ world.chunkData.at(pack(chunkPos))->block_data[world.chunkData.at(pack(chunkPos))->at(blockPos)].blockType)) {
-        return;
+        return Block(vec3(0), AIR);
     }
-    deleteBlockFromWorld(blockPos);
+    return deleteBlockFromWorld(blockPos);
 }
 
-vec3 World::addBlocklook_at(Item blockType) {
+Block World::addBlocklook_at(Item blockType) {
     if (recipe.isTool(blockType)) {
-        return vec3(-404.0f);
+        return Block(vec3(-404.0f), AIR);
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
     ivec3 blockPos = vec3(0.0f);
     glm::vec3 rayDir;
     glm::vec3 rayOrigin = firstCamera.getPosition() + 0.5f;
@@ -786,7 +789,7 @@ vec3 World::addBlocklook_at(Item blockType) {
             chunk->block_data[index].blockType != AIR &&
             blockType.isPlaceable()) {
             createItem(floor(point - rayDir * stepSize), blockType, point);
-            return floor(point - rayDir * stepSize);
+            return Block(floor(point - rayDir * stepSize), blockType);
         }
     }
 }

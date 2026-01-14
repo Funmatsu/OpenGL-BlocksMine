@@ -19,8 +19,21 @@ private:
 
 	};
 
-	vector<Item> bigrecipes = { OAK_WOOD, AIR, AIR, AIR, AIR, AIR, AIR, AIR, AIR, OAK_PLANK,
-							   OAK_PLANK, OAK_PLANK, OAK_PLANK, AIR, STICK, AIR, AIR, STICK, AIR, WOODEN_PICKAXE };
+	vector<Item> bigrecipes = { OAK_WOOD, AIR, AIR, 
+								AIR,	  AIR, AIR, 
+								AIR,	  AIR, AIR,				OAK_PLANK,
+
+							    OAK_PLANK, OAK_PLANK, OAK_PLANK, 
+								AIR,	   STICK,	  AIR,	    
+								AIR,	   STICK,	  AIR,		WOODEN_PICKAXE, 
+	
+								OAK_PLANK, OAK_PLANK, AIR,
+								OAK_PLANK, STICK,	  AIR,
+								AIR,	   STICK,	  AIR,		WOODEN_AXE, 
+	
+								AIR,       OAK_PLANK, OAK_PLANK,
+								AIR,	   STICK,	  OAK_PLANK,
+								AIR,	   STICK,	  AIR,		WOODEN_AXE };
 
 
 public:

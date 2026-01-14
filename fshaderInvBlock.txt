@@ -33,8 +33,12 @@ void main(){
 	vec4 finalColor = calcDirLight();
 	vec4 tex = texture(theTexture, texCoords),
 		 topTex = texture(topTexture, texCoords);
-		 if(tex.a < 0.6) discard;
-	vec4 overlayColorMask = (texCoords.y >= 0.4 && texCoords.x >= 0.6) &&
-							(texCoords.y <= 0.6 && texCoords.x <= 0.8) ? vec4(1.0f) : vec4(colorMask, 1.0f);
+		 if(tex.a < 0.4) discard;
+	vec4 overlayColorMask = ((texCoords.y >= 0.4 && texCoords.x >= 0.6  &&
+							  texCoords.y <= 0.6 && texCoords.x <= 0.8) || 
+							 (texCoords.x >= 0.0 && texCoords.y >= 0.6  &&
+							  texCoords.x <= 0.2 && texCoords.y <= 0.8)) ? vec4(1.0f) : vec4(colorMask, 1.0f);
+
     color = (max(overlayColorMask*tex - topTex, vec4(0.2)) + topTex*vec4(mix(colorMask, vec3(0.0f), 0.5f), 1.0f)) * finalColor;
+	color.a = 1.0f;
 };

@@ -28,6 +28,8 @@ public:
 	void bindDepthBuffer();
 	void useDepthBuffer(int shaderId);
 	void updateDepthTexture();
+	double getXPos();
+	double getYPos();
 	~Window();
 
 	void setMouseMoved() { mouseFirstMoved = true; }
@@ -39,7 +41,8 @@ private:
 	GLuint fbo;
 	bool keys[1024];
 	int recentlyPressedKey;
-	float lastX, lastY, xChange, yChange;
+	float lastX = 0, lastY = 0, xChange, yChange;
+	double mouseX = 0, mouseY = 0;
 	bool mouseFirstMoved;
 
 	void createCalbacks();

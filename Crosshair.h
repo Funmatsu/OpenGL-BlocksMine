@@ -1,5 +1,6 @@
 #pragma once
-#include "libraries.h"
+#include <vector>
+#include "LightMesh.h"
 
 extern int WIDTH ;
 extern int HEIGHT;
@@ -18,7 +19,7 @@ private:
     vector<glm::vec2> crosshairVertices;
     vector<GLfloat> vers;
     vector<unsigned int> inds;
-    Mesh crosshair;
+    LightMesh crosshair;
     GLuint crosshairVbo = 0;
     GLuint crosshairVao = 0;
     GLuint crosshairIbo = 0;

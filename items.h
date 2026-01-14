@@ -1,5 +1,11 @@
 #pragma once
 
+#include "Text.h"
+
+std::queue<vec2> chunkUpdateRequestQueue;
+std::mutex chunkUpdateRequestMutex;
+std::condition_variable chunkUpdateCV;
+
 //#define AIR				  0
 //#define DIAMOND_ORE       1
 //#define GRASS_BLOCK       2
@@ -23,10 +29,10 @@
 //#define STICK 102
 
 class Item {
+private:
+	uint8_t attrs = 0;
 public:
 	uint8_t id;
-	uint8_t attrs = 0;
-
 	Item() {
 		id = 0;
 		attrs = 0;
@@ -58,21 +64,21 @@ public:
 
 	bool isLuninous() {
 		return (attrs & 1);
-	}
+	}     
 
 	void assignLight(PointLight* pLight, vec3 position) {		
 		if (isLuninous()) {
-			pLight[pointLightCount] = PointLight(1.0f, 0.9f, 0.2f,
+			pLight[pointLightCount] = PointLight(1.0f, 0.9f, 0.5f,
 				1.0f, 0.2f,
-				position.x + 0.5, position.y + 1.25, position.z + 0.5,
+				position.x, position.y, position.z,
 				0.2, 0.1f, 0.05f);
 			pointLightCount++;
 		}
-	}
+	} 
 
 	void deassignLight(PointLight* pLight, vec3 position) {
 		pLight[pointLightCount] = PointLight();
-		if (isLuninous()) {
+		if (isLuninous() && pointLightCount > 0) {
 			pointLightCount--;
 		}
 	}
@@ -122,8 +128,9 @@ Item GRASS				(12, 1, 0, 0, 1, 1, 0);
 Item CRAFTING_TABLE		(13, 1, 1, 0, 1, 0, 0);
 Item BEDROCK			(14, 1, 0, 0, 0, 0, 0);
 Item TORCH				(15, 1, 0, 0, 1, 1, 1);
-Item WOODEN_PICKAXE		(16, 1, 0, 1, 1, 0, 0);
-Item STICK				(17, 1, 0, 1, 1, 0, 0);
+Item STICK				(16, 1, 0, 1, 1, 1, 0);
+Item WOODEN_PICKAXE		(17, 1, 0, 1, 1, 1, 0);
+Item WOODEN_AXE			(18, 1, 0, 1, 1, 1, 0);
 
 vector<Item> items{
 	AIR,
@@ -142,8 +149,31 @@ vector<Item> items{
 	CRAFTING_TABLE,
 	BEDROCK,
 	TORCH,
+	STICK,
 	WOODEN_PICKAXE,
-	STICK
+	WOODEN_AXE
+};
+
+vector<string> itemTypeString{
+	"air",
+	"diamond ore",
+	"grass block",
+	"iron ore",
+	"stone_block",
+	"dirt block",
+	"oak wood",
+	"cloud",
+	"oak leaves",
+	"oak plank",
+	"poppy",
+	"blue orchid",
+	"grass",
+	"crafting table",
+	"bedrock",
+	"torch",
+	"stick",
+	"wooden pickaxe",
+	"wooden axe"
 };
 
 Item item(uint8_t idx) {
@@ -249,31 +279,124 @@ void getUVs(Item blockType, float* attrs, int du) {
 }
 
 //-------------------------------------------------------------------------------------------------------
-struct InventorySlot
-{
-	float angle = 0;
+
+struct UIElement {
+public:
 	mat4 model = mat4(1.0f);
-	LightMesh mesh; 
 	LightMesh quadMesh;
+	int x, y, w, h;
+	virtual void onClick() {};
+};
+
+struct Cursor : UIElement {
+public:
+	LightMesh mesh;
 	Item item = AIR;
+	int count = 0;
+	Text textCount;
+	void updateCount(int num) {
+		textCount = Text(num);
+	}
+	~Cursor() {
+		mesh.clearMesh();
+	}
+};
+
+Cursor cursor;
+
+struct InventorySlot : UIElement
+{
+public:
+	float angle = 0;
+	LightMesh mesh; 
+	Item item = AIR;
+	int count = 0;
+	Text textCount;
+	void updateCount(int num) {
+		textCount = Text(num);
+	}
 	void operator=(InventorySlot slot) {
 		model = slot.model;
 		mesh = slot.mesh;
 		item = slot.item;
 	}
+
+	void operator=(Cursor cursor) {
+		mesh = cursor.mesh;
+		item = cursor.item;
+		//quadMesh = cursor.quadMesh;
+		count = cursor.count;
+		cursor.count = 0;
+	}
+
+	void onClick() override {
+		if (item == AIR || mesh == LightMesh()) {
+			mesh = cursor.mesh;
+			item = cursor.item;
+			if (mainWindow.getKeys()[GLFW_KEY_RIGHT_SHIFT]) {
+				count++;
+				if(cursor.count)
+					cursor.count--;
+			}
+			else {
+				count += cursor.count;
+				cursor.count = 0;
+			}
+			cout << "called" << endl;
+		}
+		else {
+			if (cursor.item == AIR) {
+				cursor.item = item;
+				//cursor.quadMesh = quadMesh;
+				cursor.mesh.clearMesh();
+				cursor.mesh = mesh;
+				if(count > 0){
+					if (mainWindow.getKeys()[GLFW_KEY_RIGHT_SHIFT]) {
+						cursor.count++;
+						if (count)
+							count--;
+					}
+					else {
+						cursor.count += count;
+						count = 0;
+					}
+				}
+				cout << "called twice" << endl;
+			}
+			else {
+				if (cursor.item == item) {
+					if (mainWindow.getKeys()[GLFW_KEY_LEFT_SHIFT]) {
+						cursor.count++;
+						if (count)
+							count--;
+					}
+					if (mainWindow.getKeys()[GLFW_KEY_RIGHT_SHIFT]) {
+						count++;
+						if (cursor.count)
+							cursor.count--;
+					}
+					else {
+						cursor.count += count;
+						count = 0;
+					}
+					cout << "called similarly" << endl;
+				}
+			}
+		}
+	};
 };
 
 unsigned int itemFbo, itemColorTex, itemDepthTex;
 void initItemTextures() {
 	glGenTextures(1, &itemColorTex);
 	glBindTexture(GL_TEXTURE_2D, itemColorTex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 350, 350, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1024, 1024, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	glGenRenderbuffers(1, &itemDepthTex);
 	glBindRenderbuffer(GL_RENDERBUFFER, itemDepthTex);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 350, 350);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 1024, 1024);
 
 	glGenFramebuffers(1, &itemFbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, itemFbo);

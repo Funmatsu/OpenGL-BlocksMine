@@ -1,12 +1,11 @@
 #pragma once
 #include <GL/glew.h>
-#include <GLFW/glfw3.h>
 #include <iostream>
 #include <glm/glm.hpp>
 #include <glm\gtc/type_ptr.hpp>
-#include <glm\gtc\matrix_transform.hpp>
-#include <cmath>
 #include <vector>
+
+using namespace std;
 
 class GL_Texture
 {
@@ -15,13 +14,17 @@ public:
 	GL_Texture(const char* fileLocation);
 	void loadTexture();
 	void useTexture();
+	bool pixelOpaque(int x, int y);
 	void useTexture(GLenum tex);
 	void useNextTexture();
 	void unbindNextTexture();
 	void clearTexture();
+	int getWidth() { return width; }
+	int getHeight() { return height; }
 	~GL_Texture();
+	vector<unsigned char> pixels;
 private:
-	unsigned int textureId;
-	int width, height, bitDepth;
 	const char* fileLocation;
+	unsigned int textureId;
+	int width, height, bitDepth;	
 };

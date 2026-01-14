@@ -153,10 +153,21 @@ void Window::handleMouse(GLFWwindow* window, double xPos, double yPos) {
 
     theWindow->lastX = xPos;
     theWindow->lastY = yPos;
+
+    theWindow->mouseX = xPos;
 }
 
 int Window::getKeyPressed() {
     return recentlyPressedKey;
+}
+
+double Window::getXPos(){
+    glfwGetCursorPos(mainWindow, &mouseX, &mouseY);
+    return mouseX;
+}
+double Window::getYPos(){
+    glfwGetCursorPos(mainWindow, &mouseX, &mouseY);
+    return bufferHeight - mouseY;
 }
 
 void Window::initializeDepthBuffer() {

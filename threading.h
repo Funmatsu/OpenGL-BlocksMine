@@ -28,13 +28,9 @@ std::mutex chunkRequestMutex2;
 std::queue<Chunk> chunkResultQueue2;
 std::mutex chunkResultMutex2;
 
-std::queue<Chunk> chunkUpdateRequestQueue;
-std::mutex chunkUpdateRequestMutex;
 
-std::queue<bool> chunkUpdateResultQueue;
-std::mutex chunkUpdateResultMutex;
 
-std::queue<Chunk> breakResQueue;
+std::queue<Block> breakResQueue;
 std::mutex breakResMutex;
 
 std::queue<vec3> breakReqQueue;
@@ -43,7 +39,7 @@ std::mutex breakReqMutex;
 std::queue<vec3> placeReqQueue;
 std::mutex placeReqMutex;
 
-std::queue<vec3> placeResQueue;
+std::queue<Block> placeResQueue;
 std::mutex placeResMutex;
 
 std::atomic<bool> chunkGenRunning = true;
@@ -51,8 +47,10 @@ std::atomic<bool> chunkGenRunning2 = true;
 std::atomic<bool> chunkUpdateGenRunning = true;
 std::atomic<bool> blockBreaking = true;
 std::atomic<bool> blockPlacing = true;
+std::atomic<bool> stopChunkUpdaters = false;
 bool blockBreakingOut = false;
 bool blockPlacingOut = false;
+
 
 // Base hills: smooth FBm Perlin
 FastNoiseLite baseNoise;
@@ -67,22 +65,22 @@ FastNoiseLite cloudNoise;
 void initChunksNoise() {
     baseNoise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
     baseNoise.SetFractalType(FastNoiseLite::FractalType_FBm);
-    baseNoise.SetFrequency(0.005f);      // low frequency = broad features
+    baseNoise.SetFrequency(0.001f);      // low frequency = broad features
     baseNoise.SetFractalOctaves(3);
     baseNoise.SetFractalLacunarity(2.0f);
     baseNoise.SetFractalGain(0.5f);
 
     ridgedNoise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     ridgedNoise.SetFractalType(FastNoiseLite::FractalType_Ridged);
-    ridgedNoise.SetFrequency(0.005f);     // higher frequency = more detail
+    ridgedNoise.SetFrequency(0.001f);     // higher frequency = more detail
     ridgedNoise.SetFractalOctaves(4);
     ridgedNoise.SetFractalLacunarity(2.0f);
     ridgedNoise.SetFractalGain(0.5f);
 
     //maskNoise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
     maskNoise.SetFractalType(FastNoiseLite::FractalType_FBm);
-    maskNoise.SetFrequency(0.02f);      // very low frequency = large biome regions
-    maskNoise.SetFractalOctaves(2);
+    maskNoise.SetFrequency(0.01f);      // very low frequency = large biome regions
+    maskNoise.SetFractalOctaves(4);
     maskNoise.SetFractalGain(0.5f);
 
     //FastNoiseLite noise;   
@@ -96,7 +94,6 @@ void initChunksNoise() {
 
     caveNoise.SetFrequency(0.05f);
     cloudNoise.SetFrequency(0.045);  
-
 }
 
 bool isAir(Item item);
@@ -130,7 +127,7 @@ void generateBlocks(vec2 xyChunk, Chunk* repChunk) {
                     (*repChunk)[ivec3(x, 0, z)] = BlockData(BEDROCK);
             auto norm    = [](float n) { return (n + 1) * 0.5f; }; //defining a function inline
             float base   = norm(baseNoise.GetNoise((float)x, (float)z)) * 10.0f;
-            float ridged = norm(ridgedNoise.GetNoise((float)x, (float)z)) * 10.0f;
+            float ridged = norm(ridgedNoise.GetNoise((float)x, (float)z)) * 25.0f;
             float mask   = norm(maskNoise.GetNoise((float)x, (float)z));
 
             // Blend between base and ridged using the mask
@@ -143,10 +140,10 @@ void generateBlocks(vec2 xyChunk, Chunk* repChunk) {
             float scaledHeight = height * 4 + CHUNK_SIZE * 5;
             maxHeight = (scaledHeight > maxHeight) ? scaledHeight + treeHeight + 5 : maxHeight;
             //float scaledHeight = ((height + 1.0f) * (CHUNK_SIZE * CHUNK_SIZE));
-            //cloudDensity = cloudNoise.GetNoise((float)x, (float)z);
-            //if (cloudDensity < -0.25f) {
-            //    ch[ivec3(x, CHUNK_SIZE * CHUNK_SIZE + 2 * CHUNK_SIZE - 1, z)] = BlockData(ivec3(x, CHUNK_SIZE * CHUNK_SIZE + 2 * CHUNK_SIZE - 1, z), CLOUD);
-            //}
+            cloudDensity = cloudNoise.GetNoise((float)x, (float)z);
+            if (cloudDensity < -0.25f) {
+                ch[ivec3(x, CHUNK_SIZE * CHUNK_SIZE - 1, z)] = BlockData(CLOUD);
+            }
             
             for (int y = 1; y < scaledHeight; y++) {
                 if (y >= scaledHeight - 1) {
@@ -167,7 +164,7 @@ void generateBlocks(vec2 xyChunk, Chunk* repChunk) {
                 else continue;
                 density = caveNoise.GetNoise((float)x, (float)y, (float)z);
 
-                if (density < -0.5f) {
+                if (density < -0.2f) {
                     continue;
                 }
                 ch[ivec3(x, y, z)] = BlockData(blockType);
@@ -210,18 +207,17 @@ void generateBlocks(vec2 xyChunk, Chunk* repChunk) {
                     ivec3 pos(x, y + 1, z); BlockData& blockData = ch[pos];
                     if (isAir(blockData.blockType)) {
                         if (randomNumberForDeco < 2000) {
+                            //blockData = BlockData(GRASS);
                             for (int i = 1; i <= randomFloat(1, 3); i++) {
                                 ivec3 pos(x, y + i, z); BlockData& blockData = ch[pos];
                                 blockData = BlockData(GRASS);
                             }
                         }
-                        else {
-                            if (randomNumberForDeco > 2000 && randomNumberForDeco < 2500) {
-                                blockData = BlockData(POPPY);
-                            }
-                            else if (randomNumberForDeco > 2500 && randomNumberForDeco < 2800) {
-                                blockData = BlockData(BLUE_ORCHID);
-                            }
+                        else if (randomNumberForDeco > 2000 && randomNumberForDeco < 2500) {
+                            blockData = BlockData(POPPY);
+                        }
+                        else if (randomNumberForDeco > 2500 && randomNumberForDeco < 2800) {
+                            blockData = BlockData(BLUE_ORCHID);
                         }
                     }
 
@@ -229,7 +225,7 @@ void generateBlocks(vec2 xyChunk, Chunk* repChunk) {
             }
         }
     }
-    repChunk->terrainHeight = maxHeight;
+    //repChunk->terrainHeight = maxHeight;
 }
 
 bool isAir(Item item) { return item == AIR; }
@@ -238,7 +234,8 @@ bool shouldEmitFace(vec2 xyChunk, Chunk* cd, Item currentBlockType, int x, int y
     if (currentBlockType.isFlat() || currentBlockType == OAK_PLANK) return 1;
     int nx = x + dx, ny = y + dy, nz = z + dz;
     ivec3 checkPos = ivec3(nx, ny, nz);
-    if (!cd->inBounds(checkPos) && y != 0) {
+    if (!cd->inBounds(checkPos) && ny >= -1 && ny < CHUNK_HEIGHT) {
+        if (ny == -1) return 1;
         uint32_t pos = pack(ivec2(floorDiv(checkPos.x, CHUNK_SIZE), floorDiv(checkPos.z, CHUNK_SIZE)));
         if (!world.chunkData.count(pos)) return 0;
         else {
@@ -246,7 +243,7 @@ bool shouldEmitFace(vec2 xyChunk, Chunk* cd, Item currentBlockType, int x, int y
             return (isAir(bData.blockType)) || bData.blockType.isFlat();
         }
     }
-    else if (y == 0) { return 0; }
+    else if (ny < 0 || ny >= CHUNK_HEIGHT) { return 0; }
     BlockData& blockData = (*cd)[checkPos]; 
     Item& blockType = blockData.blockType;
     if (blockType == OAK_LEAVES) return 1;
@@ -267,13 +264,15 @@ void emitFace(Mesh& m, int face, Item blockType, float x, float y, float z, vec3
         tintr = 0.2f, tintg = 1.0f, tintb = 0.2f;
     }
     //vec3 rgb = { tintr, tintg, tintb };
-    vec3 cMask[4] = { { tintr, tintg, tintb }, { tintr, tintg, tintb }, { tintr, tintg, tintb }, { tintr, tintg, tintb } };
+    vec3 cMask = { tintr, tintg, tintb };
 
     // face: 0=-X,1=+X,2=-Z,3=+Z,4=+Z,5=-Z
     // Define 4 positions and normal per face
     static const glm::vec3 normals[6] = {
         {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, 1, 0}, { 0, -1, 0 }
     };
+
+    auto absl = [](int n) { return n >= 0 ? n : -n; };
     glm::vec3 n = normals[face];
 
     const int bottomDir = 4 - 4 * (-abs(direction.y) + 1) + (abs(direction.y)) * (0.5 * (-direction.y + 1)) + (-abs(direction.y) + 1) * (0.5 * (-direction.x + 1)) * (-direction.z * direction.z + 1) + (-abs(direction.y) + 1) * (-direction.x * direction.x + 1) * (2 + 0.5 * (-direction.z + 1));
@@ -330,7 +329,7 @@ void emitFace(Mesh& m, int face, Item blockType, float x, float y, float z, vec3
     if (face == bottomDir) { offsetX = xoffsetBottom; offsetY = yoffsetBottom; }
     else if (face == topDir) { offsetX = xoffsetTop;  offsetY = yoffsetTop; }
 
-    uint32_t uintUVs = ((xdimens << 16) & 0xFFFFFF) | ((uint8_t)(yoffset + offsetY) << 8) | ((uint8_t)(xoffset + offsetX)); // Packaging floats into one integer
+    uint32_t uintUVs = ((uint8_t(y) << 24)) | ((xdimens << 16) & 0xFFFFFF) | ((uint8_t)(yoffset + offsetY) << 8) | ((uint8_t)(xoffset + offsetX)); // Packaging floats into one integer
     float startUvs;
     memcpy(&startUvs, &uintUVs, sizeof(float));
 
@@ -402,7 +401,16 @@ void emitFace(Mesh& m, int face, Item blockType, float x, float y, float z, vec3
                 break;
     }
 
-    uint32_t base = (uint32_t)(m.vertices.size() / 12);
+    uint32_t norm_color = ((byte(n.x < 0 ? 1 : 0) & 0x1) << 5) | ((byte(absl(n.x)) & 0x1) << 4)
+        | ((byte(n.y < 0 ? 1 : 0) & 0x1) << 3) | ((byte(absl(n.y)) & 0x1) << 2)
+        | ((byte(n.z < 0 ? 1 : 0) & 0x1) << 1) | ((byte(absl(n.z)) & 0x1) << 0)
+        | ((byte(cMask.x * 100) & 0x7F) << 20)
+        | ((byte(cMask.y * 100) & 0x7F) << 13)
+        | ((byte(cMask.z * 100) & 0x7F) <<  6);
+    float normcolor;
+    memcpy(&normcolor, &norm_color, sizeof(float));
+
+    uint32_t base = (uint32_t)(m.vertices.size() / 7);
     for (int i = 0; i < 4; i++) {
         m.vertices.push_back(v[i].x);
         m.vertices.push_back(v[i].y);
@@ -410,12 +418,7 @@ void emitFace(Mesh& m, int face, Item blockType, float x, float y, float z, vec3
         m.vertices.push_back(uv[i].x);
         m.vertices.push_back(uv[i].y);
         m.vertices.push_back(uv[i].z);
-        m.vertices.push_back(n.x);
-        m.vertices.push_back(n.y);
-        m.vertices.push_back(n.z);
-        m.vertices.push_back(cMask[i].x);
-        m.vertices.push_back(cMask[i].y);
-        m.vertices.push_back(cMask[i].z);
+        m.vertices.push_back(normcolor);
     }
     // Two triangles (0,1,2) (2,3,0)
     m.indices.push_back(base + 1); m.indices.push_back(base + 2); m.indices.push_back(base + 3);
@@ -476,46 +479,65 @@ void meshChunk(vec2 xyChunk, Chunk* cd, Mesh& out, vec3 direction, ivec3 positio
 /// <summary>
 /// This will begin an attempt for a fast greedy meshing algorithm
 /// </summary>
+bool shouldEmitFace(vec2 xyChunk, Chunk* cd, Item currentBlockType, ivec3 checkPos) {
+    if (currentBlockType.isFlat() || currentBlockType == OAK_LEAVES) return 1;
+    if (!cd->inBounds(checkPos)) {
+        if (checkPos.y == -1) return 1;
+        else if (checkPos.y >= 0 && checkPos.y < CHUNK_HEIGHT) {
+            uint32_t pos = pack(ivec2(floorDiv(checkPos.x, CHUNK_SIZE), floorDiv(checkPos.z, CHUNK_SIZE)));
+            if (!world.chunkData.count(pos)) return 0;
+            else {
+                BlockData& bData = (*world.chunkData[pos])[checkPos];
+                return (isAir(bData.blockType)) || bData.blockType.isFlat();
+            }
+        }
+        else return 0;
+    }
+    Item& blockType = (*cd)[checkPos].blockType;
+    if (blockType == OAK_LEAVES) return 1;
+    return isAir(blockType) ||
+        blockType.isFlat() ||
+        currentBlockType == TORCH;
+}
 
-bool buildMask(Chunk* ch, int planeDirVal, int faceDir, vec2& xyChunk, int W, int H, vector<uint8_t>& mask) {
+bool buildMask(Chunk* ch, int planeDirVal, int faceDir, vec2& xyChunk, int W, int H, vector<uint8_t>& mask, ivec3 normal) {
     mask.assign(W * H, 0);
     int dir = faceDir / 2; bool allAir = true;
-    ivec3 normal = (faceDir == 0) ? ivec3(-1, 0, 0) : (faceDir == 1) ? ivec3( 1, 0, 0) : (faceDir == 2) ? ivec3( 0, 0,-1) : (faceDir == 3) ? ivec3( 0, 0, 1) : (faceDir == 4) ? ivec3(0,-1, 0) : ivec3( 0, 1, 0);
+    int minX = xyChunk.x * CHUNK_SIZE, minZ = xyChunk.y * CHUNK_SIZE;
+        //(faceDir == 0) ? ivec3(-1, 0, 0) : (faceDir == 1) ? ivec3( 1, 0, 0) : (faceDir == 2) ? ivec3( 0, 0,-1) : (faceDir == 3) ? ivec3( 0, 0, 1) : (faceDir == 4) ? ivec3(0,-1, 0) : ivec3( 0, 1, 0);
     for (int l = 0; l < H; l++) {
         for (int b = 0; b < W; b++) {
-            ivec3 pos = (dir == 0) ? ivec3(planeDirVal, l, xyChunk.y * CHUNK_SIZE + b) : (dir == 1) ? ivec3(xyChunk.x * CHUNK_SIZE + b, l, planeDirVal) : ivec3(xyChunk.x * CHUNK_SIZE + b, planeDirVal, xyChunk.y * CHUNK_SIZE + l);
+            int idx = b + l * W;
+            uint8_t& item = mask[idx];
+            ivec3 pos = (dir == 0) ? ivec3(planeDirVal, l, minZ + b) : (dir == 1) ? ivec3(minX + b, l, planeDirVal) : ivec3(minX + b, planeDirVal, minZ + l);
             Item blockType = AIR;
             if (ch->inBounds(pos)) {
                 blockType = (*ch)[pos].blockType;
                 if (isAir(blockType)) { continue; }
             }        
-            if (shouldEmitFace(xyChunk, ch, blockType, pos.x, pos.y, pos.z, normal.x, normal.y, normal.z)) mask[b + l * W] = blockType.id;
-            if (mask[b + l * W] != mask[0] || (mask[b + l * W] != 0)) allAir = 0;
+            if (shouldEmitFace(xyChunk, ch, blockType, ivec3(pos.x + normal.x, pos.y + normal.y, pos.z + normal.z))) item = blockType.id;
+            if (item != mask[0] || (item != 0)) allAir = 0;
         }
     }
     return allAir;
 }
 
-void emitFace(Mesh& m, int face, uint8_t blockType, ivec3 blockPos, ivec3 dims) {
+void emitFace(Mesh& m, int face, uint8_t blockType, ivec3 blockPos, ivec3 dims, ivec3 normals) {
     float tintr = 1.0f, tintg = 1.0f, tintb = 1.0f;
     if (blockType == GRASS_BLOCK.id && face != 4) {
         tintr = 0.2f, tintg = 1.0f, tintb = 0.2f;
     }
     else if (blockType == GRASS.id) {
-        tintr = 0.2f, tintg = 1.45f, tintb = 0.15f;
+        tintr = 0.2f, tintg = 1.25f, tintb = 0.15f;
     }
     else if (blockType == OAK_LEAVES.id) {
         tintr = 0.2f, tintg = 1.0f, tintb = 0.2f;
     }
     //vec3 rgb = { tintr, tintg, tintb };
-    vec3 cMask[4] = { { tintr, tintg, tintb }, { tintr, tintg, tintb }, { tintr, tintg, tintb }, { tintr, tintg, tintb } };
+    vec3 cMask = { tintr, tintg, tintb };
 
-    // face: 0=-X,1=+X,2=-Z,3=+Z,4=+Z,5=-Z
-    // Define 4 positions and normal per face
-    static const glm::vec3 normals[6] = {
-        {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, 1, 0}, { 0, -1, 0 }
-    };
-    glm::vec3 n = normals[face];
+    glm::vec3 n = normals;
+    auto absl = [](int n) { return n >= 0 ? n : -n; };
 
     const int bottomDir = 4;
     const int topDir = 5;
@@ -542,7 +564,6 @@ void emitFace(Mesh& m, int face, uint8_t blockType, ivec3 blockPos, ivec3 dims) 
         }
     }
 
-
     // Simple tile UV (replace with atlas lookup per block/face)
     vector<glm::vec3> uv;
 
@@ -566,9 +587,17 @@ void emitFace(Mesh& m, int face, uint8_t blockType, ivec3 blockPos, ivec3 dims) 
     if (face == bottomDir) { offsetX = xoffsetBottom; offsetY = yoffsetBottom; }
     else if (face == topDir) { offsetX = xoffsetTop;  offsetY = yoffsetTop; }
 
-    uint32_t uintUVs = ((uint8_t)(xdimens) << 16) | ((uint8_t)(yoffset + offsetY) << 8) | (uint8_t)(xoffset + offsetX); // Packaging floats into one integer
+    uint32_t uintUVs = ((uint8_t)(blockPos.y) << 24) | ((uint8_t)(xdimens) << 16) | ((uint8_t)(yoffset + offsetY) << 8) | (uint8_t)(xoffset + offsetX); // Packaging floats into one integer
     float startUvs;
     memcpy(&startUvs, &uintUVs, sizeof(float));
+    uint32_t norm_color = ((byte(n.x < 0 ? 1 : 0) & 0x1) << 5) | ((byte(absl(n.x)) & 0x1) << 4) 
+                        | ((byte(n.y < 0 ? 1 : 0) & 0x1) << 3) | ((byte(absl(n.y)) & 0x1) << 2) 
+                        | ((byte(n.z < 0 ? 1 : 0) & 0x1) << 1) | ((byte(absl(n.z)) & 0x1) << 0)
+                        | ((byte(cMask.x * 100) & 0x7F) << 20) 
+                        | ((byte(cMask.y * 100) & 0x7F) << 13) 
+                        | ((byte(cMask.z * 100) & 0x7F) << 6 );
+    float normcolor;
+    memcpy(&normcolor, &norm_color, sizeof(float));
 
     auto feed = [](vector<vec3>& uv, float w, float h, float packed, int direction) { // direction = 0 ? clockwise : counterclockwise
         if (!direction) { //feedCW
@@ -597,7 +626,7 @@ void emitFace(Mesh& m, int face, uint8_t blockType, ivec3 blockPos, ivec3 dims) 
         break;
     }
 
-    uint32_t base = (uint32_t)(m.vertices.size() / 12);
+    uint32_t base = (uint32_t)(m.vertices.size() / 7);
     for (int i = 0; i < 4; i++) {
         m.vertices.push_back(v[i].x);
         m.vertices.push_back(v[i].y);
@@ -605,19 +634,14 @@ void emitFace(Mesh& m, int face, uint8_t blockType, ivec3 blockPos, ivec3 dims) 
         m.vertices.push_back(uv[i].x);
         m.vertices.push_back(uv[i].y);
         m.vertices.push_back(uv[i].z);
-        m.vertices.push_back(n.x);
-        m.vertices.push_back(n.y);
-        m.vertices.push_back(n.z);
-        m.vertices.push_back(cMask[i].x);
-        m.vertices.push_back(cMask[i].y);
-        m.vertices.push_back(cMask[i].z);
+        m.vertices.push_back(normcolor);
     }
     // Two triangles (0,1,2) (2,3,0)
     m.indices.push_back(base + 1); m.indices.push_back(base + 2); m.indices.push_back(base + 3);
     m.indices.push_back(base + 3); m.indices.push_back(base + 0); m.indices.push_back(base + 1);
 }
 
-void greedyMerge(vector<uint8_t>& mask, Mesh& m, vec2& xyChunk, int planeDirVal, int W, int H, int faceDir) {
+void greedyMerge(vector<uint8_t>& mask, Mesh& m, vec2& xyChunk, int planeDirVal, int W, int H, int faceDir, ivec3 normals) {
     int dir = faceDir / 2;
     for (int l = 0; l < H; l++) {
         for (int b = 0; b < W;) {
@@ -637,7 +661,7 @@ void greedyMerge(vector<uint8_t>& mask, Mesh& m, vec2& xyChunk, int planeDirVal,
         not_type:
             ivec3 dims = (dir == 0) ? vec3(1, h, w) : (dir == 1) ? vec3(w, h, 1) : vec3(w, 1, h);
             ivec3 blockPos = (dir == 0) ? ivec3(planeDirVal, l, xyChunk.y * CHUNK_SIZE + b) : (dir == 1) ? ivec3(xyChunk.x * CHUNK_SIZE + b, l, planeDirVal) : ivec3(xyChunk.x * CHUNK_SIZE + b, planeDirVal, xyChunk.y * CHUNK_SIZE + l);
-            emitFace(m, faceDir, type, blockPos, dims);
+            emitFace(m, faceDir, type, blockPos, dims, normals);
 
             for (int i = 0; i < h; i++) {
                 for (int j = 0; j < w; j++) {
@@ -650,32 +674,31 @@ void greedyMerge(vector<uint8_t>& mask, Mesh& m, vec2& xyChunk, int planeDirVal,
 }
 void meshChunk(vec2 xyChunk, Chunk* ch, Mesh& m) {
     vector<uint8_t> mask;
-    mask.reserve(CHUNK_SIZE * CHUNK_HEIGHT);
-    uint8_t terrainHeight = ch->terrainHeight;
+    //uint8_t terrainHeight = ch->terrainHeight;
 
     for (int x = (xyChunk.x) * CHUNK_SIZE - 1; x < (xyChunk.x + 1) * CHUNK_SIZE; ++x) {
-        buildMask(ch, x + 0, 0, xyChunk, CHUNK_SIZE, CHUNK_HEIGHT, mask);
-        greedyMerge(mask, m, xyChunk, x + 0, CHUNK_SIZE, CHUNK_HEIGHT, 0);
+        buildMask(ch, x + 0, 0, xyChunk, CHUNK_SIZE, CHUNK_HEIGHT, mask, ivec3(-1, 0, 0));
+        greedyMerge(mask, m, xyChunk, x + 0, CHUNK_SIZE, CHUNK_HEIGHT, 0, ivec3(1, 0, 0));
         
 
-        buildMask(ch, x + 1, 1, xyChunk, CHUNK_SIZE, CHUNK_HEIGHT, mask);
-        greedyMerge(mask, m, xyChunk, x + 1, CHUNK_SIZE, CHUNK_HEIGHT, 1);
+        buildMask(ch, x + 1, 1, xyChunk, CHUNK_SIZE, CHUNK_HEIGHT, mask, ivec3( 1, 0, 0));
+        greedyMerge(mask, m, xyChunk, x + 1, CHUNK_SIZE, CHUNK_HEIGHT, 1,ivec3(-1, 0, 0));
     }
 
     for (int z = (xyChunk.y) * CHUNK_SIZE - 1; z < (xyChunk.y + 1) * CHUNK_SIZE; ++z) {
-        buildMask(ch, z + 0, 2, xyChunk, CHUNK_SIZE, CHUNK_HEIGHT, mask);
-        greedyMerge(mask, m, xyChunk, z + 0, CHUNK_SIZE, CHUNK_HEIGHT, 2);
+        buildMask(ch, z + 0, 2, xyChunk, CHUNK_SIZE, CHUNK_HEIGHT, mask, ivec3( 0, 0,-1));
+        greedyMerge(mask, m, xyChunk, z + 0, CHUNK_SIZE, CHUNK_HEIGHT, 2, ivec3(0, 0, 1));
 
-        buildMask(ch, z + 1, 3, xyChunk, CHUNK_SIZE, CHUNK_HEIGHT, mask);
-        greedyMerge(mask, m, xyChunk, z + 1, CHUNK_SIZE, CHUNK_HEIGHT, 3);
+        buildMask(ch, z + 1, 3, xyChunk, CHUNK_SIZE, CHUNK_HEIGHT, mask, ivec3( 0, 0, 1));
+        greedyMerge(mask, m, xyChunk, z + 1, CHUNK_SIZE, CHUNK_HEIGHT, 3,ivec3(0, 0, -1));
     }
 
-    for (int y = 0; y < terrainHeight; ++y) { //CHUNK_SIZE*(CHUNK_SIZE + 2) + 5
-        if (!buildMask(ch, y + 0, 4, xyChunk, CHUNK_SIZE, CHUNK_SIZE, mask));
-            greedyMerge(mask, m, xyChunk, y + 0, CHUNK_SIZE, CHUNK_SIZE, 4);
+    for (int y = 0-1; y < CHUNK_HEIGHT; ++y) { //CHUNK_SIZE*(CHUNK_SIZE + 2) + 5
+        if (!buildMask(ch, y + 0, 4, xyChunk, CHUNK_SIZE, CHUNK_SIZE, mask, ivec3(0,-1, 0)));
+            greedyMerge(mask, m, xyChunk, y + 0, CHUNK_SIZE, CHUNK_SIZE, 4, ivec3(0, 1, 0));
 
-        if (!buildMask(ch, y + 1, 5, xyChunk, CHUNK_SIZE, CHUNK_SIZE, mask));
-            greedyMerge(mask, m, xyChunk, y + 1, CHUNK_SIZE, CHUNK_SIZE, 5);
+        if (!buildMask(ch, y + 1, 5, xyChunk, CHUNK_SIZE, CHUNK_SIZE, mask, ivec3(0, 1, 0)));
+            greedyMerge(mask, m, xyChunk, y + 1, CHUNK_SIZE, CHUNK_SIZE, 5, ivec3(0,-1, 0));
     }
 }
 
@@ -686,510 +709,30 @@ void generateChunkAt(vec2 xyChunk, Chunk* repChunk) {
     //meshChunk(xyChunk, repChunk, repChunk->mesh);
 
     //auto end = std::chrono::high_resolution_clock::now();
-    //cout << repChunk->mesh.vertices.size() << "count : " << chunkCount << " : Elapsed: " << std::chrono::duration<double>(end - start).count() << " s\n";
+    //cout << repChunk->mesh->vertices.size() << "count : " << chunkCount << " : Elapsed: " << std::chrono::duration<double>(end - start).count() << " s\n";
 }
-//void buildMask_PosX(vec2 xyChunk,
-//    Chunk* cd,
-//    int x,
-//    int yMin, int yMax,
-//    int zMin, int zMax,
-//    std::vector<MaskCell>& mask,
-//    int W, int H)
-//{
-//    // W = number of z cells, H = number of y cells
-//    mask.assign(W * H, AIR);
-//
-//    for (int y = yMin; y <= yMax; ++y) {
-//        for (int z = zMin; z <= zMax; ++z) {
-//
-//            // local indices in the mask
-//            int iy = y - yMin;
-//            int iz = z - zMin;
-//            int idx = iz + iy * W;
-//
-//            ivec3 pos(x, y, z);
-//
-// //            BlockData& bd = cd->block_data[cd->at(pos)];
-//            Item blockType = bd.blockType;
-//            if (isAir(blockType)) {
-//                mask[idx] = AIR;
-//                continue;
-//            }
-//
-//            // Reuse your current visibility logic:
-//            // dx = +1, dy = 0, dz = 0
-//            if (shouldEmitFace(xyChunk, cd, x, y, z, +1, 0, 0)) {
-//                mask[idx] = blockType;
-//            }
-//            else {
-//                mask[idx] = AIR;
-//            }
-//        }
-//    }
-//}
-//Here:
-//
-//W = zMax - zMin + 1
-//
-//H = yMax - yMin + 1
-//
-//4. Emitting a single greedy quad on + X
-//This is a simplified version that :
-//
-//Uses side UVs only.
-//
-//Uses a neutral color mask(1, 1, 1).
-//
-//Uses a simple rectangular UV mapping scaled by w and h.
-//
-//We can later patch it to perfectly match your atlas / tint rules.
-//
-//cpp
-//void emitGreedyQuad_PosX(Mesh & m,
-//    Item blockType,
-//    int x, int y, int z,
-//    int w, int h,
-//    int yMin, int zMin)
-//{
-//    // world-space base coords
-//    int y0 = yMin + y;
-//    int z0 = zMin + z;
-//
-//    // 4 corners of the quad (face at x + 0.5)
-//    glm::vec3 v0 = { x + 0.5f, (float)y0,         (float)z0 };
-//    glm::vec3 v1 = { x + 0.5f, (float)(y0 + h),   (float)z0 };
-//    glm::vec3 v2 = { x + 0.5f, (float)(y0 + h),   (float)(z0 + w) };
-//    glm::vec3 v3 = { x + 0.5f, (float)y0,         (float)(z0 + w) };
-//
-//    glm::vec3 n = { 1.0f, 0.0f, 0.0f }; // +X
-//
-//    // --- UVs: simple version, scaled by w,h ---
-//    // You can later plug in getUVs(blockType, ...) and pick the side tile.
-//    glm::vec2 uv0 = { 0.0f, 0.0f };
-//    glm::vec2 uv1 = { 0.0f, (float)h };
-//    glm::vec2 uv2 = { (float)w, (float)h };
-//    glm::vec2 uv3 = { (float)w, 0.0f };
-//
-//    glm::vec3 cMask = { 1.0f, 1.0f, 1.0f }; // neutral tint
-//    float transparency = 1.0f; // you can derive from blockType later
-//
-//    uint32_t base = (uint32_t)(m.vertices.size() / 12);
-//
-//    auto push = [&](const glm::vec3& v, const glm::vec2& uv) {
-//        m.vertices.push_back(v.x);
-//        m.vertices.push_back(v.y);
-//        m.vertices.push_back(v.z);
-//
-//        m.vertices.push_back(uv.x);
-//        m.vertices.push_back(uv.y);
-//        m.vertices.push_back(transparency);
-//
-//        m.vertices.push_back(n.x);
-//        m.vertices.push_back(n.y);
-//        m.vertices.push_back(n.z);
-//
-//        m.vertices.push_back(cMask.x);
-//        m.vertices.push_back(cMask.y);
-//        m.vertices.push_back(cMask.z);
-//        };
-//
-//    push(v0, uv0);
-//    push(v1, uv1);
-//    push(v2, uv2);
-//    push(v3, uv3);
-//
-//    // two triangles (0,1,2) (2,3,0)
-//    m.indices.push_back(base + 0);
-//    m.indices.push_back(base + 1);
-//    m.indices.push_back(base + 2);
-//
-//    m.indices.push_back(base + 2);
-//    m.indices.push_back(base + 3);
-//    m.indices.push_back(base + 0);
-//}
-//5. Greedy merge on the + X mask for a given x
-//cpp
-//void greedyMerge_PosX(Chunk * cd,
-//    Mesh & out,
-//    std::vector<MaskCell>&mask,
-//    int W, int H,
-//    int x,
-//    int yMin, int zMin)
-//{
-//    // Work on a copy so we can zero out merged regions
-//    std::vector<MaskCell> tmp = mask;
-//
-//    for (int iy = 0; iy < H; ++iy) {
-//        for (int iz = 0; iz < W; ) {
-//
-//            MaskCell cell = tmp[iz + iy * W];
-//            if (cell == AIR) {
-//                ++iz;
-//                continue;
-//            }
-//
-//            Item blockType = cell;
-//
-//            // 1) find width (in z)
-//            int w = 1;
-//            while (iz + w < W && tmp[iz + w + iy * W] == blockType)
-//                ++w;
-//
-//            // 2) find height (in y)
-//            int h = 1;
-//            bool done = false;
-//            while (iy + h < H && !done) {
-//                for (int k = 0; k < w; ++k) {
-//                    if (tmp[(iz + k) + (iy + h) * W] != blockType) {
-//                        done = true;
-//                        break;
-//                    }
-//                }
-//                if (!done) ++h;
-//            }
-//
-//            // 3) emit one quad for this rectangle
-//            emitGreedyQuad_PosX(out, blockType, x, iy, iz, w, h, yMin, zMin);
-//
-//            // 4) zero out merged region
-//            for (int dy = 0; dy < h; ++dy) {
-//                for (int dx = 0; dx < w; ++dx) {
-//                    tmp[(iz + dx) + (iy + dy) * W] = AIR;
-//                }
-//            }
-//
-//            iz += w;
-//        }
-//    }
-//}
-//6. Top - level greedy meshing for + X(only)
-//Now we assemble it into a new mesher.Later we’ll add the other 5 directions.
-//
-//cpp
-//void meshChunkGreedy_PosX(vec2 xyChunk, Chunk * cd, Mesh & out)
-//{
-//    // You can tune these to exactly match your previous y-range.
-//    int yMin = 0;
-//    int yMax = CHUNK_SIZE * CHUNK_SIZE + 2 * CHUNK_SIZE + 5; // as in your old loop
-//    int zMin = xyChunk.y * CHUNK_SIZE;
-//    int zMax = (xyChunk.y + 1) * CHUNK_SIZE - 1;
-//
-//    int xMin = xyChunk.x * CHUNK_SIZE;
-//    int xMax = (xyChunk.x + 1) * CHUNK_SIZE - 1;
-//
-//    int W = zMax - zMin + 1;  // z dimension
-//    int H = yMax - yMin + 1;  // y dimension
-//
-//    std::vector<MaskCell> mask;
-//    mask.reserve(W * H);
-//
-//    for (int x = xMin; x <= xMax; ++x) {
-//        buildMask_PosX(xyChunk, cd, x, yMin, yMax, zMin, zMax, mask, W, H);
-//        greedyMerge_PosX(cd, out, mask, W, H, x, yMin, zMin);
-//    }
-//}
-//Then your chunk generation becomes, for testing:
-//
-//cpp
-//void generateChunkAt(vec2 xyChunk, Chunk * repChunk) {
-//    auto start = std::chrono::high_resolution_clock::now();
-//    generateBlocks(xyChunk, repChunk);
-//
-//    Mesh& m = repChunk->mesh;
-//    m.vertices.clear();
-//    m.indices.clear();
-//
-//    meshChunkGreedy_PosX(xyChunk, repChunk, m); // currently only +X
-//
-//    auto end = std::chrono::high_resolution_clock::now();
-//    std::cout << repChunk->mesh.vertices.size()
-//        << " : Elapsed: "
-//        << std::chrono::duration<double>(end - start).count()
-//        << " s\n";
-//}
-//For now you’ll see :
-//
-//Only + X faces rendered.
-//
-//Vertex count massively reduced compared to your old mesher(for those faces).
-//
-//Time per chunk much lower just from that direction.
-//
-//Once you’re happy with + X, we:
-//
-//Add - X, +Y, -Y, +Z, -Z variants with the same pattern.
-//
-//Replace the naive meshChunk entirely.
-//
-//Then fold back in full UV / tint / orientation logic into emitGreedyQuad_ * .
-//
-//If you paste this in and run it, what I’d love to see from you next is :
-//
-//The new vertices.size() and time with only + X greedy meshing.
-//
-//A screenshot / description of how the world looks(only + X faces visible).
-//
-//Then we’ll clone this for the remaining 5 directions and really crush your meshing time.
-//
-//ok.Just for testing, give the other 5 functions and the updated generateChunkAt function
-//See my thinking
-//Good, let’s wire up a full 6‑direction greedy mesher you can just drop in and test.
-//
-//I’ll:
-//
-//Give you all 6 directions(±X, ±Y, ±Z)
-//
-//Keep UVs / tints simple for now(just to validate correctness & perf)
-//
-//Plug it into an updated generateChunkAt
-//
-//You can then time it and visually verify, and we can refine UV / tint / orientation after.
-//
-//1. Shared types and helper
-//Add near the top of your meshing file :
-//
-//cpp
-//using MaskCell = Item; // or use ItemID / uint16_t if you prefer
-//
-//template<typename EmitFn>
-//void greedyMerge2D(std::vector<MaskCell>&mask,
-//    int W, int H,
-//    EmitFn emit)
-//{
-//    std::vector<MaskCell> tmp = mask; // work copy so we can zero out merged regions
-//
-//    for (int v = 0; v < H; ++v) {
-//        for (int u = 0; u < W; ) {
-//
-//            MaskCell cell = tmp[u + v * W];
-//            if (cell == AIR) {
-//                ++u;
-//                continue;
-//            }
-//
-//            Item blockType = cell;
-//
-//            // 1) find width in u
-//            int w = 1;
-//            while (u + w < W && tmp[u + w + v * W] == blockType)
-//                ++w;
-//
-//            // 2) find height in v
-//            int h = 1;
-//            bool done = false;
-//            while (v + h < H && !done) {
-//                for (int k = 0; k < w; ++k) {
-//                    if (tmp[(u + k) + (v + h) * W] != blockType) {
-//                        done = true;
-//                        break;
-//                    }
-//                }
-//                if (!done) ++h;
-//            }
-//
-//            // 3) emit one quad
-//            emit(u, v, w, h, blockType);
-//
-//            // 4) zero out merged region
-//            for (int dv = 0; dv < h; ++dv)
-//                for (int du = 0; du < w; ++du)
-//                    tmp[(u + du) + (v + dv) * W] = AIR;
-//
-//            u += w;
-//        }
-//    }
-//}
-//2. Emit functions for each direction
-//These are simplified : neutral color, simple UVs scaled by w / h.
-//
-//+ X
-//cpp
-//void emitGreedyQuad_PosX(Mesh & m,
-//    Item blockType,
-//    int x, int u, int v, int w, int h,
-//    int yMin, int zMin)
-//{
-//    int y0 = yMin + v;
-//    int z0 = zMin + u;
-//
-//    glm::vec3 n = { 1.0f, 0.0f, 0.0f };
-//
-//    glm::vec3 v0 = { x + 0.5f, (float)y0,        (float)z0 };
-//    glm::vec3 v1 = { x + 0.5f, (float)(y0 + h),  (float)z0 };
-//    glm::vec3 v2 = { x + 0.5f, (float)(y0 + h),  (float)(z0 + w) };
-//    glm::vec3 v3 = { x + 0.5f, (float)y0,        (float)(z0 + w) };
-//
-//    glm::vec2 uv0 = { 0.0f, 0.0f };
-//    glm::vec2 uv1 = { 0.0f, (float)h };
-//    glm::vec2 uv2 = { (float)w, (float)h };
-//    glm::vec2 uv3 = { (float)w, 0.0f };
-//
-//    glm::vec3 cMask = { 1.0f, 1.0f, 1.0f };
-//    float transparency = 1.0f;
-//
-//    uint32_t base = (uint32_t)(m.vertices.size() / 12);
-//
-//    auto push = [&](const glm::vec3& v, const glm::vec2& uv) {
-//        m.vertices.push_back(v.x);
-//        m.vertices.push_back(v.y);
-//        m.vertices.push_back(v.z);
-//
-//        m.vertices.push_back(uv.x);
-//        m.vertices.push_back(uv.y);
-//        m.vertices.push_back(transparency);
-//
-//        m.vertices.push_back(n.x);
-//        m.vertices.push_back(n.y);
-//        m.vertices.push_back(n.z);
-//
-//        m.vertices.push_back(cMask.x);
-//        m.vertices.push_back(cMask.y);
-//        m.vertices.push_back(cMask.z);
-//        };
-//
-//    push(v0, uv0);
-//    push(v1, uv1);
-//    push(v2, uv2);
-//    push(v3, uv3);
-//
-//    m.indices.push_back(base + 0);
-//    m.indices.push_back(base + 1);
-//    m.indices.push_back(base + 2);
-//    m.indices.push_back(base + 2);
-//    m.indices.push_back(base + 3);
-//    m.indices.push_back(base + 0);
-//}
-//void meshChunkGreedy(vec2 xyChunk, Chunk* cd, Mesh& out)
-//{
-//    int yMin = 0;
-//    int yMax = CHUNK_SIZE * CHUNK_SIZE + 2 * CHUNK_SIZE + 5;
-//
-//    int xMin = xyChunk.x * CHUNK_SIZE;
-//    int xMax = (xyChunk.x + 1) * CHUNK_SIZE - 1;
-//
-//    int zMin = xyChunk.y * CHUNK_SIZE;
-//    int zMax = (xyChunk.y + 1) * CHUNK_SIZE - 1;
-//
-//    std::vector<MaskCell> mask;
-//
-//    // --- +X and -X (mask: z × y) ---
-//    {
-//        int W = zMax - zMin + 1;
-//        int H = yMax - yMin + 1;
-//        mask.reserve(W * H);
-//
-//        for (int x = xMin; x <= xMax; ++x) {
-//            // +X
-//            buildMask_PosX(xyChunk, cd, x, yMin, yMax, zMin, zMax, mask, W, H);
-//            greedyMerge2D(mask, W, H, [&](int u, int v, int w, int h, Item blockType) {
-//                emitGreedyQuad_PosX(out, blockType, x, u, v, w, h, yMin, zMin);
-//                });
-//
-//            // -X
-//            buildMask_NegX(xyChunk, cd, x, yMin, yMax, zMin, zMax, mask, W, H);
-//            greedyMerge2D(mask, W, H, [&](int u, int v, int w, int h, Item blockType) {
-//                emitGreedyQuad_NegX(out, blockType, x, u, v, w, h, yMin, zMin);
-//                });
-//        }
-//    }
-//
-//    // --- +Y and -Y (mask: x × z) ---
-//    {
-//        int W = xMax - xMin + 1;
-//        int H = zMax - zMin + 1;
-//        mask.reserve(W * H);
-//
-//        for (int y = yMin; y <= yMax; ++y) {
-//            // +Y
-//            buildMask_PosY(xyChunk, cd, y, xMin, xMax, zMin, zMax, mask, W, H);
-//            greedyMerge2D(mask, W, H, [&](int u, int v, int w, int h, Item blockType) {
-//                emitGreedyQuad_PosY(out, blockType, y, u, v, w, h, xMin, zMin);
-//                });
-//
-//            // -Y
-//            buildMask_NegY(xyChunk, cd, y, xMin, xMax, zMin, zMax, mask, W, H);
-//            greedyMerge2D(mask, W, H, [&](int u, int v, int w, int h, Item blockType) {
-//                emitGreedyQuad_NegY(out, blockType, y, u, v, w, h, xMin, zMin);
-//                });
-//        }
-//    }
-//
-//    // --- +Z and -Z (mask: x × y) ---
-//    {
-//        int W = xMax - xMin + 1;
-//        int H = yMax - yMin + 1;
-//        mask.reserve(W * H);
-//
-//        for (int z = zMin; z <= zMax; ++z) {
-//            // +Z
-//            buildMask_PosZ(xyChunk, cd, z, xMin, xMax, yMin, yMax, mask, W, H);
-//            greedyMerge2D(mask, W, H, [&](int u, int v, int w, int h, Item blockType) {
-//                emitGreedyQuad_PosZ(out, blockType, z, u, v, w, h, xMin, yMin);
-//                });
-//
-//            // -Z
-//            buildMask_NegZ(xyChunk, cd, z, xMin, xMax, yMin, yMax, mask, W, H);
-//            greedyMerge2D(mask, W, H, [&](int u, int v, int w, int h, Item blockType) {
-//                emitGreedyQuad_NegZ(out, blockType, z, u, v, w, h, xMin, yMin);
-//                });
-//        }
-//    }
-//}
-//void generateChunkAt(vec2 xyChunk, Chunk* repChunk) {
-//    auto start = std::chrono::high_resolution_clock::now();
-//    generateBlocks(xyChunk, repChunk);
-//
-//    Mesh& m = repChunk->mesh;
-//    m.vertices.clear();
-//    m.indices.clear();
-//
-//    meshChunkGreedy(xyChunk, repChunk, m);
-//
-//    auto end = std::chrono::high_resolution_clock::now();
-//    std::cout << repChunk->mesh.vertices.size()
-//        << " : Elapsed: "
-//        << std::chrono::duration<double>(end - start).count()
-//        << " s\n";
-//}
-
 
 std::thread blockBreakThread([&]() {
     while (blockBreaking) {
-        {
+            if (blockBreakingOut) {
             std::lock_guard<std::mutex> lock(breakReqMutex);
-            if (!breakReqQueue.empty()) {
-                breakReqQueue.pop();
-            }
-            else {
-                continue;
-            }
-        }
-        if (blockBreakingOut) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            std::lock_guard<std::mutex> lock(breakReqMutex);
-            world.delBlocklook_at();
+            Block block = world.delBlocklook_at();
+            //this_thread::sleep_for(chrono::milliseconds(100));
+            ivec2 chunkPos = ivec2(floorDiv(block.position.x, CHUNK_SIZE), floorDiv(block.position.z, CHUNK_SIZE));
+            world.updateChunk(chunkPos, vec3(0), vec3(0));
             blockBreakingOut = false;
-            if (!breakResQueue.empty())
-                breakResQueue.pop();
+            breakResQueue.push(block);
         }
     }
     });
 
 std::thread blockPlaceThread([&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     while (blockPlacing) {
-        {
-            std::lock_guard<std::mutex> lock(placeReqMutex);
-            if (!placeReqQueue.empty()) {
-                placeReqQueue.pop();
-            }
-            else {
-                continue;
-            }
-        }
         if (blockPlacingOut) {
             std::lock_guard<std::mutex> lock(placeReqMutex);
-            world.addBlocklook_at(inventory.mainInventorySlots[3][slot].item);
+            Block block = world.addBlocklook_at(inventory.mainInventorySlots[3][slot].item);
+            //this_thread::sleep_for(chrono::milliseconds(100));
+            blockBreakingOut = false;
             blockPlacingOut = false;
             if (!placeResQueue.empty())
                 placeResQueue.pop();
@@ -1210,23 +753,41 @@ void chunkWorker() {
 
         unique_ptr<Chunk> newChunk = make_unique<Chunk>();
         {
-            std::lock_guard<std::mutex> lock(queueMutex);
+            std::lock_guard<std::mutex> lock(resultMutex);
             newChunk->toCoords(coord);
             generateChunkAt(coord, newChunk.get());
-            chunkResultQueue.push(move(newChunk));
+            world.addChunk(newChunk, newChunk->coord);
+            //chunkResultQueue.push(move(newChunk));
         }
     }
 }////////////
 
-std::thread chunkUpdateThread([&]() {
-    while (chunkUpdateGenRunning) {
+void updateChunkJob() {
+    while (!stopChunkUpdaters) {
+        vec2 chPos;
         {
-            if (!chunkUpdateRequestQueue.empty()) {
-                std::lock_guard<std::mutex> lock(chunkUpdateRequestMutex);
-                Chunk& chunkToUpdate = (chunkUpdateRequestQueue.front());
-                world.updateChunk(chunkToUpdate.coords(), vec3(0), vec3(0));
-                chunkUpdateRequestQueue.pop();
-            }
+            unique_lock<mutex> lock(chunkUpdateRequestMutex);
+            chunkUpdateCV.wait(lock, [] { return !chunkUpdateRequestQueue.empty() || stopChunkUpdaters; });
+            chPos = chunkUpdateRequestQueue.front();
+            chunkUpdateRequestQueue.pop();
         }
+
+        unique_ptr<Chunk>& ch = world.chunkData.at(pack(chPos));
+        if (!ch) continue;
+
+        world.updateChunk(chPos, vec3(0), vec3(0));
     }
-});
+}/////////////
+
+//std::thread chunkUpdateThread([&]() {
+//    while (chunkUpdateGenRunning) {
+//        {
+//            if (!chunkUpdateRequestQueue.empty()) {
+//                std::lock_guard<std::mutex> lock(chunkUpdateRequestMutex);
+//                vec2 chunkToUpdate = (chunkUpdateRequestQueue.front());
+//                world.updateChunk(chunkToUpdate, vec3(0), vec3(0));
+//                chunkUpdateRequestQueue.pop();
+//            }
+//        }
+//    }
+//});

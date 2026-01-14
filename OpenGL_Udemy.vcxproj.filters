@@ -149,5 +149,8 @@
     <ClInclude Include="LightMesh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Text.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -3,8 +3,6 @@
 #include "stb_image.h"
 #include "Texture.h"
 
-using namespace std;
-
 GL_Texture::GL_Texture() {
 	textureId = 0;
 	width = 0;
@@ -32,7 +30,7 @@ void GL_Texture::loadTexture(){
 	else {
 		cout << "Found \"" << fileLocation << "\"" << endl;
 	}
-
+	pixels.assign(texData, texData + width * height * 4);
 	glGenTextures(1, &textureId);
 	glBindTexture(GL_TEXTURE_2D, textureId);
 
@@ -50,6 +48,9 @@ void GL_Texture::loadTexture(){
 void GL_Texture::useTexture(){
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, textureId);
+}
+bool GL_Texture::pixelOpaque(int x, int y) {
+	return pixels[4 * (y * width + x) + 3] > 250;
 }
 void GL_Texture::useNextTexture() {
 	glActiveTexture(GL_TEXTURE2);

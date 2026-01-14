@@ -1,5 +1,5 @@
 #include "DirectionalLight.h"
-float off = 200.0f;
+float off = 300.0f;
 
 DirectionalLight::DirectionalLight() : Light() { lightProj = ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 100.0f); }
 DirectionalLight::DirectionalLight(GLuint shadowWidth, GLuint shadowHeight,
@@ -8,8 +8,7 @@ DirectionalLight::DirectionalLight(GLuint shadowWidth, GLuint shadowHeight,
 	GLfloat xDir, GLfloat yDir, GLfloat zDir) : Light(shadowWidth, shadowHeight, red, green, blue, aIntensity, dIntensity) {
 	direction = vec3(xDir, yDir, zDir);
 	
-	lightProj = ortho(-off - shadowPos.x, off - shadowPos.x, -off + shadowPos.y, off + shadowPos.y, 0.01f, 500.0f);
-	//lightProj = ortho(-shadowWidth, shadowWidth, -shadowHeight, shadowHeight);
+	lightProj = ortho(-off - shadowPos.x, off - shadowPos.x, -off + shadowPos.z, off + shadowPos.z, 0.01f, 500.0f);
 }
 void DirectionalLight::useLight(GLfloat aIntensityLocation, GLfloat aColorLocation, GLfloat dIntensityLocation, GLfloat directionLocation) {
 	glUniform3f(aColorLocation, color.x, color.y, color.z);
@@ -19,14 +18,21 @@ void DirectionalLight::useLight(GLfloat aIntensityLocation, GLfloat aColorLocati
 }
 
 mat4 DirectionalLight::calcLightTransform() {
-	directionalLightTransform = lightProj * /*kinda like the view abit like proj * view * model*/
-		lookAt(-direction, /*front*/vec3(0.0f, 0.0f, 0.0f), /*up*/vec3(0.0f, 1.0f, 0.0f));
+	vec3 forward = normalize(direction);
+	mat4 lightView = lookAt(-forward*200.f, /*front*/vec3(0), /*up*/vec3(0,1,0));
+	//vec2 texelSize = vec2((2.0f * (off)) / 1920, (2.0f * (off)) / 1059);
+	//vec4 cameraLight = lightView * vec4(shadowPos, 1);
+	//cameraLight.x = floor(cameraLight.x / texelSize.x) * texelSize.x;
+	//cameraLight.y = floor(cameraLight.y / texelSize.y) * texelSize.y;
+	//
+	//mat4 view = lookAt(vec3(inverse(lightView) * cameraLight), vec3(inverse(lightView) * cameraLight) + direction, vec3(0, 1, 0));
+	directionalLightTransform = lightProj * lightView;
 	return directionalLightTransform;
 }
 
-void DirectionalLight::setShadowPos(vec2 shadowpos) {
+void DirectionalLight::setShadowPos(vec3 shadowpos) {
 	shadowPos = shadowpos;
-	lightProj = ortho(-off - shadowPos.x, off - shadowPos.x, -off + shadowPos.y, off + shadowPos.y, 0.01f, 500.0f);
+	lightProj = ortho(-off - shadowPos.x, off - shadowPos.x, -off + shadowPos.z, off + shadowPos.z, 0.01f, 500.0f);
 }
 
 DirectionalLight::~DirectionalLight() {}

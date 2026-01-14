@@ -10,10 +10,11 @@ public:
     void useLight(GLfloat aIntensityLocation, GLfloat aColorLocation, GLfloat dIntensityLocation, GLfloat directionLocation);
 
     mat4 calcLightTransform();
-    void setShadowPos(vec2 shadPos);
+    vec3 getShadowPos() { return shadowPos; }
+    void setShadowPos(vec3 shadPos);
     ~DirectionalLight();
 private:
     vec3 direction;
-    vec2 shadowPos;
+    vec3 shadowPos;
 };
 

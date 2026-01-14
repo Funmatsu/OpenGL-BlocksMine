@@ -6,7 +6,7 @@ typedef uint8_t byte;
 
 const int CHUNK_SIZE = 16;
 const int CHUNK_HEIGHT = pow(CHUNK_SIZE, 2);  //(CHUNK_SIZE + 2) * (CHUNK_SIZE + 2);
-const int CHUNK_VOLUME = pow(CHUNK_SIZE, 4);  //(CHUNK_SIZE + 2) * CHUNK_HEIGHT * (CHUNK_SIZE + 2); // Or just CHUNK_HEIGHT * CHUNK_HEIGHT
+constexpr int CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;  //(CHUNK_SIZE + 2) * CHUNK_HEIGHT * (CHUNK_SIZE + 2); // Or just CHUNK_HEIGHT * CHUNK_HEIGHT
 
 //int at(vec3 position) {
 //    return position.x * CHUNK_SIZE + (position.y + 1) * CHUNK_HEIGHT + position.z;
@@ -79,11 +79,11 @@ struct BlockData {
 
 class Chunk {
 public:
-    Mesh mesh;                                                   
-    vector<BlockData> block_data;
+    unique_ptr<Mesh> mesh;
+    //BlockData block_data[CHUNK_VOLUME];
+    array<BlockData, CHUNK_VOLUME> block_data;
     uint32_t coord;
-    byte terrainHeight = 0;
-    bool needUpdate, unloaded;
+    byte needUpdate, unloaded;
     byte neighboursPresent;
 
     vec2 coords() {
@@ -102,22 +102,29 @@ public:
     bool inBounds(vec3 position) {
         ivec2 thisCoord = coords();
         return position.x >= (thisCoord.x) * (CHUNK_SIZE) && position.x < (thisCoord.x + 1) * (CHUNK_SIZE) &&
-               position.y >= 0 && position.y < CHUNK_HEIGHT &&
+               position.y >= 0                            && position.y < CHUNK_HEIGHT                     &&
                position.z >= (thisCoord.y) * (CHUNK_SIZE) && position.z < (thisCoord.y + 1) * (CHUNK_SIZE);
     }
 
     Chunk(){
-        block_data.resize(CHUNK_VOLUME);
+        mesh = make_unique<Mesh>();
+        //block_data.resize(CHUNK_VOLUME);
         needUpdate = true; unloaded = false;
     }
+    //~Chunk() {
+    //    //block_data.resize(CHUNK_VOLUME);
+    //    needUpdate = true; unloaded = false;
+    //}
     Chunk(const Chunk& chunk) {
-        mesh = chunk.mesh;
-        coord = chunk.coord;
-        needUpdate = chunk.needUpdate;
-        block_data = chunk.block_data;
+        if (chunk.mesh) {
+            mesh = make_unique<Mesh>(*chunk.mesh);
+            coord = chunk.coord;
+            needUpdate = chunk.needUpdate;
+            block_data = chunk.block_data;
+        }
     }
     void operator=(Chunk chunk) {
-        mesh = chunk.mesh;
+        mesh = move(chunk.mesh);
         coord = chunk.coord;
         needUpdate = chunk.needUpdate;
         block_data = chunk.block_data;

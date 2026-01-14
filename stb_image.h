@@ -727,7 +727,8 @@ typedef unsigned char validate_uint32[sizeof(stbi__uint32)==4 ? 1 : -1];
 
 #ifdef _MSC_VER
 
-#if _MSC_VER >= 1400  // not VC6
+#if _MSC_VER >= 1
+// not VC6
 #include <intrin.h> // __cpuid
 static int stbi__cpuid3(void)
 {
@@ -4420,7 +4421,8 @@ static int stbi__parse_uncompressed_block(stbi__zbuf *a)
       a->num_bits -= 8;
    }
    if (a->num_bits < 0) return stbi__err("zlib corrupt","Corrupt PNG");
-   // now fill header the normal way
+   // now fill header the 
+   // way
    while (k < 4)
       header[k++] = stbi__zget8(a);
    len  = header[1] * 256 + header[0];

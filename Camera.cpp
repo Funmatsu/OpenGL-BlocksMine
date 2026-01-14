@@ -68,7 +68,7 @@ void Camera::keyControl(bool* keys, float deltaT, float dt) {
 	} 
 	if (keys[GLFW_KEY_SPACE]) {
 		//position.y += 5 * movementSpeed * deltaTime;
-		initial_velocity.y = 100 * 5 * movementSpeed;
+		initial_velocity.y = 100 * 3 * movementSpeed;
 	}
 	if (keys[GLFW_KEY_LEFT_SHIFT]) {
 		position.y -= movementSpeed * deltaTime;
