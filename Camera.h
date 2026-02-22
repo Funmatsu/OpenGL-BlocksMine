@@ -34,13 +34,16 @@ public:
 	void mouseControl(GLfloat xChange, GLfloat yChange);
 	vec3 getFront() { return front; }
 	vec3 getPosition() { return position; }
+	vec3& getPosition(bool) { return position; }
+	vec3 getRight() { return right; }
+	vec3 getInitVelocity() { return initial_velocity; }
 	float getTurnSpeed() { return turnSpeed; }
 	float getYaw() { return yaw; }
 	float getPitch() { return pitch; }
 	void setPosition(vec3 pos) { position = pos; }
 	void setFront(vec3 other_front) { front = other_front; }
 	mat4 calcViewMatrix();
-	vec3 velocity = vec3(0), initial_velocity, acceleration = vec3(0, -20, 0), velocity_factor = vec3(1);
+	vec3 velocity = vec3(0), initial_velocity, acceleration = vec3(0,-10, 0), velocity_factor = vec3(1);
 	void calculateCamPos(float dt);
 private:
 	vec3 position, front, up, right, worldUp;

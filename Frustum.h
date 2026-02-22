@@ -1,39 +1,80 @@
 #pragma once
-#include "libraries.h"
-#include "Chunk.h"
+//#include "Chunk.h"
 
 struct Plane {
     glm::vec3 n;
     float d; 
 }; // plane: n.x * X + n.y * Y + n.z * Z + d = 0
 
-void extractFrustumPlanes(const glm::mat4& VP, Plane planes[6]) {
-    const float m00 = VP[0][0], m01 = VP[0][1], m02 = VP[0][2], m03 = VP[0][3];
-    const float m10 = VP[1][0], m11 = VP[1][1], m12 = VP[1][2], m13 = VP[1][3];
-    const float m20 = VP[2][0], m21 = VP[2][1], m22 = VP[2][2], m23 = VP[2][3];
-    const float m30 = VP[3][0], m31 = VP[3][1], m32 = VP[3][2], m33 = VP[3][3];
+Plane planes[6];
 
-    // left
-    planes[0].n.x = m03 + m00; planes[0].n.y = m13 + m10; planes[0].n.z = m23 + m20; planes[0].d = m33 + m30;
-    // right
-    planes[1].n.x = m03 - m00; planes[1].n.y = m13 - m10; planes[1].n.z = m23 - m20; planes[1].d = m33 - m30;
-    // bottom
-    planes[2].n.x = m03 + m01; planes[2].n.y = m13 + m11; planes[2].n.z = m23 + m21; planes[2].d = m33 + m31;
-    // top
-    planes[3].n.x = m03 - m01; planes[3].n.y = m13 - m11; planes[3].n.z = m23 - m21; planes[3].d = m33 - m31;
-    // near
-    planes[4].n.x = m03 + m02; planes[4].n.y = m13 + m12; planes[4].n.z = m23 + m22; planes[4].d = m33 + m32;
-    // far
-    planes[5].n.x = m03 - m02; planes[5].n.y = m13 - m12; planes[5].n.z = m23 - m22; planes[5].d = m33 - m32;
+//void extractFrustumPlanes(const glm::mat4& VP) {
+//    const float m00 = VP[0][0], m01 = VP[0][1], m02 = VP[0][2], m03 = VP[0][3];
+//    const float m10 = VP[1][0], m11 = VP[1][1], m12 = VP[1][2], m13 = VP[1][3];
+//    const float m20 = VP[2][0], m21 = VP[2][1], m22 = VP[2][2], m23 = VP[2][3];
+//    const float m30 = VP[3][0], m31 = VP[3][1], m32 = VP[3][2], m33 = VP[3][3];
+//
+//    // left
+//    planes[0].n.x = m03 + m00; planes[0].n.y = m13 + m10; planes[0].n.z = m23 + m20; planes[0].d = m33 + m30;
+//    // right
+//    planes[1].n.x = m03 - m00; planes[1].n.y = m13 - m10; planes[1].n.z = m23 - m20; planes[1].d = m33 - m30;
+//    // bottom
+//    planes[2].n.x = m03 + m01; planes[2].n.y = m13 + m11; planes[2].n.z = m23 + m21; planes[2].d = m33 + m31;
+//    // top
+//    planes[3].n.x = m03 - m01; planes[3].n.y = m13 - m11; planes[3].n.z = m23 - m21; planes[3].d = m33 - m31;
+//    // near
+//    planes[4].n.x = m03 + m02; planes[4].n.y = m13 + m12; planes[4].n.z = m23 + m22; planes[4].d = m33 + m32;
+//    // far
+//    planes[5].n.x = m03 - m02; planes[5].n.y = m13 - m12; planes[5].n.z = m23 - m22; planes[5].d = m33 - m32;
+//
+//    for (int i = 0; i < 6; ++i) {
+//        float len = glm::length(planes[i].n);
+//        planes[i].n /= len;
+//        planes[i].d /= len;
+//    }
+//}
 
-    for (int i = 0; i < 6; ++i) {
+void extractFrustumPlanes(const glm::mat4& VP) { // Left 
+    planes[0].n.x = VP[0][3] + VP[0][0]; 
+    planes[0].n.y = VP[1][3] + VP[1][0]; 
+    planes[0].n.z = VP[2][3] + VP[2][0]; 
+    planes[0].d = VP[3][3] + VP[3][0]; // Right 
+    planes[1].n.x = VP[0][3] - VP[0][0]; 
+    planes[1].n.y = VP[1][3] - VP[1][0]; 
+    planes[1].n.z = VP[2][3] - VP[2][0]; 
+    planes[1].d = VP[3][3] - VP[3][0]; // Bottom 
+    planes[2].n.x = VP[0][3] + VP[0][1]; 
+    planes[2].n.y = VP[1][3] + VP[1][1]; 
+    planes[2].n.z = VP[2][3] + VP[2][1]; 
+    planes[2].d = VP[3][3] + VP[3][1]; // Top 
+    planes[3].n.x = VP[0][3] - VP[0][1]; 
+    planes[3].n.y = VP[1][3] - VP[1][1]; 
+    planes[3].n.z = VP[2][3] - VP[2][1]; 
+    planes[3].d = VP[3][3] - VP[3][1]; // Near 
+    planes[4].n.x = VP[0][3] + VP[0][2];
+    planes[4].n.y = VP[1][3] + VP[1][2]; 
+    planes[4].n.z = VP[2][3] + VP[2][2]; 
+    planes[4].d = VP[3][3] + VP[3][2]; // Far 
+    planes[5].n.x = VP[0][3] - VP[0][2]; 
+    planes[5].n.y = VP[1][3] - VP[1][2]; 
+    planes[5].n.z = VP[2][3] - VP[2][2]; 
+    planes[5].d = VP[3][3] - VP[3][2]; // Normalize 
+    for (int i = 0; i < 6; i++) { 
         float len = glm::length(planes[i].n);
-        planes[i].n /= len;
-        planes[i].d /= len;
-    }
+        planes[i].n /= len; planes[i].d /= len; 
+    } 
 }
 
-bool aabbIntersectsFrustum(const glm::vec3& min, const glm::vec3& max, const Plane planes[6]) {
+bool sphereInFrustum(const glm::vec3& center, float radius) {
+    for (int i = 0; i < 6; i++) {
+        float dist = glm::dot(planes[i].n, center) + planes[i].d;
+        if (dist < -(radius + 10))
+            return false; // completely outside
+    }
+    return true;
+}
+
+bool aabbIntersectsFrustum(const glm::vec3& min, const glm::vec3& max) {
     for (int p = 0; p < 6; ++p) {
         // compute positive vertex (vertex most in direction of plane normal)
         glm::vec3 positive;

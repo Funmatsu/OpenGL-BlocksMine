@@ -69,7 +69,6 @@ int Window::initialize() {
 
     if (glfwRawMouseMotionSupported())
         glfwSetInputMode(mainWindow, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
-
 }
 int Window::initializeFullScreen() {
     if (!glfwInit()) {

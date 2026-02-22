@@ -1,11 +1,12 @@
 #pragma once
+#pragma once
 
 #include "Block.h"
+#include "Cloud.h"
 
-typedef uint8_t byte;
-
-const int CHUNK_SIZE = 16;
-const int CHUNK_HEIGHT = pow(CHUNK_SIZE, 2);  //(CHUNK_SIZE + 2) * (CHUNK_SIZE + 2);
+using abyte = uint8;
+constexpr int CHUNK_SIZE = 16;
+constexpr int CHUNK_HEIGHT = CHUNK_SIZE * CHUNK_SIZE;  //(CHUNK_SIZE + 2) * (CHUNK_SIZE + 2);
 constexpr int CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;  //(CHUNK_SIZE + 2) * CHUNK_HEIGHT * (CHUNK_SIZE + 2); // Or just CHUNK_HEIGHT * CHUNK_HEIGHT
 
 //int at(vec3 position) {
@@ -32,10 +33,7 @@ constexpr int CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE; 
 //    }
 //};
 
-uint32_t pack(ivec2 xz) {
-    uint32_t x = uint16_t(xz.x), z = uint16_t(xz.y);
-    return (x << 16) | z;
-}
+
 
 //uint64_t pack(ivec2 xz) {
 //    uint64_t x = uint32_t(xz.x), z = uint32_t(xz.y);
@@ -61,8 +59,8 @@ uint32_t pack(ivec2 xz) {
 //};
 
 struct BlockData {
-    Item blockType = AIR;
-    uint8_t orientation = (1 << 2); // 00 01 00 = 0,1,0  00 11 00 = 0,-1,0
+    Item blockType;
+    //uint8_t orientation = (1 << 2); // 00 01 00 = 0,1,0  00 11 00 = 0,-1,0
     BlockData() { blockType = AIR; }
     BlockData(Item type) {
         blockType = type;
@@ -71,21 +69,27 @@ struct BlockData {
         blockType = data.blockType;
     }
 };
-
-// use it ? nope :) vectors allocate inside the heap (not the stack like some other :) which makes it better the using array or well a c array or a C++11 array<T, N> hope I got that
-// Maps are horrible and a despicable wastage of memory
+// use it ? nope :) vectors allocate inside the heap (not the stack like some other :) which makes it better than using array or well a c array or a C++11 array<T, N> outside of scope. Hope I got that
+// Maps are horrible and a despicable wastage of memory BUT provide O(1) acess which is all I need
+// 
 //std::unordered_map<glm::ivec3, Block, ivec3_hash, ivec3_eq> worldBlocks;
 //std::unordered_map<glm::ivec3, blockData, ivec3_hash, ivec3_eq> worldBlocks;
 
 class Chunk {
 public:
     unique_ptr<Mesh> mesh;
+    //unique_ptr<CloudMesh> cloudmesh;
     //BlockData block_data[CHUNK_VOLUME];
     array<BlockData, CHUNK_VOLUME> block_data;
+    
     uint32_t coord;
-    byte needUpdate, unloaded;
-    byte neighboursPresent;
-
+    abyte needUpdate, unloaded;
+    abyte neighboursPresent;
+    void setDirty() { neighboursPresent |= (1 << 7); }
+    bool getDirty() { return (neighboursPresent >> 7) & 1; }
+    bool updateCloud() { return (needUpdate >> 7) & 1; }
+    void setCloud() { needUpdate |= (1 << 7); }
+    void stopCloud() { needUpdate &= ~(1 << 7); }
     vec2 coords() {
         return vec2(int16_t((coord >> 16) & 0xFFFF), int16_t(coord & 0xFFFF));
     }
@@ -99,6 +103,13 @@ public:
                 (position.z - thisCoord.y * (CHUNK_SIZE)));
     }
 
+    int at(int x, int y, int z) {
+        ivec2 coord = coords();
+        return ((y) * (CHUNK_HEIGHT)+
+                (x - coord.x * CHUNK_SIZE) * (CHUNK_SIZE)+
+                (z - coord.y * CHUNK_SIZE));
+    }
+
     bool inBounds(vec3 position) {
         ivec2 thisCoord = coords();
         return position.x >= (thisCoord.x) * (CHUNK_SIZE) && position.x < (thisCoord.x + 1) * (CHUNK_SIZE) &&
@@ -106,8 +117,31 @@ public:
                position.z >= (thisCoord.y) * (CHUNK_SIZE) && position.z < (thisCoord.y + 1) * (CHUNK_SIZE);
     }
 
+    bool inBounds(int x, int y, int z) {
+        ivec2 thisCoord = coords();
+        float chunkx = (thisCoord.x) * (CHUNK_SIZE), chunkz = (thisCoord.y) * (CHUNK_SIZE);
+        return x >= chunkx + 0 && x < chunkx + CHUNK_SIZE &&
+               y >= 0 && y < CHUNK_HEIGHT &&
+               z >= chunkz + 0 && z < chunkz + CHUNK_SIZE;
+    }
+
+    bool localInBounds(vec3 position) {
+        return position.x >= 0 && position.x < CHUNK_SIZE   &&
+               position.y >= 0 && position.y < CHUNK_HEIGHT &&
+               position.z >= 0 && position.z < CHUNK_SIZE;
+    }
+
+    bool localInBounds(int x, int y, int z) {
+        return x >= 0 && x < CHUNK_SIZE &&
+               y >= 0 && y < CHUNK_HEIGHT &&
+               z >= 0 && z < CHUNK_SIZE;
+    }
+
     Chunk(){
         mesh = make_unique<Mesh>();
+        //cloudmesh = make_unique<CloudMesh>();
+        coord = uint32_t(-1);
+        neighboursPresent = 0;
         //block_data.resize(CHUNK_VOLUME);
         needUpdate = true; unloaded = false;
     }
@@ -115,25 +149,59 @@ public:
     //    //block_data.resize(CHUNK_VOLUME);
     //    needUpdate = true; unloaded = false;
     //}
-    Chunk(const Chunk& chunk) {
-        if (chunk.mesh) {
-            mesh = make_unique<Mesh>(*chunk.mesh);
-            coord = chunk.coord;
-            needUpdate = chunk.needUpdate;
-            block_data = chunk.block_data;
-        }
-    }
-    void operator=(Chunk chunk) {
-        mesh = move(chunk.mesh);
-        coord = chunk.coord;
-        needUpdate = chunk.needUpdate;
-        block_data = chunk.block_data;
-    }
+    //Chunk(const Chunk& chunk) {
+    //    if (chunk.mesh) {
+    //        mesh = make_unique<Mesh>(*chunk.mesh);
+    //        coord = chunk.coord;
+    //        needUpdate = chunk.needUpdate;
+    //        block_data = chunk.block_data;
+    //    }
+    //}
+    //void operator=(Chunk chunk) {
+    //    mesh = move(chunk.mesh);
+    //    coord = chunk.coord;
+    //    needUpdate = chunk.needUpdate;
+    //    block_data = chunk.block_data;
+    //}
     BlockData& operator[](ivec3 pos) {
         int index = at(pos);
         return block_data[index];
     }
+
+    BlockData& operator()(float x, float y, float z) {
+        int index = at(x, y, z);
+        return block_data[index];
+    }
+
+    //abyte& operator()(int x, int z) {
+    //    return (*cloudmesh)(x, z);
+    //}
 };
+
+bool localInBounds(int x, int y, int z) {
+    return x >= 0 && x < CHUNK_SIZE &&
+        y >= 0 && y < CHUNK_HEIGHT &&
+        z >= 0 && z < CHUNK_SIZE;
+}
+
+int at(vec3 position, vec2 xychunk) {
+    ivec2 thisCoord = xychunk;
+    return ((position.y) * (CHUNK_HEIGHT)+
+        (position.x - thisCoord.x * (CHUNK_SIZE)) * (CHUNK_SIZE)+
+        (position.z - thisCoord.y * (CHUNK_SIZE)));
+}
+
+int at(vec3 position) {
+    return ((position.y) * (CHUNK_HEIGHT)+
+            (position.x) * (CHUNK_SIZE)+
+            (position.z));
+}
+
+int at(int x, int y, int z) {
+    return ((y) * (CHUNK_HEIGHT)+
+            (x) * (CHUNK_SIZE)+
+            (z));
+}
 
 uint16_t chunkCount = 0;
 

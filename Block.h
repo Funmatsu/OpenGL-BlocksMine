@@ -27,6 +27,11 @@ public:
         type = block.type;
         position = block.position;
     }
+
+    bool operator==(Block block) {
+        return (type == block.type &&
+            position == block.position);
+    }
 };
 
 Block::Block() {

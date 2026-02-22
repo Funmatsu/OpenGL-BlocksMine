@@ -1,0 +1,16 @@
+{
+  "tools": {
+    "air": {
+      "speed": 1
+    },
+    "stick": {
+      "speed": 2
+    },
+    "wooden pickaxe": {
+      "speed": 10
+    },
+    "wooden axe": {
+      "speed": 5
+    }
+  }
+}

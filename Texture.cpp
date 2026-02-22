@@ -3,6 +3,14 @@
 #include "stb_image.h"
 #include "Texture.h"
 
+void GL_Texture::setupIcon(unsigned char** pixels, int& width, int& height) {
+	*pixels = stbi_load("../textures/block_atlas_31.png", &width, &height, nullptr, 4);
+}
+
+void GL_Texture::freeIcon(unsigned char* pixels) {
+	//stbi_image_free(pixels);
+}
+
 GL_Texture::GL_Texture() {
 	textureId = 0;
 	width = 0;

@@ -6,7 +6,9 @@ bool shadowMap::init(int width, int height) {
 	shadowWidth = width, shadowHeight = height; 
 	glGenFramebuffers(1, &fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-	glfwWindowHint(GLFW_DEPTH_BITS, 32);
+	//glViewport(0, 0, width, height);
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glfwWindowHint(GLFW_DEPTH_BITS, 24);
 	glGenTextures(1, &shadow_map);
 	glBindTexture(GL_TEXTURE_2D, shadow_map);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
@@ -28,6 +30,8 @@ bool shadowMap::init(int width, int height) {
 		return false;
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	//glViewport(0, 0, 1920, 1059);
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	return true;
 }
 void shadowMap::write(){

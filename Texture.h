@@ -12,6 +12,8 @@ class GL_Texture
 public:
 	GL_Texture();
 	GL_Texture(const char* fileLocation);
+	static void setupIcon(unsigned char** pixels, int& width, int& height);
+	static void freeIcon(unsigned char* pixels);
 	void loadTexture();
 	void useTexture();
 	bool pixelOpaque(int x, int y);

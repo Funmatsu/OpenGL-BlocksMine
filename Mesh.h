@@ -18,6 +18,7 @@ class Mesh
 public:
 	Mesh();
 	void createMesh(vector<float>& vertices, vector<unsigned int>& indices, unsigned int verticesCount, unsigned int indicesCount);
+	void createMesh(vector<float>& vertices, vector<unsigned int>& indices);
 	void createMeshLocally();
 	void renderMesh();
 	void renderMeshAsLines();

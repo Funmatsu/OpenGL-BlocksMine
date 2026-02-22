@@ -9,6 +9,7 @@ unsigned int pointLightCount = 0;
 
 using namespace std;
 using namespace glm;
+using json = nlohmann::json;
 
 #define BLOCK_TEX           0
 #define MAIN_INV_TEX        1
@@ -20,24 +21,81 @@ using namespace glm;
 #define FACE_TEX            7
 #define BREAK_STAGE_TEX     8
 #define TEXT_TEX            9
+#define FOLL_TEX            10
+
+void getData(json& data, ifstream& ifs) {
+    ifs >> data;
+}
+
+//ifstream getFile(string_view name) {
+//    ifstream ifs(name.data());
+//    if (!ifs) {
+//        ofstream ofs(name.data());
+//        ofs.close();
+//        ifs.open(name.data());
+//    }
+//    return ifs;
+//}
 
 Window mainWindow;
 GLfloat deltaTime = 2.0f;
 GLfloat lastTime = 0.0f;
 
-int renderDistance = 8;
+int renderDistance = 20;
+float boundW = 0.5f, boundL = 0.5f, boundH = 2.0f;
 #include "varDef.h"
 
-Sky sky;
+std::vector<glm::ivec2> spiral, cloudSpir;
 
 void addTextures();
 void renderWorld();
+void renderClouds();
 void directionalShadowPass(DirectionalLight* light, mat4 model);
 int ftoint(float num);
+bool playerCollides();
+void keyControl(float dt);
+void generateSpiral(vector<ivec2>& spiral, int n = 1);
+//bool operator<(vec3 pos1, vec3 pos2) {
+//    return all(lessThan(pos1, pos2));
+//}
 
 Projectile ball;
 
+glm::mat4 VP;
+
 int main(){
+    ifstream playerJSON("player.json");
+    if (!playerJSON) {
+        ofstream outJSON("player.json");
+        json emptyPlayer;
+        emptyPlayer["player"]["x"] = 0;
+        emptyPlayer["player"]["y"] = 104;
+        emptyPlayer["player"]["z"] = 0;
+        outJSON << emptyPlayer.dump(4);
+        outJSON.close();
+        playerJSON.open("player.json");
+    }
+    json player;    
+    playerJSON >> player;
+
+    ifstream itemsJSON("items.json");
+    if (!itemsJSON) {
+        ofstream outJSON("items.json");
+        outJSON.close();
+        itemsJSON.open("items.json");
+    }
+    json Jitems;
+    itemsJSON >> Jitems;
+
+    ifstream toolsJSON("tools.json");
+    if (!toolsJSON) {
+        ofstream outJSON("tools.json");
+        outJSON.close();
+        toolsJSON.open("tools.json");
+    }
+    json tools;
+    toolsJSON >> tools;
+    firstCamera.setPosition(vec3(player["player"]["x"], player["player"]["y"], player["player"]["z"]));
     mainWindow = Window(WIDTH, HEIGHT);
     mainWindow.initialize(); 
 
@@ -51,8 +109,18 @@ int main(){
     glCullFace(GL_FRONT);
     glFrontFace(GL_CCW);
 
+    json jsondata;
+    ifstream ifs("config.json");
+    ifs >> jsondata;
+    renderDistance = jsondata["renderdistance"];
+
+    //GLFWimage images;
+    //GL_Texture::setupIcon(&images.pixels, images.width, images.height);
+    //glfwSetWindowIcon(mainWindow.getWindow(), 1, &images);
+    //GL_Texture::freeIcon(images[0].pixels);
+
     int spawn = 1;
-    firstCamera.setPosition(vec3(0.0f, 3 * CHUNK_SIZE * CHUNK_SIZE / 3, 0.0f));
+    //firstCamera.setPosition(vec3(0.0f, 3 * CHUNK_SIZE * CHUNK_SIZE / 3, 0.0f));
     
     Crosshair crosshair;
     crosshair.defineCrosshairGeometry();
@@ -63,6 +131,8 @@ int main(){
     LightMesh compassMesh = createCompassVertsOnlyMesh(vec3(0));
 
     initChunksNoise();
+    generateSpiral(spiral);
+    generateSpiral(cloudSpir, 3);
     dropped.push_back(Projectile());
 
     mat4 model(1.0f), projection(1.0f), view(1.0f);
@@ -94,16 +164,19 @@ int main(){
     sky.buildSky();
 
     std::vector<std::thread> workers;
-    for (int i = 0; i < 5; ++i) {
-        if(i < 2)
+    for (int i = 0; i < 3; ++i) {
+        if (i < 3)
+            workers.push_back(thread(updateChunkJob));
+        if (i < 2)
             workers.push_back(thread(chunkWorker)); // worker thread is somewhere in threading.h
-        workers.push_back(thread(updateChunkJob));
+        //if (i < 1)
+        //    workers.push_back(thread(cloudWorker));
     }
 
     mainLight = DirectionalLight(mainWindow.getBufferWidth(), mainWindow.getBufferHeight(),
-        1.0f, 1.0f, 1.0f,
-        0.5f, time / maxTime,
-        0.0f, -CHUNK_SIZE * CHUNK_SIZE, 1.0f);
+        1.0f, 1.0f, 1.0f, 
+        0.7f, 0.2f,
+        0.0f, -CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE, CHUNK_SIZE);
 
     auxLight = DirectionalLight(100, 100,
          1.0f, 1.0f, 1.0f,
@@ -113,15 +186,31 @@ int main(){
     float dt = 0.01;
     int person_view = 0;
     bool tp = 0;
-    float breakAngle = 10.0f;
 
     Text position("position "), craftedItemName("air"), cursorPos;
     position.model = translate(mat4(1.0f), vec3(50, 1700, 0));
 
     //thread inventoryWorker(handleInvSlotClicks);
-    int count = 0, count2 = 01;
+    abyte count = 0, count_time = 0;
+    int fpscount = 0;
+
+    int breaking = 0;
+    Block breakingBlock;
+
+    float breakAngle = 0.0f;
+    bool handGesture = 0, swing = 0;
+
     mainLight.setShadowPos(firstCamera.getPosition());
+
     while (!mainWindow.getShouldClose()) {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glfwPollEvents();
+
+        sky.applySky(view, projection);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
+
+        auto start = chrono::high_resolution_clock::now();
         handleInvSlotClicks();
         cursor.x = mainWindow.getXPos();
         cursor.y = mainWindow.getYPos();
@@ -134,62 +223,88 @@ int main(){
         //rotate(mat4(1.0f), radians(inventory.mainInventorySlots[3][0].angle-=0.5), vec3(1, 0, 0));
         lastYaw = firstCamera.getYaw(); lastPitch = firstCamera.getPitch();
         thirdCamera_back.setPosition(firstCamera.getPosition() + firstCamera.getFront() * vec3(-5));
-        if (abs(firstCamera.getPosition().x) > abs(mainLight.getShadowPos().x) + 200 ||
-            abs(firstCamera.getPosition().z) > abs(mainLight.getShadowPos().z) + 200){
+        if (abs(firstCamera.getPosition().x) > abs(mainLight.getShadowPos().x) + 50 ||
+            abs(firstCamera.getPosition().z) > abs(mainLight.getShadowPos().z) + 50){
             mainLight.setShadowPos(firstCamera.getPosition());
         }
         if(person_view % 3 != 2)
             activeCamera.setFront(firstCamera.getFront());
-            for (int i = -renderX; i < renderX; i++) {
-                //if (count >= 8) { count = 0; break; } // Just in case to limit the number of chunks generated per frame
-                for (int j = -renderY; j < renderY; j ++) {
-                    ivec2 chunkPos = ivec2(floorDiv(firstCamera.getPosition().x, CHUNK_SIZE) + i, floorDiv(firstCamera.getPosition().z, CHUNK_SIZE) + j);
-                    if (chunkCoords.count(to(chunkPos)) <= 0) {
-                        chunkCoords.insert(to(chunkPos));
-                        {
-                            std::lock_guard<std::mutex> lock(queueMutex);
-                            chunkRequestQueue.push(chunkPos);
-                            queueCV.notify_one();
-                        }
-                    }
-                    
+            
+        for (auto chunkOff : spiral) {
+            ivec2 camChunkPos = ivec2(floorDiv(firstCamera.getPosition().x, CHUNK_SIZE), floorDiv(firstCamera.getPosition().z, CHUNK_SIZE));
+            ivec2 chunkPos = camChunkPos + chunkOff;
+            if (world.chunkData.count(to(chunkPos)) <= 0) {
+                //chunkCoords.insert(to(chunkPos));
+                {
+                    std::lock_guard<std::mutex> lock(queueMutex);
+                    chunkRequestQueue.push(chunkPos);
+                    queueCV.notify_one();
                 }
                 count++;
-            } 
-            if (renderX < renderDistance && count >= 0) {
-                renderX++;
-                renderY++;
+                if(count % 2){ break; }
             }
+        }
+
+        //for (auto chunkOff : cloudSpir) {
+        //    ivec2 camChunkPos = ivec2(floorDiv(firstCamera.getPosition().x, CHUNK_SIZE), floorDiv(firstCamera.getPosition().z, CHUNK_SIZE));
+        //    ivec2 chunkPos = camChunkPos + chunkOff;
+        //    if (cloudCoords.count(to(chunkPos)) <= 0) {
+        //        cloudCoords.insert(to(chunkPos));
+        //        {
+        //            std::lock_guard<std::mutex> lock(cloudqMutex);
+        //            cloudRequestQueue.push(chunkPos);
+        //            cloudqCV.notify_one();
+        //        }
+        //        count++;
+        //        if (count % 2) { break; }
+        //    }
+        //}
+
+        //while (!cloudResultQueue.empty()) {
+        //    unique_ptr<CloudMesh> chm = move(cloudResultQueue.front().first);
+        //    ivec2 coord = cloudResultQueue.front().second;
+        //    sky.addCloud(chm, coord);
+        //    cloudResultQueue.pop();
+        //    count++;
+        //    if (count % 2) { break; }
+        //}
+
+        VP = perspective(radians(projAngle), (float(mainWindow.getBufferWidth()) / float(mainWindow.getBufferHeight())), 1.0f, 250.f) * firstCamera.calcViewMatrix();;
+        extractFrustumPlanes(VP);
         
         Textures[BLOCK_TEX]->useTexture();
+        //shaders[6]->useShader();
+        //glUniformMatrix4fv(shaders[6]->getModelLocation(), 1, GL_FALSE, value_ptr(model));
+        //glUniformMatrix4fv(shaders[6]->getViewLocation(), 1, GL_FALSE, value_ptr(view));
+        //glUniformMatrix4fv(shaders[6]->getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
+        //glUniform3f(glGetUniformLocation(shaders[6]->getShaderId(), "camPos"), firstCamera.getPosition().x, firstCamera.getPosition().y, firstCamera.getPosition().z);
+        //glUniform1f(glGetUniformLocation(shaders[6]->getShaderId(), "fogStart"), 0.8 * CHUNK_SIZE * renderDistance * 3);
+        //glUniform1f(glGetUniformLocation(shaders[6]->getShaderId(), "fogEnd"), 0.83 * CHUNK_SIZE * renderDistance * 3);
+        //sky.renderClouds(activeCamera.getPosition(), renderDistance * 3);
         shaders[0]->useShader();
         glUniform3f(glGetUniformLocation(shaders[0]->getShaderId(), "camPos"), firstCamera.getPosition().x, firstCamera.getPosition().y, firstCamera.getPosition().z);
         glUniform1f(glGetUniformLocation(shaders[0]->getShaderId(), "fogStart"), 0.7*CHUNK_SIZE * renderDistance);
         glUniform1f(glGetUniformLocation(shaders[0]->getShaderId(), "fogEnd"), 0.73*CHUNK_SIZE * renderDistance);
 
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glfwPollEvents();
-
-        sky.applySky(view, projection);
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_LESS);
-
         directionalShadowPass(&mainLight, model);
-        Textures[BLOCK_TEX]->useTexture();
 
         mainLight.getShadowMap()->read(GL_TEXTURE1);
         glUniform1i(glGetUniformLocation(shaders[0]->getShaderId(), "directionalShadowMap"), 1);
         
-        Textures[TOP_TEX]->useNextTexture();
-        glUniform1i(glGetUniformLocation(shaders[0]->getShaderId(), "topTexture"), 2);
+        //Textures[TOP_TEX]->useNextTexture();
+        //glUniform1i(glGetUniformLocation(shaders[0]->getShaderId(), "topTexture"), 2);
 
         Textures[BREAK_STAGE_TEX]->useTexture(GL_TEXTURE3);
         glUniform1i(glGetUniformLocation(shaders[0]->getShaderId(), "breakStageTexture"), 3);
 
+        Textures[FOLL_TEX]->useTexture(GL_TEXTURE4);
+        glUniform1i(glGetUniformLocation(shaders[0]->getShaderId(), "grassColorTexture"), 4);
+
         renderWorld();
+        
         vec3 headPos, headFront;
         headPos = firstCamera.getPosition(), headFront = firstCamera.getFront();
-        BlockData lookBlock = world.getBlockAt(lookingAtBlock());
+        Block lookBlock = getBlockAt(lookingAtBlock());
 
         view = activeCamera.calcViewMatrix();
         if (projAngle > 45.0f) {
@@ -200,10 +315,13 @@ int main(){
         glUniformMatrix4fv(shaders[0]->getViewLocation(), 1, GL_FALSE, value_ptr(view));
         glUniformMatrix4fv(shaders[0]->getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
         glUniform3f(shaders[0]->getColorMaskLocation(), 1.0f, 1.0f, 1.0f);
+        glUniform1i(glGetUniformLocation(shaders[0]->getShaderId(), "uniformBreaking"), breaking);
+        glUniform3f(glGetUniformLocation(shaders[0]->getShaderId(), "uniformBreakPos"), lookBlock.position.x, lookBlock.position.y, lookBlock.position.z);
+        
         shaders[0]->setDirectionalLight(&mainLight); //replaced : mainLight.useLight(shaders[0]->getAmbientIntensityLocation(), shaders[0]->getAmbientColorLocation(), shaders[0]->getDiffuseIntensityLocation(), shaders[0]->getDirectionLocation());
         shaders[0]->setPointLights(pointLights, pointLightCount);
 
-        firstCamera.keyControl(mainWindow.getKeys(), deltaTime, dt);
+        keyControl(dt);
 
         if (inventory.mainInventoryOn || inventory.craftingTableInventoryOn) {
             glfwSetInputMode(mainWindow.getWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -221,10 +339,29 @@ int main(){
         
         float lastPress = 0.0, maxDelay = 0.2 + glfwGetTime();
         if (!inventory.mainInventoryOn && !inventory.craftingTableInventoryOn) {
-        if (mainWindow.getKeys()[GLFW_KEY_F]) {
-            mainWindow.initializeFullScreen();
+        //if (mainWindow.getKeys()[GLFW_KEY_F]) {
+        //    mainWindow.initializeFullScreen();
+        //}
+        if (mainWindow.getKeys()[GLFW_KEY_S]) {
+            ifstream itemsJSON("items.json");
+            if (!itemsJSON) {
+                ofstream outJSON("items.json");
+                outJSON.close();
+                itemsJSON.open("items.json");
+            }
+            itemsJSON >> Jitems;
+
+            ifstream toolsJSON("tools.json");
+            if (!toolsJSON) {
+                ofstream outJSON("tools.json");
+                outJSON.close();
+                toolsJSON.open("tools.json");
+            }
+            toolsJSON >> tools;
         }
         if (mainWindow.getKeys()[GLFW_KEY_P]) {
+            //handGesture = (!GLFW_RELEASE && breakAngle >= 0 || breakAngle <= 30.f);
+            //if(breakAngle >= 0 || breakAngle <= 30.f) swing = (breakAngle <= -30.f);
             //double now_ = glfwGetTime();
             //while (!(now_ - lastPress > maxDelay)) { now_ = glfwGetTime(); }
             if (mainWindow.getKeys()[GLFW_KEY_I]) {
@@ -236,95 +373,136 @@ int main(){
             
             if (mainWindow.getKeyPressed() > GLFW_KEY_1 && mainWindow.getKeyPressed() <= GLFW_KEY_9) world.addBlocklook_at(items[mainWindow.getKeyPressed() - GLFW_KEY_1]);
             else world.addBlocklook_at(inventory.mainInventorySlots[3][slot].item);
-            if (mainWindow.getKeys()[GLFW_KEY_9]) world.addBlocklook_at(items[CRAFTING_TABLE.id]);
-            if (mainWindow.getKeys()[GLFW_KEY_1]) world.addBlocklook_at(items[TORCH.id]);
+            if (mainWindow.getKeys()[GLFW_KEY_9]) world.addBlocklook_at(item(OAK_PLANK.id));
+            if (mainWindow.getKeys()[GLFW_KEY_1]) world.addBlocklook_at(item(TORCH.id));
             //breakModel = rotate(breakModel, radians(1.0f), vec3(0, 0, 1));
-            breakAngle = -30.f;
+            //if(handGesture) {
+            //    breakAngle = glm::min(-30.f, glm::max(0.f, breakAngle));
+            //
+            //}
         }
         if (mainWindow.getKeys()[GLFW_KEY_T] || mainWindow.leftClickButtonPressed()) {
-            //std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            breakReqQueue.push(vec3(1.0f));
-            if (!blockBreakingOut) {
-                blockBreakingOut = true;
-            }
-        }
-            
-            if (mainWindow.rightClickButtonPressed()) {
-                lookBlock = world.getBlockAt(lookingAtBlock());
-                if (!recipe.itemUsable(lookBlock.blockType)) {
-                    if (mainWindow.getKeys()[GLFW_KEY_I]) {
-                        inventory.inf_blocks = true;
+            handGesture = (breakAngle <= -30.f || breakAngle >= 30.f);
+            if (handGesture) swing ^= 1;
+            Item currentTool = inventory.hotbarSlots[slot].item;
+            int itemSoftness = Jitems["items"][itemTypeString[breakingBlock.type.id]]["speed"];
+            int toolSpeed = 1;
+            if(currentTool.isTool()){ toolSpeed = (tools["tools"][itemTypeString[currentTool.id]]["speed"]); }
+            glUniform1i(glGetUniformLocation(shaders[0]->getShaderId(), "uniformBreaking"), 5 * (breaking) / itemSoftness);
+            breaking += toolSpeed;
+            if (breakingBlock == lookBlock && itemSoftness != -1) {
+                if (!(breaking % itemSoftness)) {
+                    breakReqQueue.push(vec3(1.0f));
+                    if (!blockBreakingOut) {
+                        blockBreakingOut = true;
                     }
-                    else if (mainWindow.getKeys()[GLFW_KEY_N]) {
-                        inventory.inf_blocks = false;
-                    }
-                    if (inventory.mainInventorySlots[3][slot].item != AIR && recipe.itemPlaceable(inventory.mainInventorySlots[3][slot].item)) {
-                        {
-                            placeReqQueue.push(vec3(1.0f));
-                            blockPlacingOut = true;
-                        }
-                        //double now_ = glfwGetTime();
-                        //while (!(now_ - lastPress > maxDelay)) { now_ = glfwGetTime(); }
-                    }
+                    breaking = 0;
                 }
-                else {
-                    inventory.craftingTableInventoryOn = true;
-                }
-                breakAngle = -30.f;
-            }
-
-            breakAngle = (breakAngle < 0.0f) ? breakAngle + 5 : 0.0f;
-            breakModel = ((breakAngle < 0.0f) ? rotate(mat4(1.0f), radians(breakAngle), vec3(0, 0, 1)) *
-                translate(mat4(1.0f), vec3(-breakAngle, -breakAngle, 2 * -breakAngle)) : mat4(1.0f));
-            //cout << breakAngle << " degs ";
-            if (mainWindow.getKeys()[GLFW_KEY_CAPS_LOCK]) {
-                projAngle = (projAngle < 90.0) ? projAngle + 4 : 90.0;
             }
             else {
-                projAngle = (projAngle > 45.0) ? projAngle - 4 : 45.0;
+                breaking = 0;
             }
-            if (mainWindow.getKeys()[GLFW_KEY_Q]) {
-                int xdrop, ydrop;
-                if (inventory.mainInventoryOn) {
-                    xdrop = (int)slotX, ydrop = 3 - (int)slotY;
+            
+            breakingBlock = lookBlock;
+            
+            breakAngle += swing ? 5 : -5;
+            breakModel = rotate   (mat4(1.f), -radians(breakAngle), vec3(0, 0, 1)) 
+                       * translate(mat4(1.f), vec3(breakAngle, 2 * breakAngle, 0))
+                         ;
+        }
+        else {
+            glUniform1i(glGetUniformLocation(shaders[0]->getShaderId(), "uniformBreaking"), 0);
+        }
+            
+        if (mainWindow.rightClickButtonPressed()) {
+            handGesture = (breakAngle <= -30.f || breakAngle >= 30.f);
+            if (!recipe.itemUsable(lookBlock.type)) {
+                if (mainWindow.getKeys()[GLFW_KEY_I]) {
+                    inventory.inf_blocks = true;
                 }
-                else {
-                    xdrop = slot, ydrop = 3;
+                else if (mainWindow.getKeys()[GLFW_KEY_N]) {
+                    inventory.inf_blocks = false;
                 }
-                if (inventory.mainInventorySlots[ydrop][xdrop].item != AIR) {
-                    dropped.push_back(Projectile());
-                    dropped.back().shoot(firstCamera.getPosition() + normalize(firstCamera.getFront()), vec3(firstCamera.getFront().x, 0.25, firstCamera.getFront().z), inventory.mainInventorySlots[ydrop][xdrop].item);
-                    dropped.back().mesh = world.createProjectileMesh(vec3(0), -4.0f, inventory.mainInventorySlots[ydrop][xdrop].item);
-                    inventory.mainInventorySlots[ydrop][xdrop].count--;
-                    inventory.invDidChange(1);
+                if (inventory.mainInventorySlots[3][slot].item != AIR && recipe.itemPlaceable(inventory.mainInventorySlots[3][slot].item)) {
+                    {
+                        placeReqQueue.push(vec3(1.0f));
+                        blockPlacingOut = true;
+                    }
+                    //double now_ = glfwGetTime();
+                    //while (!(now_ - lastPress > maxDelay)) { now_ = glfwGetTime(); }
                 }
             }
-
-            if (mainWindow.getKeys()[GLFW_KEY_U]) {
-                ball.shoot(firstCamera.getPosition(), firstCamera.getFront(), CLOUD, vec3(1.0f));
-                ball.mesh = world.createMeshCube(vec3(0), -4.0f, ball.item);
+            else {
+                inventory.craftingTableInventoryOn = true;
             }
 
-            if (mainWindow.getKeys()[GLFW_KEY_F3]) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(200));
-                person_view = (++person_view % 3);
-            }
+            breakAngle += swing ? 5 : -5;
+            breakModel = rotate   (mat4(1.f), -radians(breakAngle), vec3(0, 0, 1)) 
+                       * translate(mat4(1.f), vec3(breakAngle, 2 * breakAngle, 0))
+                         ;
+        }
+        if (!breaking) { breakModel = mat4(1); breakAngle = breaking; }
 
-            if (mainWindow.getKeys()[GLFW_KEY_F5]) {
-                mat4 compassModel = translate(mat4(1.0f), headPos + headFront);
-                glUniformMatrix4fv(shaders[0]->getModelLocation(), 1, GL_FALSE, value_ptr(compassModel));
-                compassMesh.renderMesh();
-                glUniformMatrix4fv(shaders[0]->getModelLocation(), 1, GL_FALSE, value_ptr(model));
-            }
 
-            if (!breakResQueue.empty()) {
-                Block droppedItem = breakResQueue.front();
-                breakAngle = (breakAngle <= -25.f) ? breakAngle + 1 : -30.f;
-                dropped.back().shoot(droppedItem.position, vec3(-firstCamera.getFront().x, 0.5, -firstCamera.getFront().z), droppedItem.type);
-                dropped.back().mesh = world.createProjectileMesh(vec3(0), -4.0f, droppedItem.type);
+        //cout << endl << breakAngle << endl << swing << " degs " << endl;
+        if (mainWindow.getKeys()[GLFW_KEY_CAPS_LOCK]) {
+            projAngle = (projAngle < 90.0) ? projAngle + 4 : 90.0;
+        }
+        else {
+            projAngle = (projAngle > 45.0) ? projAngle - 4 : 45.0;
+        }
+        if (mainWindow.getKeys()[GLFW_KEY_Q]) {
+            int xdrop, ydrop;
+            if (inventory.mainInventoryOn) {
+                xdrop = (int)slotX, ydrop = 3 - (int)slotY;
+            }
+            else {
+                xdrop = slot, ydrop = 3;
+            }
+            if (inventory.mainInventorySlots[ydrop][xdrop].item != AIR) {
                 dropped.push_back(Projectile());
-                breakResQueue.pop();
+                dropped.back().shoot(firstCamera.getPosition() + normalize(firstCamera.getFront()), vec3(firstCamera.getFront().x, 0.25, firstCamera.getFront().z), inventory.mainInventorySlots[ydrop][xdrop].item);
+                dropped.back().mesh = world.createProjectileMesh(vec3(0), -4.0f, inventory.mainInventorySlots[ydrop][xdrop].item);
+                inventory.mainInventorySlots[ydrop][xdrop].count--;
+                inventory.invDidChange(1);
             }
+        }
+
+        if (mainWindow.getKeys()[GLFW_KEY_U]) {
+            ball.shoot(firstCamera.getPosition(), firstCamera.getFront(), CLOUD, vec3(1.0f));
+            ball.mesh = world.createMeshCube(vec3(0), -4.0f, ball.item);
+        }
+
+        if (mainWindow.getKeys()[GLFW_KEY_F3]) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            person_view = (++person_view % 3);
+        }
+
+        if (mainWindow.getKeys()[GLFW_KEY_F5]) {
+            mat4 compassModel = translate(mat4(1.0f), headPos + headFront);
+            glUniformMatrix4fv(shaders[0]->getModelLocation(), 1, GL_FALSE, value_ptr(compassModel));
+            compassMesh.renderMesh();
+            glUniformMatrix4fv(shaders[0]->getModelLocation(), 1, GL_FALSE, value_ptr(model));
+        }
+
+        if (mainWindow.getKeys()[GLFW_KEY_ENTER]) {
+            json jsondata;
+            //ofstream ofs("renderdist.json");
+            //ofs << "{ \"renderdistance\": 32 }";
+            //ofs.close();
+            ifstream ifs("renderdist.json");
+            ifs >> jsondata;
+            renderDistance = jsondata["renderdistance"];
+            generateSpiral(spiral);
+        }
+
+        if (!breakResQueue.empty()) {
+            Block droppedItem = breakResQueue.front();
+            dropped.back().shoot(droppedItem.position, vec3(-firstCamera.getFront().x, 0.5, -firstCamera.getFront().z), droppedItem.type);
+            dropped.back().mesh = world.createProjectileMesh(vec3(0), -4.0f, droppedItem.type);
+            dropped.push_back(Projectile());
+            breakResQueue.pop();
+        }
         }
         
         if (person_view == 0) {
@@ -373,8 +551,10 @@ int main(){
         Textures[BLOCK_TEX]->useTexture();
         Textures[TOP_TEX]->useNextTexture();
         glUniform1i(glGetUniformLocation(shaders[0]->getShaderId(), "topTexture"), 2);
-        for (Projectile& drop : dropped) {
-            drop.shot = !blockExistsAt((vec3(ftoint(drop.position.x) + 0.5, drop.position.y, ftoint(drop.position.z) + 0.5)));
+        for (auto it = dropped.begin(); it != dropped.end(); ) {
+            Projectile& drop = *it;
+            //Projectile& drop : dropped
+            drop.shot = !blockExistsAt((vec3(ftoint(drop.position.x) + 0.5, drop.position.y, ftoint(drop.position.z) + 0.5))) && !drop.done;
             if (drop.shot) {
                 drop.update();
             }
@@ -384,12 +564,22 @@ int main(){
             }
             
             drop.model = translate(mat4(1.0f), drop.position);
+            drop.model *= translate(mat4(1.0f), vec3(0, 0.25*sin(radians(float(drop.angle))), 0));
             drop.model *= rotate(mat4(1.0f), radians(drop.angle++), vec3(0, 1, 0));
             glUniformMatrix4fv(shaders[0]->getModelLocation(), 1, GL_FALSE, value_ptr(drop.model));
             drop.draw();
-            glUniformMatrix4fv(shaders[0]->getModelLocation(), 1, GL_FALSE, value_ptr(model));
+            if (length(drop.position - firstCamera.getPosition()) <= 3 && drop.angle > 360) {
+                drop.done = 1;
+                drop.position += (firstCamera.getPosition() - drop.position)/10.f;
+            }
+            if (length(drop.position - firstCamera.getPosition()) <= 1 && abs(drop.position.y - firstCamera.getPosition().y) <= 2 && drop.angle > 360) {
+                inventory.assignAvailableSlot(drop.item);
+                it = dropped.erase(it);
+                continue;
+            }
+            it++;
         }
-
+        glUniformMatrix4fv(shaders[0]->getModelLocation(), 1, GL_FALSE, value_ptr(model));
         shaders[5]->useShader();
         view = activeCamera.calcViewMatrix();
         glUniformMatrix4fv(shaders[5]->getModelLocation(), 1, GL_FALSE, value_ptr(model));
@@ -438,13 +628,15 @@ int main(){
                             if (inventory.mainInventoryOn)
                                 for (int k = 0; k < 2; k++) {
                                     for (int l = 0; l < 2; l++) {
-                                        inventory.mainCraftingSlots[k][l].count--;
+                                        if(inventory.mainCraftingSlots[k][l].count)
+                                            inventory.mainCraftingSlots[k][l].count--;
                                     }
                                 }
                             else if (inventory.craftingTableInventoryOn) {
                                 for (int k = 0; k < 3; k++) {
                                     for (int l = 0; l < 3; l++) {
-                                        inventory.craftingTableSlots[k][l].count--;
+                                        if (inventory.craftingTableSlots[k][l].count)
+                                            inventory.craftingTableSlots[k][l].count--;
                                     }
                                 }
                             }
@@ -549,8 +741,10 @@ int main(){
             craftedItem.textCount.drawText(ortho);
 
             render3Din2D(itemModel, cursor.mesh, translate(mat4(1.0f), vec3((float(cursor.x) / mainWindow.getBufferWidth())* WIDTH, ((float)cursor.y / mainWindow.getBufferHeight())* HEIGHT, 0)), cursor.quadMesh, ortho, itemView, itemProj, cursor.item);
-            cursor.textCount.model = cursor.model;
-            cursor.textCount.drawText(ortho);
+            cursor.textCount.model = translate(mat4(1.0f), vec3((float(cursor.x) / mainWindow.getBufferWidth()) * WIDTH, ((float)cursor.y / mainWindow.getBufferHeight()) * HEIGHT, 0));
+            if (cursor.count > 1) {
+                cursor.textCount.drawText(ortho);
+            }
             //inventory.invDidChange(1);
         }
 
@@ -594,25 +788,14 @@ int main(){
             craftedItem.textCount.drawText(ortho);
 
             render3Din2D(itemModel, cursor.mesh, translate(mat4(1.0f), vec3((float(cursor.x) / mainWindow.getBufferWidth()) * WIDTH, ((float)cursor.y / mainWindow.getBufferHeight()) * HEIGHT, 0)), cursor.quadMesh, ortho, itemView, itemProj, cursor.item);
-            cursor.textCount.model = cursor.model;
-            cursor.textCount.drawText(ortho);
+            cursor.textCount.model = translate(mat4(1.0f), vec3((float(cursor.x) / mainWindow.getBufferWidth()) * WIDTH, ((float)cursor.y / mainWindow.getBufferHeight()) * HEIGHT, 0));;
+            if (cursor.count > 1) {
+                cursor.textCount.drawText(ortho);
+            }
             //inventory.invDidChange(1);
         }
 
-        position.replaceWord("position  x: " 
-            + to_string((int)headPos.x) + " y: " 
-            + to_string((int)headPos.y) + " z: " 
-            + to_string((int)headPos.z) + " cursor count -> " 
-            + to_string(cursor.count) + " block : " + itemTypeString[cursor.item.id] 
-            + "\n"
-            + "looking at "
-            + itemTypeString[lookBlock.blockType.id]
-            , vec3(0.4, 1, 0.7));
-        craftedItemName.replaceWord("main craft slot 1 contains: " + itemTypeString[craftedItem.item.id]
-            + ", " + to_string(inventory.mainCraftingSlots[0][1].count) + (inventory.mainCraftingSlots[0][1].count <= 1?" item":" items")
-            + (inventory.invChange() ? " inventory updating...." : " inventory up to date!"), normalize(vec3(1.3, 1, 0)), vec2(50, 1600));
-
-        cursorPos.replaceWord("cursor position: x = " + to_string(cursor.x) + ", y = " + to_string(cursor.y), vec3(0, 1, 0), vec2(50, 1550));
+        cursorPos.replaceWord("cursor position: x = " + to_string(cursor.x) + ", y = " + to_string(cursor.y), vec3(0, 1, 0), vec2(50, 1500));
         position.drawText(ortho), craftedItemName.drawText(ortho), cursorPos.drawText(ortho);
         
         for (int i = 0; i < 9; i++) {
@@ -631,10 +814,20 @@ int main(){
                                //* rotate(mat4(1.0f), radians(( currentBlock.item.isTool() ?180.f :  0.f)), vec3(0, 1, 0))
                                //* rotate(mat4(1.0f), radians(( currentBlock.item.isTool() ? 75.f :  0.f)), vec3(0, 0, 1))
                                  , currentBlock.mesh, translate(mat4(1.0f), vec3(centerX + 600 - 20 * (firstCamera.getYaw() - lastYaw), centerY - 650 - 20 * (firstCamera.getPitch() - lastPitch) - 2 * (firstCamera.initial_velocity.y + firstCamera.velocity.y), 0)), currentBlock.quadMesh, ortho, currentBlockView, itemProj, currentBlock.item);
+        activeCamera.setFront(vec3(activeCamera.getFront().x,
+                                      activeCamera.getFront().y,
+                                      activeCamera.getFront().z + sin(2.f*radians((float)inventory.hotbarSlots[0].angle))));
 
         if (inventory.invChange()) { inventory.updateInventory(); }
 
         if (mainWindow.getShouldClose()) {
+            json lastPlayer;
+            lastPlayer["player"]["x"] = firstCamera.getPosition().x;
+            lastPlayer["player"]["y"] = firstCamera.getPosition().y;
+            lastPlayer["player"]["z"] = firstCamera.getPosition().z;
+            ofstream playerJSON("player.json");
+            playerJSON << lastPlayer.dump(4);
+
             chunkGenRunning = false;
             queueCV.notify_all(); // wake up sleeping threads
 
@@ -647,16 +840,19 @@ int main(){
             stopChunkUpdaters = true;
             blockPlacing = false;
             blockBreaking = false;//chunkGenThread.join(); //chunkGenThread2.join(); //chunkGenThread3.join();
-            blockBreakThread.join();
+            blockBreakThread1.join();
             blockPlaceThread.join();
+
             //chunkUpdateThread.join();
+            return 0;
         }
 
         if (spawn <= 511) {
             spawn++;
         }
 
-        bool onGround = blockExistsAt(vec3(ftoint(cameraPosition.x + 0.5), cameraPosition.y - 1.5, ftoint(cameraPosition.z + 0.5)));
+        //blockExistsAt(vec3(ftoint(cameraPosition.x + 0.5), cameraPosition.y - 1.5, ftoint(cameraPosition.z + 0.5)))
+        bool onGround = playerCollides();
         if (!onGround && spawn > 511) {
             firstCamera.initial_velocity.y -= 0.5;
             //firstCamera.velocity_factor = vec3(1, 1, 1);
@@ -669,8 +865,39 @@ int main(){
             firstCamera.velocity_factor = vec3(1);
             //firstCamera.initial_velocity.y += 0.5;
         }
+
+        if (!(count_time % 10)) {
+            auto end = chrono::high_resolution_clock::now();
+            double frame_duration(chrono::duration<double>(end - start).count());
+            fpscount = (int(1 / frame_duration));
+        }
+
+        position.replaceWord("position  x: "
+            + to_string((int)headPos.x) + " y: "
+            + to_string((int)headPos.y) + " z: "
+            + to_string((int)headPos.z) + " cursor count -> "
+            + to_string(cursor.count) + " block : " + itemTypeString[cursor.item.id]
+            + "\n"
+            + "looking at "
+            + itemTypeString[lookBlock.type.id]
+            + "\n"
+            + "FPS : " + to_string(fpscount)
+            , vec3(0.4, 1, 0.7));
+        craftedItemName.replaceWord("main craft slot 1 contains: " + itemTypeString[craftedItem.item.id]
+            + ", " + to_string(inventory.mainCraftingSlots[0][1].count) + (inventory.mainCraftingSlots[0][1].count <= 1 ? " item" : " items")
+            + (inventory.invChange() ? " inventory updating...." : " inventory up to date! "
+            + to_string(renderDistance) + " render distance"), normalize(vec3(1.3, 1, 0)), vec2(50, 1550));
+        count_time++;
+        mainWindow.updateLastKeyPress();
         mainWindow.swapBuffers();
     }
+
+    json lastPlayer;
+    lastPlayer["player"]["x"] = firstCamera.getPosition().x;
+    lastPlayer["player"]["y"] = firstCamera.getPosition().y;
+    lastPlayer["player"]["z"] = firstCamera.getPosition().z;
+    ofstream outplayerJSON("player.json");
+    outplayerJSON << lastPlayer.dump(4);
 }////
 
 void addTextures() {
@@ -684,92 +911,129 @@ void addTextures() {
     Textures.push_back(make_unique<GL_Texture>("textures/steve_face.jpg"        ));//#define FACE_TEX            7
     Textures.push_back(make_unique<GL_Texture>("textures/break_stage_3.png"     ));//#define BLOCK_STAGES_TEX    8
     Textures.push_back(make_unique<GL_Texture>("textures/text.png"              ));//#define TEXT_TEX            9
+    Textures.push_back(make_unique<GL_Texture>("textures/foliage.png"           ));//#define FOLL_TEX            10
     //Textures.push_back(new Texturegl("textures\\inventory_base.png"));
 
     for (int i = BLOCK_TEX; i < Textures.size(); i++) { Textures[i]->loadTexture(); }
 }
 
 void renderWorld() {
-    for (auto& chunks : world.chunkData) {
-        ivec2 coords = chunks.second->coords();
-        Chunk& chunk = *chunks.second;
+    for (auto it = world.chunkData.begin(); it != world.chunkData.end(); ) {
+        if (!it->second) {
+            it = world.chunkData.erase(it);
+            continue;
+        }
+        auto& chunk = it->second;
+        ivec2 coords = chunk->coords();
 
-        if (!(chunk.neighboursPresent & 1)) {
-            if ((chunk.neighboursPresent & 0x1E) != 0x1E) {
+        if (!(chunk->neighboursPresent & 1)) {
+            if ((chunk->neighboursPresent & 0x1E) != 0x1E) {
                 int dirsX[] = { -1, 0, 0, 1 }, dirsY[] = { 0, -1, 1, 0 };
                 for (int i = 0; i < 4; i++) {
                     if (world.chunkData.count(pack(ivec2(coords.x + dirsX[i], coords.y + dirsY[i]))) > 0) {
-                        chunk.neighboursPresent |= (1 << (i + 1));
+                        chunk->neighboursPresent |= (1 << (i + 1));
                     }
                 }
             }
-            if (chunk.neighboursPresent == 0x1E) { // 1 1110
+            if (chunk->neighboursPresent == 0x1E) { // 1 1110
                 {
                     std::lock_guard<std::mutex> lock(chunkUpdateRequestMutex);
-                    chunkUpdateRequestQueue.push(chunk.coords());
+                    chunkUpdateRequestQueue.push(chunk->coords());
                 }
                 chunkUpdateCV.notify_one();
-                chunk.neighboursPresent |= 1;
+                chunk->neighboursPresent |= 1;
                 
-            }
-            continue;
+            } //if (!(chunk->neighboursPresent & 1)) continue;
         }
         
-        if (chunk.mesh) {
+        if (chunk->mesh) {
             if ((coords.x >= firstCamera.getPosition().x / CHUNK_SIZE - renderDistance * 3 && coords.x <= firstCamera.getPosition().x / CHUNK_SIZE + renderDistance * 3) &&
                 (coords.y >= firstCamera.getPosition().z / CHUNK_SIZE - renderDistance * 3 && coords.y <= firstCamera.getPosition().z / CHUNK_SIZE + renderDistance * 3)) {
 
-                if (chunks.second->unloaded) {
-                    { chunkUpdateRequestQueue.push(chunk.coords()); /*std::lock_guard<std::mutex> lock(chunkUpdateRequestMutex); */ }
-                    chunk.needUpdate = true;
-                    chunk.unloaded = false;
+                if (chunk->unloaded) {
+                    { chunkUpdateRequestQueue.push(chunk->coords()); /*std::lock_guard<std::mutex> lock(chunkUpdateRequestMutex); */ }
+                    chunk->needUpdate = true;
+                    chunk->unloaded = false;
                 }
-                if (chunk.needUpdate && chunk.mesh) {
-                    chunk.mesh->createMesh(chunk.mesh->vertices, chunk.mesh->indices, chunk.mesh->vertices.size(), chunk.mesh->indices.size());
-                    chunk.needUpdate = false;
+                if (!sphereInFrustum(vec3(chunk->coords().x * CHUNK_SIZE + 8, activeCamera.getPosition().y, chunk->coords().y * CHUNK_SIZE + 8), 16)) {
+                    it++;
+                    continue;
                 }
+                if (chunk->needUpdate && chunk->mesh) {
+                    chunk->mesh->createMeshLocally();
+                    chunk->needUpdate = false;
+                }
+                //if (chunk->getDirty())
                 if (mainWindow.getKeys()[GLFW_KEY_M])
-                    chunk.mesh->renderMeshAsLines();
-                else
-                    chunk.mesh->renderMesh();
-            }
+                    chunk->mesh->renderMeshAsLines();
+                else {
+                    //if (!sphereInFrustum(vec3(chunk->coords().x * CHUNK_SIZE + 8, firstCamera.getPosition().y, chunk->coords().y * CHUNK_SIZE + 8), 16)) {
+                    //    it++;
+                    //    continue;
+                    //}
+                    chunk->mesh->renderMesh();
+                }
+            } //3 fev 11h30
             else {
-                if (chunk.mesh && chunk.mesh->vertices.size()) {
-                    chunk.mesh->vertices.clear();
-                    chunk.mesh->indices.clear();
-                    chunk.mesh.reset();
-                    chunk.unloaded = true;
+                if (chunk->getDirty()) {
+                    if (chunk->mesh && chunk->mesh->vertices.size()) {
+                        chunk->mesh->vertices.clear();
+                        chunk->mesh->indices.clear();
+                        chunk->mesh.reset();
+                        chunk->unloaded = true;
+                    }
+                }
+                else {
+                    chunkCoords.erase(to(coords));
+                    it = world.chunkData.erase(it);
+                    continue;
                 }
             }
         }
+        it++;
     }
 }
 
 void renderShadowWorld(){
     for (auto& chunks : world.chunkData) {
+        if (!chunks.second) continue;
         ivec2 coords = chunks.second->coords();
-        Chunk& chunk = *chunks.second;
-        if (chunk.mesh) {
+        unique_ptr<Chunk>& chunk = chunks.second;
+        if (chunk->mesh) {
             if ((coords.x >= firstCamera.getPosition().x / CHUNK_SIZE - renderDistance * 1.5 && coords.x <= firstCamera.getPosition().x / CHUNK_SIZE + renderDistance * 1.5) &&
                 (coords.y >= firstCamera.getPosition().z / CHUNK_SIZE - renderDistance * 1.5 && coords.y <= firstCamera.getPosition().z / CHUNK_SIZE + renderDistance * 1.5)) {
 
-                if (chunks.second->unloaded) {
-                    { chunkUpdateRequestQueue.push(chunk.coords()); /*std::lock_guard<std::mutex> lock(chunkUpdateRequestMutex); */ }
-                    chunk.needUpdate = true;
-                    chunk.unloaded = false;
+                if (!sphereInFrustum(vec3(chunk->coords().x * CHUNK_SIZE + 8, firstCamera.getPosition().y, chunk->coords().y * CHUNK_SIZE + 8), 16))
+                    continue;
+                if (chunk->needUpdate) {
+                    chunk->mesh->createMesh(chunk->mesh->vertices, chunk->mesh->indices, chunk->mesh->vertices.size(), chunk->mesh->indices.size());
+                    chunk->needUpdate = false;
                 }
-                if (chunk.needUpdate) {
-                    chunk.mesh->createMesh(chunk.mesh->vertices, chunk.mesh->indices, chunk.mesh->vertices.size(), chunk.mesh->indices.size());
-                    chunk.needUpdate = false;
-                }
-                if (mainWindow.getKeys()[GLFW_KEY_M])
-                    chunk.mesh->renderMeshAsLines();
-                else
-                    chunk.mesh->renderMesh();
+                chunk->mesh->renderMesh();
             }
         }
     }
 }
+
+//void renderClouds() {
+//    for (auto& chunks : world.chunkData) {
+//        if (!chunks.second) continue;
+//        ivec2 coords = chunks.second->coords();
+//        unique_ptr<Chunk>& chunk = chunks.second;
+//        unique_ptr<Mesh>& chmesh = chunk->cloudmesh->mesh;
+//        if (chunk->mesh && chmesh) {
+//            if ((coords.x >= firstCamera.getPosition().x / CHUNK_SIZE - renderDistance * 2 && coords.x <= firstCamera.getPosition().x / CHUNK_SIZE + renderDistance * 2) &&
+//                (coords.y >= firstCamera.getPosition().z / CHUNK_SIZE - renderDistance * 2 && coords.y <= firstCamera.getPosition().z / CHUNK_SIZE + renderDistance * 2)) {
+//
+//                if (chunk->updateCloud()) {
+//                    chmesh->createMesh(chmesh->vertices, chmesh->indices, chmesh->vertices.size(), chmesh->indices.size());
+//                    chunk->stopCloud();
+//                }
+//                chmesh->renderMesh();
+//            }
+//        }
+//    }
+//}
 
 void directionalShadowPass(DirectionalLight* light, mat4 model) {
     directionalShadowShader->useShader();
@@ -786,4 +1050,84 @@ void directionalShadowPass(DirectionalLight* light, mat4 model) {
 
 int ftoint(float num) {
     return num >= 0 ? num : num - 1;
+}
+
+bool playerCollides() {
+    return blockExistsAt(vec3(ftoint(firstCamera.getPosition().x - boundW/2 + 0.5), firstCamera.getPosition().y - 1.5, ftoint(firstCamera.getPosition().z - boundL/2 + 0.5))) ||
+           blockExistsAt(vec3(ftoint(firstCamera.getPosition().x - boundW/2 + 0.5), firstCamera.getPosition().y - 1.5, ftoint(firstCamera.getPosition().z + boundL/2 + 0.5))) ||
+           blockExistsAt(vec3(ftoint(firstCamera.getPosition().x + boundW/2 + 0.5), firstCamera.getPosition().y - 1.5, ftoint(firstCamera.getPosition().z + boundL/2 + 0.5))) ||
+           blockExistsAt(vec3(ftoint(firstCamera.getPosition().x + boundW/2 + 0.5), firstCamera.getPosition().y - 1.5, ftoint(firstCamera.getPosition().z - boundL/2 + 0.5)));
+}
+
+void keyControl(float dt) {
+    if (mainWindow.getKeys()[GLFW_KEY_CAPS_LOCK] || (mainWindow.getLastKeyPressed() == mainWindow.getKeys()[GLFW_KEY_W])) {
+         deltaTime = 4;
+    }
+    else if ((mainWindow.getLastKeyPressed() == mainWindow.getKeys()[GLFW_KEY_W])) {
+        deltaTime = 8;
+    }
+    else deltaTime = 2;
+    vec3& position = firstCamera.getPosition(1),
+        right = firstCamera.getRight(),
+        front = firstCamera.getFront(),
+        &initial_velocity = firstCamera.initial_velocity;
+    if (mainWindow.getKeys()[GLFW_KEY_W]) {
+        vec3 checkPosX0 = firstCamera.getPosition() + vec3(front.x * movementSpeed * deltaTime, -1, 0),
+             checkPosZ0 = firstCamera.getPosition() + vec3(0, -1, front.z * movementSpeed * deltaTime),
+             checkPosX1 = firstCamera.getPosition() + vec3(front.x * movementSpeed * deltaTime,  0, 0),
+             checkPosZ1 = firstCamera.getPosition() + vec3(0,  0, front.z * movementSpeed * deltaTime);
+        if (!blockExistsAt(checkPosX0 + vec3(0.5,0,0)) && !blockExistsAt(checkPosX1 + vec3(0.5,0,0))) position.x = checkPosX0.x;
+        if (!blockExistsAt(checkPosZ0 + vec3(0,0,0.5)) && !blockExistsAt(checkPosZ1 + vec3(0,0,0.5))) position.z = checkPosZ0.z;
+    }
+    if (mainWindow.getKeys()[GLFW_KEY_S]) {
+        position -= vec3(front.x * movementSpeed * deltaTime, 0, front.z * movementSpeed * deltaTime);
+    }
+    if (mainWindow.getKeys()[GLFW_KEY_A]) {
+        position -= right * movementSpeed * deltaTime;
+    }
+    if (mainWindow.getKeys()[GLFW_KEY_D]) {
+        position += right * movementSpeed * deltaTime;
+    }
+    if (mainWindow.getKeys()[GLFW_KEY_SPACE]) {
+        initial_velocity.y = 100 * 3 * movementSpeed;
+    }
+    if (mainWindow.getKeys()[GLFW_KEY_LEFT_SHIFT]) {
+        vec3 checkPos = firstCamera.getPosition() + vec3(0, -movementSpeed * deltaTime, 0);
+        if (!blockExistsAt(checkPos - vec3(0,1,0))) position.y = checkPos.y;
+    }
+    if (mainWindow.getKeys()[GLFW_KEY_LEFT_CONTROL]) {
+        movementSpeed *= 1.4;
+        mainWindow.getKeys()[GLFW_KEY_LEFT_CONTROL] = false;
+    }
+    if (mainWindow.getKeys()[GLFW_KEY_RIGHT_CONTROL]) {
+        movementSpeed /= 1.2;
+        mainWindow.getKeys()[GLFW_KEY_LEFT_CONTROL] = false;
+    }
+    firstCamera.calculateCamPos(dt);
+
+    if (mainWindow.getKeys()[GLFW_KEY_L]) {
+        position = vec3(1000.0f, 100.0f, 1000.0f);
+    }
+}
+
+void generateSpiral(vector<ivec2>& spiral, int n) {
+    int radius = renderDistance*n;
+    spiral.clear();
+    int x = 0, y = 0;
+    int dx = 0, dy = -1;
+
+    int max = radius * radius * 4;
+    for (int i = 0; i < max; i++) {
+        if (abs(x) <= radius && abs(y) <= radius)
+            spiral.emplace_back(x, y);
+
+        if (x == y || (x < 0 && x == -y) || (x > 0 && x == 1 - y)) {
+            int temp = dx;
+            dx = -dy;
+            dy = temp;
+        }
+
+        x += dx;
+        y += dy;
+    }
 }

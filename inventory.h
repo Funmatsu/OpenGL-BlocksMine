@@ -521,7 +521,7 @@ void Inventory::initInventorySlots() {
 
     craftedItem.quadMesh = createMeshQuad(50.0f);
 
-    currentBlock.quadMesh = createMeshQuad(2000.0f);
+    currentBlock.quadMesh = createMeshQuad(2500.0f);
     currentBlock.model    = translate(mat4(1.0f), vec3(centerX + 600, centerY - 650, 0));
 
     cursor.quadMesh = createMeshQuad(50.0f);
@@ -547,8 +547,9 @@ void Inventory::updateInventory() {
         hotbarSlots[j].item = mainInventorySlots[3][j].item;
         hotbarSlots[j].textCount = mainInventorySlots[3][j].textCount;
         hotbarSlots[j].quadMesh = mainInventorySlots[3][j].quadMesh;
-        if(mainInventorySlots[3][j].mesh != LightMesh()) hotbarSlots[j].mesh = mainInventorySlots[3][j].mesh;
-        else { hotbarSlots[j].mesh.clearMesh(); }
+        if(mainInventorySlots[3][j].mesh != LightMesh()) 
+            hotbarSlots[j].mesh = mainInventorySlots[3][j].mesh;
+        if(hotbarSlots[j].count <= 0) { hotbarSlots[j].mesh.giveMesh(); }
 
         float itemHeight = 0.0f;
         if (hotbarSlots[j].item == GRASS || hotbarSlots[j].item == POPPY || hotbarSlots[j].item == BLUE_ORCHID) {
@@ -642,7 +643,7 @@ void Inventory::updateInventory() {
     cursor.textCount.model = cursor.model;
     if (cursor.count <= 0) {
         cursor.item = AIR;
-        cursor.mesh.clearMesh();
+        //cursor.mesh.clearMesh();
     }
 
     inv_change = false;
@@ -654,7 +655,7 @@ void Inventory::defineMainInventorySlotsGeometry() {
             if (mainInventorySlots[i][j].count <= 0) {
                 mainInventorySlots[i][j].item = AIR;
                 mainInventorySlots[i][j].textCount.deleteWord();
-                mainInventorySlots[i][j].mesh.clearMesh();
+                //mainInventorySlots[i][j].mesh.clearMesh();
                 continue;
             }
             float itemHeight = 0.0f;
@@ -674,7 +675,7 @@ void Inventory::clearMainCraftingSlots() {
     for (int k = 0; k < sizeof(mainCraftingSlots) / sizeof(mainCraftingSlots[0]); k++) {
         for (int l = 0; l < sizeof(mainCraftingSlots[0]) / sizeof(InventorySlot); l++) {
             mainCraftingSlots[k][l].item = AIR;
-            mainCraftingSlots[k][l].mesh.clearMesh();
+            //mainCraftingSlots[k][l].mesh.clearMesh();
             invDidChange(1);
         }
     }
@@ -695,9 +696,9 @@ void Inventory::clearCraftingTableSlots() {
 void render3Din2D(mat4 itemModel, LightMesh object3D, mat4 quadModel, LightMesh quad2D, mat4 itemOrtho, mat4 itemView, mat4 itemProj, Item item) {
     glEnable(GL_DEPTH_TEST);
     glBindFramebuffer(GL_FRAMEBUFFER, itemFbo);
-    glViewport(0, 0, 1024, 1024);
+    glViewport(0, 0, 1920, 1024);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    //glClearColor(0, 1, 0, 1);
+    //glClearColor(1, 1, 1, 0.5);
     shaders[3]->useShader();
     glUniformMatrix4fv(shaders[3]->getModelLocation(), 1, GL_FALSE, value_ptr(itemModel));//<-
     glUniformMatrix4fv(shaders[3]->getViewLocation(), 1, GL_FALSE, value_ptr(itemView));
@@ -771,6 +772,7 @@ void handleInvSlotClicks() {
                             (cursor.y >= inventory.craftingTableSlots[i][j].y - inventory.craftingTableSlots[i][j].h / 2 && cursor.y <= inventory.craftingTableSlots[i][j].y + inventory.craftingTableSlots[i][j].h / 2)
                             ) inventory.craftingTableSlots[i][j].onClick();
                 }
+                cursor.textCount.model = translate(mat4(1), vec3(centerX, centerY, 0));
                 inventory.invDidChange(1);
                 this_thread::sleep_for(chrono::milliseconds(200));
             }

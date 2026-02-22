@@ -18,9 +18,12 @@ class LightMesh
 public:
 	LightMesh();
 	void createMesh(vector<float>& vertices, vector<unsigned int>& indices, unsigned int verticesCount, unsigned int indicesCount);
+	void createMesh(vector<float>& vertices, vector<unsigned int>& indices);
+	void createMesh(float* vertsdata, unsigned int* indsdata, size_t indsize, size_t vertsize);
 	void renderMesh();
 	void renderMeshAsLines();
 	void clearMesh();
+	void giveMesh();
 	~LightMesh();
 	LightMesh(const LightMesh& mesh) {
 		vao = mesh.vao, vbo = mesh.vbo, ibo = mesh.ibo;

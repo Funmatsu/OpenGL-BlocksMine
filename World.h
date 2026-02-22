@@ -12,7 +12,7 @@ struct Projectile {
     Item item = OAK_PLANK;
     mat4 model;
     float angle = 0.0f;
-    bool shot = 0;
+    bool shot = 0, done = 0;
     void shoot(vec3 pos, vec3 direction) {
         shot = 1;
         initial_velocity = normalize(direction)*vec3(5, 20, 5);
@@ -59,10 +59,10 @@ float randomFloat(float min, float max) {
 bool contains(vector<vec2> vec, vec2 value) {
     return std::find(vec.begin(), vec.end(), value) != vec.end();
 }
-
-Camera activeCamera = Camera(vec3(0.0f, CHUNK_SIZE / 2, 0.0f), vec3(0.0f,  0.5f, 0.0f), 0.0f, 0.0f, 0.05f,  0.5f);
-Camera firstCamera = Camera(vec3(0.0f, CHUNK_SIZE / 2, 0.0f), vec3(0.0f,  0.5f, 0.0f), 0.0f, 0.0f, 0.05f, 0.5f);
-Camera thirdCamera_back = Camera(vec3(0.0f, CHUNK_SIZE / 2, 0.0f), vec3(0.0f,  0.5f, 0.0f), 0.0f, 0.0f, 0.05f,  0.5f);
+float movementSpeed = 0.05f;
+Camera activeCamera = Camera(vec3(0.0f, CHUNK_SIZE / 2, 0.0f), vec3(0.0f,  0.5f, 0.0f), 0.0f, 0.0f, movementSpeed,  1.0f);
+Camera firstCamera = Camera(vec3(0.0f, CHUNK_SIZE / 2, 0.0f), vec3(0.0f,  0.5f, 0.0f), 0.0f, 0.0f, movementSpeed, 1.0f);
+Camera thirdCamera_back = Camera(vec3(0.0f, CHUNK_SIZE / 2, 0.0f), vec3(0.0f,  0.5f, 0.0f), 0.0f, 0.0f, movementSpeed,  1.0f);
 
 const int MAX_CHUNK_NUM = 30;
 
@@ -137,6 +137,13 @@ BlockData World::getBlockAt(ivec3 blockPos) {
     ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
     auto& chunk = world.chunkData.at(pack(chunkPos));
     return BlockData(chunk->block_data[chunk->at(blockPos)].blockType);
+}
+
+Block getBlockAt(ivec3 blockPos) {
+    if (blockPos.y == -404) return Block(blockPos, AIR);
+    ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
+    auto& chunk = world.chunkData.at(pack(chunkPos));
+    return Block(blockPos, chunk->block_data[chunk->at(blockPos)].blockType);
 }
 
 bool blockExistsAt(ivec3 blockPos) {
@@ -335,12 +342,12 @@ LightMesh World::createProjectileMesh(vec3 blockPos, float scale, Item blockType
         finalvertices.push_back(globalUVs[i + 1]);
         finalvertices.push_back(globalUVs[i + 2]);
 
-        uint32_t norm_color = ((byte(normals[i + 0] < 0 ? 1 : 0) & 0x1) << 5) | ((byte(absl(normals[i + 0])) & 0x1) << 4)
-            | ((byte(normals[i + 1] < 0 ? 1 : 0) & 0x1) << 3) | ((byte(absl(normals[i + 1])) & 0x1) << 2)
-            | ((byte(normals[i + 2] < 0 ? 1 : 0) & 0x1) << 1) | ((byte(absl(normals[i + 2])) & 0x1) << 0)
-            | ((byte(tintr * 100) & 0x7F) << 20)
-            | ((byte(tintg * 100) & 0x7F) << 13)
-            | ((byte(tintb * 100) & 0x7F) << 6);
+        uint32_t norm_color = ((abyte(normals[i + 0] < 0 ? 1 : 0) & 0x1) << 5) | ((abyte(absl(normals[i + 0])) & 0x1) << 4)
+            | ((abyte(normals[i + 1] < 0 ? 1 : 0) & 0x1) << 3) | ((abyte(absl(normals[i + 1])) & 0x1) << 2)
+            | ((abyte(normals[i + 2] < 0 ? 1 : 0) & 0x1) << 1) | ((abyte(absl(normals[i + 2])) & 0x1) << 0)
+            | ((abyte(tintr * 100) & 0x7F) << 20)
+            | ((abyte(tintg * 100) & 0x7F) << 13)
+            | ((abyte(tintb * 100) & 0x7F) << 6);
         float normcolor;
         memcpy(&normcolor, &norm_color, sizeof(float));
 
@@ -366,14 +373,11 @@ Block World::deleteBlockFromWorld(vec3 blockPos) {
     Block returnBlock;
     Item& blockType = chunk->block_data[chunk->at(blockPos)].blockType;
     if (blockType.isBreakable()) {
-        inventory.assignAvailableSlot(blockType);
+        //inventory.assignAvailableSlot(blockType);
         returnBlock = Block(blockPos, blockType);
         blockType.deassignLight(pointLights, blockPos);
         blockType = AIR;
-
-        //cout << hex << chunk->neighboursPresent << endl;
-        //updateChunk(chunkPos, vec3(0.0f, 0.5f, 0.0f), blockPos);
-        
+        chunk->setDirty();
     }
     return returnBlock;
 }
@@ -396,7 +400,7 @@ vector<GLfloat> makeLine(vec3 begin, float lx, float wz, int face, float hy = 0)
             begin.x + lx,    begin.y + 0.0f, begin.z + 0.0f,    // o||   =>
         };
     }
-    else if (!(face / 2)) {
+    else {
         lineVerts = {
             begin.x + 0.0f,  begin.y + 0.0f, begin.z + 0.0f,
             begin.x + 0.0f,  begin.y + hy, begin.z + 0.0f,
@@ -668,12 +672,12 @@ LightMesh World::createMeshCube(vec3 blockPos, float scale, Item blockType) {
         finalvertices.push_back(globalUVs[i + 1]);
         finalvertices.push_back(globalUVs[i + 2]);
 
-        uint32_t norm_color = ((byte(normals[i + 0] < 0 ? 1 : 0) & 0x1) << 5) | ((byte(absl(normals[i + 0])) & 0x1) << 4)
-            | ((byte(normals[i + 1] < 0 ? 1 : 0) & 0x1) << 3) | ((byte(absl(normals[i + 1])) & 0x1) << 2)
-            | ((byte(normals[i + 2] < 0 ? 1 : 0) & 0x1) << 1) | ((byte(absl(normals[i + 2])) & 0x1) << 0)
-            | ((byte(100) & 0x7F) << 20)
-            | ((byte(100) & 0x7F) << 13)
-            | ((byte(100) & 0x7F) << 6);
+        uint32_t norm_color = ((abyte(normals[i + 0] < 0 ? 1 : 0) & 0x1) << 5) | ((abyte(absl(normals[i + 0])) & 0x1) << 4)
+            | ((abyte(normals[i + 1] < 0 ? 1 : 0) & 0x1) << 3) | ((abyte(absl(normals[i + 1])) & 0x1) << 2)
+            | ((abyte(normals[i + 2] < 0 ? 1 : 0) & 0x1) << 1) | ((abyte(absl(normals[i + 2])) & 0x1) << 0)
+            | ((abyte(100) & 0x7F) << 20)
+            | ((abyte(100) & 0x7F) << 13)
+            | ((abyte(100) & 0x7F) << 6);
         float normcolor;
         memcpy(&normcolor, &norm_color, sizeof(float));
 
@@ -711,18 +715,21 @@ void emitFace(Mesh& m, int face, Item blockType, float x, float y, float z);
 
 void meshChunk(vec2 xyChunk, Chunk* ch, Mesh& m);
 
+void meshClouds(CloudMesh& cloudmesh, vec2 xyChunk);
+
 void meshChunk(vec2 xyChunk, Chunk* cd, Mesh& out, vec3 direction, ivec3 position);
 
 void generateChunkAt(vec2 xyChunk, Chunk* repChunk);
 
 void World::updateChunk(const ivec2& chunkCoord, vec3 direction, ivec3 position) {
-    auto start = std::chrono::high_resolution_clock::now();
+    //auto start = std::chrono::high_resolution_clock::now();
 
     auto it = chunkData.find(pack(chunkCoord));
     if (it == chunkData.end()) return; // Chunk doesn't exist
 
     auto& chunk = it->second;
-    Mesh& m = *(chunk->mesh);
+    Mesh& m        = *(chunk->mesh);
+    //CloudMesh& chm = *(chunk->cloudmesh);
     //// Clear old mesh data
     if (chunk->mesh && m.vertices.size() > 0) {
         m.vertices.clear();
@@ -733,10 +740,11 @@ void World::updateChunk(const ivec2& chunkCoord, vec3 direction, ivec3 position)
     meshChunk(chunkCoord, chunk.get(), m
         //, direction, position
     );
+    
     chunk->needUpdate = true;
 
-    auto end = std::chrono::high_resolution_clock::now();
-    std::cout << chunk->mesh->vertices.size() << " verts. chunk n_" << chunkCount++ << " updating, Elapsed: " << std::chrono::duration<double>(end - start).count() << " s\n";
+    //auto end = std::chrono::high_resolution_clock::now();
+    //std::cout << chunk->mesh->vertices.size() << " verts. chunk n_" << chunkCount++ << " updating, Elapsed: " << std::chrono::duration<double>(end - start).count() << " s\n";
 }
 
 void World::updateChunk(Chunk& chunk) {
@@ -762,7 +770,7 @@ void World::updateChunk(Chunk& chunk) {
 Block World::delBlocklook_at() {
     ivec3 blockPos = lookingAtBlock();
     ivec2 chunkPos = ivec2(floorDiv(blockPos.x, CHUNK_SIZE), floorDiv(blockPos.z, CHUNK_SIZE));
-    if (blockPos.y <= -404.0f || !recipe.isBreakable(/*world.chunkData[chunkPos].blockData[blockPos].blockType */ world.chunkData.at(pack(chunkPos))->block_data[world.chunkData.at(pack(chunkPos))->at(blockPos)].blockType)) {
+    if (blockPos.y <= -404.0f) {
         return Block(vec3(0), AIR);
     }
     return deleteBlockFromWorld(blockPos);
@@ -789,6 +797,7 @@ Block World::addBlocklook_at(Item blockType) {
             chunk->block_data[index].blockType != AIR &&
             blockType.isPlaceable()) {
             createItem(floor(point - rayDir * stepSize), blockType, point);
+            chunk->setDirty();
             return Block(floor(point - rayDir * stepSize), blockType);
         }
     }

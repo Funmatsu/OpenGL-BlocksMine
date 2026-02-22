@@ -1,0 +1,61 @@
+{
+  "items": {
+    "air": {
+      "speed":-1
+    },
+    "diamond ore": {
+      "speed": 1000
+    },
+    "grass block": {
+      "speed": 50
+    },
+    "iron ore": {
+      "speed": 300
+    },
+    "stone_block": {
+      "speed": 200
+    },
+    "dirt block": {
+      "speed": 50
+    },
+    "oak wood": {
+      "speed": 150
+    },
+    "cloud": {
+      "speed": 1
+    },
+    "oak leaves": {
+      "speed": 1
+    },
+    "oak plank": {
+      "speed": 150
+    },
+    "poppy": {
+      "speed": 1
+    },
+    "blue orchid": {
+      "speed": 1
+    },
+    "grass": {
+      "speed": 1
+    },
+    "crafting table": {
+      "speed": 150
+    },
+    "bedrock": {
+      "speed": 1000
+    },
+    "torch": {
+      "speed": 1
+    },
+    "stick": {
+      "speed": 1
+    },
+    "wooden pickaxe": {
+      "speed": 1
+    },
+    "wooden axe": {
+      "speed": 1
+    }
+  }
+}

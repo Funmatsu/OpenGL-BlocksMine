@@ -27,10 +27,14 @@ static const char* fshaderProjectile = "shaders/fshaderProjectile.txt";
 static const char* vshaderCompass    = "shaders/vshaderCompass.txt";
 static const char* fshaderCompass    = "shaders/fshaderCompass.txt";
 
+static const char* vshaderCloud    = "shaders/vshaderCloud.txt";
+static const char* fshaderCloud    = "shaders/fshaderCloud.txt";
+
 vector<glShader*> shaders;
 glShader* directionalShadowShader;
 glShader* projectileShader;
 glShader* compassShader;
+glShader* cloudShader;
 
 void createShaders() {
     glShader* shader1 = new glShader();
@@ -57,6 +61,10 @@ void createShaders() {
     shaderLooking->createShaderFromFiles(vshaderLooking, fshaderLooking);
     shaders.push_back(shaderLooking);
 
+    glShader* shaderCloud = new glShader();
+    shaderCloud->createShaderFromFiles(vshaderCloud, fshaderCloud);
+    shaders.push_back(shaderCloud);
+
     directionalShadowShader = new glShader();
     directionalShadowShader->createShaderFromFiles(shadowMapvshader, shadowMapfshader);
 
@@ -65,4 +73,7 @@ void createShaders() {
 
     compassShader = new glShader();
     compassShader->createShaderFromFiles(vshaderCompass, fshaderCompass);
+
+    cloudShader = new glShader();
+    cloudShader->createShaderFromFiles(vshaderCloud, fshaderCloud);
 }

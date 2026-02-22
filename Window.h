@@ -16,9 +16,12 @@ public:
 	int getFramebufferId() { return fbo; }
 	bool getShouldClose() { return glfwWindowShouldClose(mainWindow); }
 	bool* getKeys() { return keys; }
+	bool keyIsPressed(GLenum key) { return glfwGetKey(mainWindow, key); }
 	float getXChange() { float change = xChange; xChange = 0.0; return change; }
 	float getYChange() { float change = yChange; yChange = 0.0; return change; }
 	int getKeyPressed();
+	int getLastKeyPressed() { return lastPressedKey; }
+	void updateLastKeyPress() { lastPressedKey = recentlyPressedKey; }
 	void evictbackKeypress() { recentlyPressedKey = 0; }
 	void swapBuffers() { glfwSwapBuffers(mainWindow); }
 	GLFWwindow* getWindow() { return mainWindow;  }
@@ -40,7 +43,7 @@ private:
 	GLuint depthTex;
 	GLuint fbo;
 	bool keys[1024];
-	int recentlyPressedKey;
+	int recentlyPressedKey, lastPressedKey;
 	float lastX = 0, lastY = 0, xChange, yChange;
 	double mouseX = 0, mouseY = 0;
 	bool mouseFirstMoved;

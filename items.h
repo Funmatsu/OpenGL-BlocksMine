@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Text.h"
+#include "Window.h"
 
 std::queue<vec2> chunkUpdateRequestQueue;
 std::mutex chunkUpdateRequestMutex;
@@ -28,42 +29,69 @@ std::condition_variable chunkUpdateCV;
 //#define WOODEN_PICKAXE 101
 //#define STICK 102
 
+uint8 attrs[19] = { // block attributes : bool unculled, bool placeable, bool useable, bool toolable, bool breakable, bool flatable, int luminable
+	0x44,
+	0x24,
+	0x24,
+	0x24,
+	0x24,
+	0x24,
+	0x24,
+	0x24,
+	0x64,
+	0x24,
+	0x66,
+	0x66,
+	0x66,
+	0x34,
+	0x20,
+	0x27,
+	0x2E,
+	0x2E,
+	0x2E
+};
+
 class Item {
 private:
-	uint8_t attrs = 0;
+	//uint8_t attrs = 0;
 public:
 	uint8_t id;
 	Item() {
 		id = 0;
-		attrs = 0;
+		//attrs = 0;
 	}
+	Item(int itemid) { id = itemid; }
 	~Item() {
 		id = 0;
-		attrs = 0;
+		//attrs = 0;
+	}
+
+	bool isUncullable() {
+		return ((attrs[id] >> 6) & 1);
 	}
 
 	bool isPlaceable() {
-		return ((attrs >> 5) & 1);
+		return ((attrs[id] >> 5) & 1);
 	}
 
 	bool isUsable() {
-		return ((attrs >> 4) & 1);
+		return ((attrs[id] >> 4) & 1);
 	}
 
 	bool isTool() {
-		return ((attrs >> 3) & 1);
+		return ((attrs[id] >> 3) & 1);
 	}
 
 	bool isBreakable() {
-		return ((attrs >> 2) & 1);
+		return ((attrs[id] >> 2) & 1);
 	}
 
 	bool isFlat() {
-		return ((attrs >> 1) & 1);
+		return ((attrs[id] >> 1) & 1);
 	}
 
 	bool isLuninous() {
-		return (attrs & 1);
+		return (attrs[id] & 1);
 	}     
 
 	void assignLight(PointLight* pLight, vec3 position) {		
@@ -83,6 +111,14 @@ public:
 		}
 	}
 
+	Item(const Item& item) {
+		id = item.id;
+	}
+
+	void operator=(Item item) {
+		id = item.id;
+	}
+
 	bool operator==(Item item) {
 		return(id == item.id);
 	}
@@ -91,48 +127,45 @@ public:
 		return(id != item.id);
 	}
 
-	Item(const Item& item) {
-		id = item.id;
-		attrs = item.attrs;
-	}
-
-	void operator=(Item item) {
-		id = item.id;
-		attrs = item.attrs;
-	}
+	friend ostream& operator<<(ostream& os, Item& item);
 
 	Item(int item_id, bool placeable, bool useable, bool toolable, bool breakable, bool flatable, int luminable) {
 		id = item_id;
-		attrs |= luminable;
-		attrs |= (flatable  << 1);
-		attrs |= (breakable << 2);
-		attrs |= (toolable  << 3);
-		attrs |= (useable   << 4);
-		attrs |= (placeable << 5);
+		//attrs |= luminable;
+		//attrs |= (flatable  << 1);
+		//attrs |= (breakable << 2);
+		//attrs |= (toolable  << 3);
+		//attrs |= (useable   << 4);
+		//attrs |= (placeable << 5);
 	}
 };
 
-Item AIR				(0,  0, 0, 0, 1, 0, 0);
-Item DIAMOND_ORE		(1,  1, 0, 0, 1, 0, 0);
-Item GRASS_BLOCK		(2,  1, 0, 0, 1, 0, 0);
-Item IRON_ORE			(3,  1, 0, 0, 1, 0, 0);
-Item STONE_BLOCK		(4,  1, 0, 0, 1, 0, 0);
-Item DIRT_BLOCK			(5,  1, 0, 0, 1, 0, 0);
-Item OAK_WOOD			(6,  1, 0, 0, 1, 0, 0);
-Item CLOUD				(7,  1, 0, 0, 1, 0, 0);
-Item OAK_LEAVES			(8,  1, 0, 0, 1, 0, 0);
-Item OAK_PLANK			(9,  1, 0, 0, 1, 0, 0);
-Item POPPY				(10, 1, 0, 0, 1, 1, 0);
-Item BLUE_ORCHID		(11, 1, 0, 0, 1, 1, 0);
-Item GRASS				(12, 1, 0, 0, 1, 1, 0);
-Item CRAFTING_TABLE		(13, 1, 1, 0, 1, 0, 0);
-Item BEDROCK			(14, 1, 0, 0, 0, 0, 0);
-Item TORCH				(15, 1, 0, 0, 1, 1, 1);
-Item STICK				(16, 1, 0, 1, 1, 1, 0);
-Item WOODEN_PICKAXE		(17, 1, 0, 1, 1, 1, 0);
-Item WOODEN_AXE			(18, 1, 0, 1, 1, 1, 0);
+ostream& operator<<(ostream& os, Item& item) {
+	os << item.id;
+	return os;
+}
 
-vector<Item> items{
+Item AIR				( 0);
+Item DIAMOND_ORE		( 1);
+Item GRASS_BLOCK		( 2);
+Item IRON_ORE			( 3);
+Item STONE_BLOCK		( 4);
+Item DIRT_BLOCK			( 5);
+Item OAK_WOOD			( 6);
+Item CLOUD				( 7);
+Item OAK_LEAVES			( 8);
+Item OAK_PLANK			( 9);
+Item POPPY				(10);
+Item BLUE_ORCHID		(11);
+Item GRASS				(12);
+Item CRAFTING_TABLE		(13);
+Item BEDROCK			(14);
+Item TORCH				(15);
+Item STICK				(16);
+Item WOODEN_PICKAXE		(17);
+Item WOODEN_AXE			(18);
+
+Item items[] = {
 	AIR,
 	DIAMOND_ORE,
 	GRASS_BLOCK,
@@ -180,6 +213,14 @@ Item item(uint8_t idx) {
 	return items[idx];
 }
 
+bool isFlat(uint8_t id) {
+	return id < TORCH.id && items[id].isFlat();
+}
+
+bool isUncullable(uint8_t id) {
+	return id < TORCH.id && items[id].isUncullable();
+}
+
 float uvTable[16][7] {
 	{1, 0, 0, 0, 0, 0, 1   },
 	{4, 4, 0, 0, 0, 0, 1   },
@@ -199,6 +240,12 @@ float uvTable[16][7] {
 	{1, 1, 0, 0, 0, 0, 1   },
 };
 
+float* getUVs(Item blockType) {
+	return uvTable[blockType.id];
+}
+float* getUVs(int blockType) {
+	return uvTable[blockType];
+}
 void getUVs(Item blockType, float* attrs) {
 	for (int i = 0; i < 7; i++) {
 		attrs[i] = uvTable[blockType.id][i];
@@ -330,9 +377,11 @@ public:
 	}
 
 	void onClick() override {
-		if (item == AIR || mesh == LightMesh()) {
-			mesh = cursor.mesh;
+		if (cursor.item != AIR && (item == AIR || mesh == LightMesh())) {
+			if (cursor.item == AIR) return;
 			item = cursor.item;
+			mesh = cursor.mesh;
+			
 			if (mainWindow.getKeys()[GLFW_KEY_RIGHT_SHIFT]) {
 				count++;
 				if(cursor.count)
@@ -342,13 +391,14 @@ public:
 				count += cursor.count;
 				cursor.count = 0;
 			}
+
+			if (cursor.count <= 0) { cursor.mesh.giveMesh(); }
+			
 			cout << "called" << endl;
 		}
 		else {
-			if (cursor.item == AIR) {
+			if (cursor.item == AIR && item != AIR) {
 				cursor.item = item;
-				//cursor.quadMesh = quadMesh;
-				cursor.mesh.clearMesh();
 				cursor.mesh = mesh;
 				if(count > 0){
 					if (mainWindow.getKeys()[GLFW_KEY_RIGHT_SHIFT]) {
@@ -361,10 +411,11 @@ public:
 						count = 0;
 					}
 				}
+				if (cursor.count <= 0) { cursor.mesh.giveMesh(); }
 				cout << "called twice" << endl;
 			}
 			else {
-				if (cursor.item == item) {
+				if (cursor.item == item && item != AIR) {
 					if (mainWindow.getKeys()[GLFW_KEY_LEFT_SHIFT]) {
 						cursor.count++;
 						if (count)
@@ -390,13 +441,13 @@ unsigned int itemFbo, itemColorTex, itemDepthTex;
 void initItemTextures() {
 	glGenTextures(1, &itemColorTex);
 	glBindTexture(GL_TEXTURE_2D, itemColorTex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1024, 1024, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1920, 1059, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	glGenRenderbuffers(1, &itemDepthTex);
 	glBindRenderbuffer(GL_RENDERBUFFER, itemDepthTex);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 1024, 1024);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 1920, 1059);
 
 	glGenFramebuffers(1, &itemFbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, itemFbo);

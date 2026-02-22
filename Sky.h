@@ -1,5 +1,8 @@
 #pragma once
 #include "libraries.h"
+#include "Cloud.h"
+
+inline std::unordered_set<uint32_t> cloudCoords;
 
 static const char* vshaderSky = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/vshaderSky.txt";
 static const char* fshaderSky = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shaders/fshaderSky.txt";
@@ -10,6 +13,7 @@ static const char* fshaderother = "C:\\Users\\Honla\\Desktop\\OpenGL_Udemy\\shad
 class Sky
 {
 public:
+	vector<pair<uint32, LightMesh>> clouds;
 	vector<float> skyVerts = {
 		-1.0f,-1.0f,-1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,   1.0f, 1.0f, 1.0f,
 		-1.0f,-1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,	 1.0f, 1.0f, 1.0f,
@@ -94,7 +98,7 @@ public:
 		skyMesh.renderMesh(); 
 	}
 	void applySky(mat4 view, mat4 projection) {
-		glDepthMask(GL_FALSE);        // disable depth writes
+		glDepthMask(GL_FALSE);        // disable depth writes but could test against depth buffer. remember tat!
 		shader.useShader();
 		glUniformMatrix4fv(shader.getViewLocation(), 1, GL_FALSE, value_ptr(view));
 		glUniformMatrix4fv(shader.getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
@@ -104,6 +108,31 @@ public:
 		glUniformMatrix4fv(sunshader.getProjectionLocation(), 1, GL_FALSE, value_ptr(projection));
 		sunMesh.renderMesh();
 		glDepthMask(GL_TRUE);
-
+	}
+	void addCloud(unique_ptr<CloudMesh>& chm, vec2 coord) {
+		//if (!(chm && chm->mesh)) return;
+		Mesh& m = *chm->mesh;
+		LightMesh lm;
+		lm.createMesh(m.vertices.data(), m.indices.data(), m.vertices.size(), m.indices.size());
+		clouds.push_back({ pack(coord), lm });
+	}
+	void renderClouds(vec3 position, int renderDistance) {
+		for (auto clIt = clouds.begin(); clIt != clouds.end(); ) {
+			ivec2 coords = unpack((*clIt).first);
+			LightMesh& chm = clIt->second;
+			if ((coords.x >= position.x / chunkSize - renderDistance && coords.x <= position.x / chunkSize + renderDistance) &&
+				(coords.y >= position.z / chunkSize - renderDistance && coords.y <= position.z / chunkSize + renderDistance)) {
+		
+				chm.renderMesh();
+			}
+			else {
+				cloudCoords.erase(pack(coords));
+				clIt = clouds.erase(clIt);
+				continue;
+			}
+			clIt++;
+		}
 	}
 };
+
+inline Sky sky;

@@ -23,7 +23,7 @@ private:
 								AIR,	  AIR, AIR, 
 								AIR,	  AIR, AIR,				OAK_PLANK,
 
-							    OAK_PLANK, OAK_PLANK, OAK_PLANK, 
+							    OAK_PLANK, OAK_PLANK, OAK_PLANK,
 								AIR,	   STICK,	  AIR,	    
 								AIR,	   STICK,	  AIR,		WOODEN_PICKAXE, 
 	
