@@ -7,6 +7,7 @@
 using abyte = uint8;
 constexpr int CHUNK_SIZE = 16;
 constexpr int CHUNK_HEIGHT = CHUNK_SIZE * CHUNK_SIZE;  //(CHUNK_SIZE + 2) * (CHUNK_SIZE + 2);
+constexpr int CHUNK_SIZE_2 = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 constexpr int CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;  //(CHUNK_SIZE + 2) * CHUNK_HEIGHT * (CHUNK_SIZE + 2); // Or just CHUNK_HEIGHT * CHUNK_HEIGHT
 
 //int at(vec3 position) {
@@ -60,10 +61,14 @@ constexpr int CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE; 
 
 struct BlockData {
     Item blockType;
+    //abyte blight = 0xF;
     //uint8_t orientation = (1 << 2); // 00 01 00 = 0,1,0  00 11 00 = 0,-1,0
     BlockData() { blockType = AIR; }
     BlockData(Item type) {
         blockType = type;
+    }
+    bool operator==(Item item) {
+        return item == blockType;
     }
     BlockData(const BlockData& data) {
         blockType = data.blockType;
@@ -75,11 +80,81 @@ struct BlockData {
 //std::unordered_map<glm::ivec3, Block, ivec3_hash, ivec3_eq> worldBlocks;
 //std::unordered_map<glm::ivec3, blockData, ivec3_hash, ivec3_eq> worldBlocks;
 
+class SubChunk {
+public:
+    unique_ptr<LightMesh> mesh;
+
+    uint32_t coord;
+    abyte needUpdate, unloaded;
+    abyte neighboursPresent;
+    void setDirty() { neighboursPresent |= (1 << 7); }
+    bool getDirty() { return (neighboursPresent >> 7) & 1; }
+    bool updateCloud() { return (needUpdate >> 7) & 1; }
+    void setCloud() { needUpdate |= (1 << 7); }
+    void stopCloud() { needUpdate &= ~(1 << 7); }
+    vec3 coords() {
+        return vec3(int16_t((coord >> 18) & 0x3FFF), int16_t((coord >> 14) & 0xF), int16_t(coord & 0x3FFF));
+    }
+    void toCoords(ivec2 chunkCoord) {
+		coord = ((uint16_t(chunkCoord.x) & 0x3FFF) << 18) | (0xF << 14) | (uint16_t(chunkCoord.y) & 0x3FFF);
+    }
+    int at(vec3 position) {
+        ivec3 thisCoord = coords();
+        return ((position.y) * (CHUNK_SIZE*CHUNK_SIZE) +
+                (position.x - thisCoord.x * (CHUNK_SIZE)) * (CHUNK_SIZE)+
+                (position.z - thisCoord.z * (CHUNK_SIZE)));
+    }
+
+    int at(int x, int y, int z) {
+        ivec3 coord = coords();
+        return ((y) * (CHUNK_HEIGHT)+
+            (x - coord.x * CHUNK_SIZE) * (CHUNK_SIZE)+
+            (z - coord.y * CHUNK_SIZE));
+    }
+
+    bool inBounds(vec3 position) {
+        ivec3 thisCoord = coords();
+        return position.x >= (thisCoord.x) * (CHUNK_SIZE) && position.x < (thisCoord.x + 1) * (CHUNK_SIZE) &&
+            position.y >= 0 && position.y < CHUNK_SIZE &&
+            position.z >= (thisCoord.z) * (CHUNK_SIZE) && position.z < (thisCoord.z + 1) * (CHUNK_SIZE);
+    }
+
+    bool inBounds(int x, int y, int z) {
+        ivec3 thisCoord = coords();
+        float chunkx = (thisCoord.x) * (CHUNK_SIZE), chunkz = (thisCoord.y) * (CHUNK_SIZE);
+        return x >= chunkx + 0 && x < chunkx + CHUNK_SIZE &&
+            y >= 0 && y < CHUNK_SIZE &&
+            z >= chunkz + 0 && z < chunkz + CHUNK_SIZE;
+    }
+
+    bool localInBounds(vec3 position) {
+        return position.x >= 0 && position.x < CHUNK_SIZE &&
+            position.y >= 0 && position.y < CHUNK_SIZE &&
+            position.z >= 0 && position.z < CHUNK_SIZE;
+    }
+
+    bool localInBounds(int x, int y, int z) {
+        return x >= 0 && x < CHUNK_SIZE &&
+            y >= 0 && y < CHUNK_SIZE &&
+            z >= 0 && z < CHUNK_SIZE;
+    }
+
+    SubChunk() {
+        mesh = make_unique<LightMesh>();
+        //cloudmesh = make_unique<CloudMesh>();
+        coord = uint32_t(-1);
+        neighboursPresent = 0;
+        //block_data.resize(CHUNK_VOLUME);
+        needUpdate = true; unloaded = false;
+    }
+};
+
 class Chunk {
 public:
-    unique_ptr<Mesh> mesh;
+    unique_ptr<LightMesh> mesh;
     //unique_ptr<CloudMesh> cloudmesh;
     //BlockData block_data[CHUNK_VOLUME];
+	//array<SubChunk, CHUNK_SIZE> subchunks;
     array<BlockData, CHUNK_VOLUME> block_data;
     
     uint32_t coord;
@@ -138,7 +213,7 @@ public:
     }
 
     Chunk(){
-        mesh = make_unique<Mesh>();
+        mesh = make_unique<LightMesh>();
         //cloudmesh = make_unique<CloudMesh>();
         coord = uint32_t(-1);
         neighboursPresent = 0;

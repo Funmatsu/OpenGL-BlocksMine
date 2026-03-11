@@ -68,7 +68,7 @@ void extractFrustumPlanes(const glm::mat4& VP) { // Left
 bool sphereInFrustum(const glm::vec3& center, float radius) {
     for (int i = 0; i < 6; i++) {
         float dist = glm::dot(planes[i].n, center) + planes[i].d;
-        if (dist < -(radius + 10))
+        if (dist < -(radius + 15))
             return false; // completely outside
     }
     return true;

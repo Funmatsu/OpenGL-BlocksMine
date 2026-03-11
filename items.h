@@ -45,7 +45,7 @@ uint8 attrs[19] = { // block attributes : bool unculled, bool placeable, bool us
 	0x66,
 	0x34,
 	0x20,
-	0x27,
+	0x67,
 	0x2E,
 	0x2E,
 	0x2E
